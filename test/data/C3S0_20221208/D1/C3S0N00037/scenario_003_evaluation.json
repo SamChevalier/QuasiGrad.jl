@@ -1,0 +1,732 @@
+{
+    "problem_data_file": "/qfs/people/holz501/gocomp/c3/checker_output/problem.json",
+    "solution_data_file": "/qfs/people/holz501/gocomp/c3/checker_output/solution.json",
+    "git_info": {
+        "C3DataUtilities": {
+            "branch": null,
+            "commit": "bf1f3cfae7e2767c63228846a024134c1a3ade61",
+            "date": "Fri Dec 2 10:42:14 2022 -0800",
+            "query_return_code": 0,
+            "query_err": "",
+            "query_path": "/qfs/people/holz501/gocomp/c3/C3DataUtilities/datautilities",
+            "query_out": "commit bf1f3cfae7e2767c63228846a024134c1a3ade61\nMerge: cd52da9 247e3da\nAuthor: Jesse T Holzer <jesse.holzer@pnnl.gov>\nDate:   Fri Dec 2 10:42:14 2022 -0800\n\n    Merge branch 'main' of https://github.com/GOCompetition/C3DataUtilities into main\n"
+        },
+        "Bid-DS-data-model": {
+            "branch": null,
+            "commit": null,
+            "date": null,
+            "query_return_code": 128,
+            "query_err": "fatal: Not a git repository (or any parent up to mount point /qfs/people)\nStopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).\n",
+            "query_path": "/qfs/people/holz501/.conda/envs/goc3/lib/python3.8/site-packages/datamodel",
+            "query_out": ""
+        }
+    },
+    "problem": {
+        "general": {
+            "timestamp_start": "2012-09-01T00:00:00",
+            "timestamp_stop": "2012-09-01T08:00:00",
+            "season": null,
+            "electricity_demand": null,
+            "vre_availability": null,
+            "solar_availability": null,
+            "wind_availability": null,
+            "weather_temperature": null,
+            "day_type": null,
+            "net_load": null,
+            "base_norm_mva": 100.0
+        },
+        "violation costs": {
+            "p_bus_vio_cost": 1000000.0,
+            "q_bus_vio_cost": 1000000.0,
+            "s_vio_cost": 500.0,
+            "e_vio_cost": 500.0
+        },
+        "num buses": 37,
+        "num ac lines": 43,
+        "num dc lines": 0,
+        "num transformers": 14,
+        "num shunts": 8,
+        "num simple dispatchable devices": 34,
+        "num producing devices": 8,
+        "num consuming devices": 26,
+        "num real power reserve zones": 2,
+        "num reactive power reserve zones": 2,
+        "num intervals": 18,
+        "num contingencies": 40,
+        "total duration": 8.0,
+        "interval durations": [
+            0.25,
+            0.25,
+            0.25,
+            0.25,
+            0.25,
+            0.25,
+            0.25,
+            0.25,
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            1.0,
+            1.0
+        ],
+        "pass": 1
+    },
+    "solution": {
+        "pass": 1
+    },
+    "evaluation": {
+        "viol_sd_t_u_on_max": {
+            "val": 0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_u_on_min": {
+            "val": 0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "sum_sd_t_su": 0,
+        "sum_sd_t_sd": 0,
+        "viol_sd_t_d_up_min": {
+            "val": 0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_d_dn_min": {
+            "val": 0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_max_startup_constr": {
+            "val": 0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "sum_sd_t_z_on": 26.400000000000002,
+        "sum_sd_t_z_su": 0.0,
+        "sum_sd_t_z_sd": 0.0,
+        "sum_sd_t_z_sus": 0.0,
+        "viol_bus_t_v_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Bus 1",
+                "1": 0
+            }
+        },
+        "viol_bus_t_v_min": {
+            "val": 0.0,
+            "idx": {
+                "0": "Bus 1",
+                "1": 0
+            }
+        },
+        "viol_sh_t_u_st_max": {
+            "val": 0,
+            "idx": {
+                "0": "Shunt Bus 13 #1",
+                "1": 0
+            }
+        },
+        "viol_sh_t_u_st_min": {
+            "val": 0,
+            "idx": {
+                "0": "Shunt Bus 13 #1",
+                "1": 0
+            }
+        },
+        "viol_dcl_t_p_max": {
+            "val": null,
+            "idx": {
+                "0": null,
+                "1": null
+            }
+        },
+        "viol_dcl_t_p_min": {
+            "val": null,
+            "idx": {
+                "0": null,
+                "1": null
+            }
+        },
+        "viol_dcl_t_q_fr_max": {
+            "val": null,
+            "idx": {
+                "0": null,
+                "1": null
+            }
+        },
+        "viol_dcl_t_q_fr_min": {
+            "val": null,
+            "idx": {
+                "0": null,
+                "1": null
+            }
+        },
+        "viol_dcl_t_q_to_max": {
+            "val": null,
+            "idx": {
+                "0": null,
+                "1": null
+            }
+        },
+        "viol_dcl_t_q_to_min": {
+            "val": null,
+            "idx": {
+                "0": null,
+                "1": null
+            }
+        },
+        "viol_xfr_t_tau_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Trans 1",
+                "1": 0
+            }
+        },
+        "viol_xfr_t_tau_min": {
+            "val": 0.0,
+            "idx": {
+                "0": "Trans 1",
+                "1": 0
+            }
+        },
+        "viol_xfr_t_phi_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Trans 1",
+                "1": 0
+            }
+        },
+        "viol_xfr_t_phi_min": {
+            "val": 0.0,
+            "idx": {
+                "0": "Trans 1",
+                "1": 0
+            }
+        },
+        "viol_acl_t_u_su_max": {
+            "val": 0,
+            "idx": {
+                "0": "Line 0",
+                "1": 0
+            }
+        },
+        "viol_acl_t_u_sd_max": {
+            "val": 0,
+            "idx": {
+                "0": "Line 0",
+                "1": 0
+            }
+        },
+        "viol_xfr_t_u_su_max": {
+            "val": 0,
+            "idx": {
+                "0": "Trans 1",
+                "1": 0
+            }
+        },
+        "viol_xfr_t_u_sd_max": {
+            "val": 0,
+            "idx": {
+                "0": "Trans 1",
+                "1": 0
+            }
+        },
+        "sum_acl_t_u_su": 0,
+        "sum_acl_t_u_sd": 0,
+        "sum_xfr_t_u_su": 0,
+        "sum_xfr_t_u_sd": 0,
+        "sum_acl_t_z_su": 0.0,
+        "sum_acl_t_z_sd": 0.0,
+        "sum_xfr_t_z_su": 0.0,
+        "sum_xfr_t_z_sd": 0.0,
+        "sum_acl_t_z_s": 0.0,
+        "viol_acl_t_s_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Line 0",
+                "1": 0
+            }
+        },
+        "sum_xfr_t_z_s": 0.0,
+        "viol_xfr_t_s_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Trans 1",
+                "1": 0
+            }
+        },
+        "viol_bus_t_p_balance_max": {
+            "val": 7.3405447553742675e-09,
+            "idx": {
+                "0": "Bus 33",
+                "1": 11
+            }
+        },
+        "viol_bus_t_p_balance_min": {
+            "val": -1.5284616960986597e-08,
+            "idx": {
+                "0": "Bus 44",
+                "1": 11
+            }
+        },
+        "sum_bus_t_z_p": 0.8448559967019678,
+        "viol_bus_t_q_balance_max": {
+            "val": 5.25046838992238e-09,
+            "idx": {
+                "0": "Bus 20",
+                "1": 11
+            }
+        },
+        "viol_bus_t_q_balance_min": {
+            "val": -1.0214761883564627e-09,
+            "idx": {
+                "0": "Bus 14",
+                "1": 11
+            }
+        },
+        "sum_bus_t_z_q": 0.026842601072440964,
+        "sum_pr_t_z_p": 29640.957430978444,
+        "sum_cs_t_z_p": 1824783.3878047324,
+        "sum_sd_t_z_rgu": 0.0,
+        "sum_sd_t_z_rgd": 0.0,
+        "sum_sd_t_z_scr": 0.0,
+        "sum_sd_t_z_nsc": 0.0,
+        "sum_sd_t_z_rru_on": 0.0,
+        "sum_sd_t_z_rrd_on": 0.0,
+        "sum_sd_t_z_rru_off": 0.0,
+        "sum_sd_t_z_rrd_off": 0.0,
+        "sum_sd_t_z_qru": 0.0,
+        "sum_sd_t_z_qrd": 0.0,
+        "viol_prz_t_p_rgu_balance": {
+            "val": 0.15402270293692272,
+            "idx": {
+                "0": "Pres1",
+                "1": 7
+            }
+        },
+        "viol_prz_t_p_rgd_balance": {
+            "val": 0.13476986506980737,
+            "idx": {
+                "0": "Pres1",
+                "1": 7
+            }
+        },
+        "viol_prz_t_p_scr_balance": {
+            "val": 0.771415565947182,
+            "idx": {
+                "0": "Pres1",
+                "1": 7
+            }
+        },
+        "viol_prz_t_p_nsc_balance": {
+            "val": 1.1342980731952332,
+            "idx": {
+                "0": "Pres1",
+                "1": 7
+            }
+        },
+        "viol_prz_t_p_rru_balance": {
+            "val": 0.13509,
+            "idx": {
+                "0": "Pres1",
+                "1": 0
+            }
+        },
+        "viol_prz_t_p_rrd_balance": {
+            "val": 0.13509,
+            "idx": {
+                "0": "Pres1",
+                "1": 0
+            }
+        },
+        "viol_qrz_t_q_qru_balance": {
+            "val": 5.0272,
+            "idx": {
+                "0": "Qres2",
+                "1": 0
+            }
+        },
+        "viol_qrz_t_q_qrd_balance": {
+            "val": 5.1085,
+            "idx": {
+                "0": "Qres2",
+                "1": 0
+            }
+        },
+        "sum_prz_t_z_rgu": 1445.6568612950882,
+        "sum_prz_t_z_rgd": 1264.949753633202,
+        "sum_prz_t_z_scr": 1803.0950690050147,
+        "sum_prz_t_z_nsc": 208.88374551059803,
+        "sum_prz_t_z_rru": 0.1280016,
+        "sum_prz_t_z_rrd": 0.1280016,
+        "sum_qrz_t_z_qru": 1266.816,
+        "sum_qrz_t_z_qrd": 1229.3376000000003,
+        "viol_t_connected_base": {
+            "val": 0,
+            "idx": {
+                "0": 0
+            }
+        },
+        "viol_t_connected_ctg": {
+            "val": 0,
+            "idx": {
+                "0": 0
+            }
+        },
+        "info_i_i_t_disconnected_base": {
+            "val": 0,
+            "idx": {
+                "0": null,
+                "1": null,
+                "2": null
+            }
+        },
+        "info_i_i_k_t_disconnected_ctg": {
+            "val": 0,
+            "idx": {
+                "0": null,
+                "1": null,
+                "2": null,
+                "3": null
+            }
+        },
+        "viol_pr_t_p_on_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_cs_t_p_on_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Load Bus 3 #1",
+                "1": 0
+            }
+        },
+        "viol_pr_t_p_off_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_cs_t_p_off_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Load Bus 3 #1",
+                "1": 0
+            }
+        },
+        "viol_pr_t_p_on_min": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_cs_t_p_on_min": {
+            "val": 0.0,
+            "idx": {
+                "0": "Load Bus 3 #1",
+                "1": 0
+            }
+        },
+        "viol_pr_t_p_off_min": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_cs_t_p_off_min": {
+            "val": 0.0,
+            "idx": {
+                "0": "Load Bus 3 #1",
+                "1": 0
+            }
+        },
+        "viol_pr_t_q_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_pr_t_q_min": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_cs_t_q_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Load Bus 3 #1",
+                "1": 0
+            }
+        },
+        "viol_cs_t_q_min": {
+            "val": 0.0,
+            "idx": {
+                "0": "Load Bus 3 #1",
+                "1": 0
+            }
+        },
+        "viol_pr_t_q_p_max": {
+            "val": null,
+            "idx": {
+                "0": null,
+                "1": null
+            }
+        },
+        "viol_pr_t_q_p_min": {
+            "val": null,
+            "idx": {
+                "0": null,
+                "1": null
+            }
+        },
+        "viol_cs_t_q_p_max": {
+            "val": null,
+            "idx": {
+                "0": null,
+                "1": null
+            }
+        },
+        "viol_cs_t_q_p_min": {
+            "val": null,
+            "idx": {
+                "0": null,
+                "1": null
+            }
+        },
+        "viol_sd_t_p_ramp_dn_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_ramp_up_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_max_energy_constr": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_min_energy_constr": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_rgu_nonneg": {
+            "val": -0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_rgd_nonneg": {
+            "val": -0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_scr_nonneg": {
+            "val": -0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_nsc_nonneg": {
+            "val": -0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_rru_on_nonneg": {
+            "val": -0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_rru_off_nonneg": {
+            "val": -0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_rrd_on_nonneg": {
+            "val": -0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_rrd_off_nonneg": {
+            "val": -0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_q_qru_nonneg": {
+            "val": -0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_q_qrd_nonneg": {
+            "val": -0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_rgu_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_rgd_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_scr_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_nsc_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_rru_on_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_rrd_on_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_rru_off_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_sd_t_p_rrd_off_max": {
+            "val": 0.0,
+            "idx": {
+                "0": "Gen Bus 14 #1",
+                "1": 0
+            }
+        },
+        "viol_acl_acl_t_s_max_ctg": {
+            "val": 0.0,
+            "idx": {
+                "0": null,
+                "1": null,
+                "2": null
+            }
+        },
+        "viol_xfr_acl_t_s_max_ctg": {
+            "val": 0.0,
+            "idx": {
+                "0": null,
+                "1": null,
+                "2": null
+            }
+        },
+        "viol_acl_dcl_t_s_max_ctg": {
+            "val": 0.0,
+            "idx": {
+                "0": null,
+                "1": null,
+                "2": null
+            }
+        },
+        "viol_xfr_dcl_t_s_max_ctg": {
+            "val": 0.0,
+            "idx": {
+                "0": null,
+                "1": null,
+                "2": null
+            }
+        },
+        "viol_acl_xfr_t_s_max_ctg": {
+            "val": 0.0,
+            "idx": {
+                "0": null,
+                "1": null,
+                "2": null
+            }
+        },
+        "viol_xfr_xfr_t_s_max_ctg": {
+            "val": 0.0,
+            "idx": {
+                "0": null,
+                "1": null,
+                "2": null
+            }
+        },
+        "z": 1787896.163642512,
+        "z_max_energy": 0.0,
+        "z_min_energy": 0.0,
+        "z_base": 1787896.163642512,
+        "z_k_worst_case": 0.0,
+        "z_k_average_case": 0.0,
+        "feas": 1,
+        "infeas": 0
+    }
+}

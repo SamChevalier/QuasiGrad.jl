@@ -1,0 +1,81 @@
+{
+    "problem_data_file": "C3S0N00003D1_2785.json",
+    "solution_data_file": null,
+    "git_info": {
+        "C3DataUtilities": {
+            "branch": null,
+            "commit": "ee4c05aa63d1df596f1d7dec8e46f2a7b051caee",
+            "date": "Wed Nov 30 10:03:41 2022 -0800",
+            "query_return_code": 0,
+            "query_err": "",
+            "query_path": "/qfs/projects/goc/share/loadbalancing/src/nonmpi-template/Challenge3/C3DataUtilities/datautilities",
+            "query_out": "commit ee4c05aa63d1df596f1d7dec8e46f2a7b051caee\nAuthor: Jesse T Holzer <jesse.holzer@pnnl.gov>\nDate:   Wed Nov 30 10:03:41 2022 -0800\n\n    add get_feas_comm module - gurobi model to find a feasible commitment schedule\n"
+        },
+        "Bid-DS-data-model": {
+            "branch": null,
+            "commit": null,
+            "date": null,
+            "query_return_code": 128,
+            "query_err": "fatal: Not a git repository (or any parent up to mount point /rcfs)\nStopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).\n",
+            "query_path": "/rcfs/dtn/arpacomp/.conda/envs/goc_eval/lib/python3.10/site-packages/datamodel",
+            "query_out": ""
+        }
+    },
+    "problem": {
+        "general": {
+            "timestamp_start": "2012-07-22T00:00:00",
+            "timestamp_stop": "2012-07-22T08:00:00",
+            "season": null,
+            "electricity_demand": null,
+            "vre_availability": null,
+            "solar_availability": null,
+            "wind_availability": null,
+            "weather_temperature": null,
+            "day_type": null,
+            "net_load": null,
+            "base_norm_mva": 100.0
+        },
+        "violation costs": {
+            "p_bus_vio_cost": 100000.0,
+            "q_bus_vio_cost": 100000.0,
+            "s_vio_cost": 100000.0,
+            "e_vio_cost": 100000.0
+        },
+        "num buses": 3,
+        "num ac lines": 2,
+        "num dc lines": 0,
+        "num transformers": 2,
+        "num shunts": 2,
+        "num simple dispatchable devices": 3,
+        "num producing devices": 2,
+        "num consuming devices": 1,
+        "num real power reserve zones": 1,
+        "num reactive power reserve zones": 1,
+        "num intervals": 18,
+        "num contingencies": 2,
+        "total duration": 8.0,
+        "interval durations": [
+            0.25,
+            0.25,
+            0.25,
+            0.25,
+            0.25,
+            0.25,
+            0.25,
+            0.25,
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            0.5,
+            1.0,
+            1.0
+        ],
+        "pass": 1
+    },
+    "solution": {},
+    "evaluation": {}
+}
