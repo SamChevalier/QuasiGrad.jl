@@ -64,8 +64,8 @@ path = "../GO3_testcases/"*set*dvn*case*nro
 jsn = quasiGrad.load_json(path)
 
 # %% init
-adm, cgd, GRB, grd, idx, mgd, ntk, prm, qG, scr, stt, 
-sys, upd, flw, dz_dpinj_base, theta_k_base, worst_ctgs = 
+adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, 
+sys, upd, dz_dpinj_base, theta_k_base, worst_ctgs = 
     quasiGrad.base_initialization(jsn, true, 1.0);
 
 # %% solve
@@ -89,8 +89,8 @@ if action == "just write"
     jsn = quasiGrad.load_json(path)
         
     # initialize the system
-    adm, cgd, GRB, grd, idx, mgd, ntk, prm, qG, scr, stt, 
-    sys, upd, flw, dz_dpinj_base, theta_k_base, worst_ctgs = 
+    adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, 
+    sys, upd, dz_dpinj_base, theta_k_base, worst_ctgs = 
         quasiGrad.base_initialization(jsn, true, 0.5);
 
     # set some qG params

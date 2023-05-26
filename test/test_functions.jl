@@ -661,7 +661,7 @@ function calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     device_reserve_costs!(prm, stt)
 
     # now, we can compute the power balances
-    power_balance!(grd, idx, prm, qG, stt, sys)
+    power_balance!(grd, idx, msc, prm, qG, stt, sys)
 
     # compute reserve margins and penalties
     reserve_balance!(idx, prm, stt, sys)

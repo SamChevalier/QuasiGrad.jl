@@ -14,8 +14,8 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 jsn = quasiGrad.load_json(path)
 
 # %% initialize
-adm, cgd, GRB, grd, idx, mgd, ntk, prm, qG, scr, stt, 
-sys, upd, flw, dz_dpinj_base, theta_k_base, worst_ctgs = 
+adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, 
+sys, upd, dz_dpinj_base, theta_k_base, worst_ctgs = 
     quasiGrad.base_initialization(jsn, false, 0.25);
 
 # %% Timing tests
@@ -26,7 +26,7 @@ print("t1: ")
 
 # clip all basic states (i.e., the states which are iterated on)
 print("t2: ")
-@time quasiGrad.clip_all!(prm, stt)
+@time quasiGrad.clip_all!(true, prm, stt)
 
 # compute network flows and injections
 print("t3: ")
@@ -66,7 +66,7 @@ print("t12: ")
 
 # now, we can compute the power balances
 print("t13: ")
-@time quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
+@time quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
 
 # compute reserve margins and penalties
 print("t14: ")
@@ -92,7 +92,7 @@ println("")
 
 # %%
 print("t20: ")
-@time quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs);
+@time quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs);
 
 # %% take an adam step
 adm_step    = 0
@@ -259,7 +259,3 @@ t = randn(100000)
 
 @btime fill!(t,0.0);
 @btime z = zeros(100000);
-
-# %%
-@btime dz_dpinj_base[1][jj] -  ntk.u_k[1][jj] for jj in 
-@btime quasiGrad.nonzeros(ntk.u_k[1])

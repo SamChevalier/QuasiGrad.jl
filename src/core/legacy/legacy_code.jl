@@ -841,36 +841,36 @@ function solve_Gurobi_IBR!(prm::quasiGrad.Param, idx::quasiGrad.Idx, stt::Dict{S
         set_optimizer_attribute(model, "OutputFlag", 0)
     
         # define the minimum set of variables we will need to solve the constraints                                                                                     -- round() the int?
-        u_on_dev  = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "u_on_dev_t$(ii)",  start=stt[:u_on_dev][tkeys[ii]], Bin) for ii in 1:(sys.nT))
-        p_on      = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_on_t$(ii)",      start=stt[:p_on][tkeys[ii]])          for ii in 1:(sys.nT))
-        dev_q     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "dev_q_t$(ii)",     start=stt[:dev_q][tkeys[ii]])         for ii in 1:(sys.nT))
-        p_rgu     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_rgu_t$(ii)",     start=stt[:p_rgu][tkeys[ii]])         for ii in 1:(sys.nT))
-        p_rgd     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_rgd_t$(ii)",     start=stt[:p_rgd][tkeys[ii]])         for ii in 1:(sys.nT))
-        p_scr     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_scr_t$(ii)",     start=stt[:p_scr][tkeys[ii]])         for ii in 1:(sys.nT))
-        p_nsc     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_nsc_t$(ii)",     start=stt[:p_nsc][tkeys[ii]])         for ii in 1:(sys.nT))
-        p_rru_on  = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_rru_on_t$(ii)",  start=stt[:p_rru_on][tkeys[ii]])      for ii in 1:(sys.nT))
-        p_rru_off = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_rru_off_t$(ii)", start=stt[:p_rru_off][tkeys[ii]])     for ii in 1:(sys.nT))
-        p_rrd_on  = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_rrd_on_t$(ii)",  start=stt[:p_rrd_on][tkeys[ii]])      for ii in 1:(sys.nT))
-        p_rrd_off = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_rrd_off_t$(ii)", start=stt[:p_rrd_off][tkeys[ii]])     for ii in 1:(sys.nT))
-        q_qru     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "q_qru_t$(ii)",     start=stt[:q_qru][tkeys[ii]])         for ii in 1:(sys.nT))
-        q_qrd     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "q_qrd_t$(ii)",     start=stt[:q_qrd][tkeys[ii]])         for ii in 1:(sys.nT))
+        u_on_dev  = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "u_on_dev_t$(ii)",  start=stt[:u_on_dev][tkeys[ii]], Bin) for ii in 1:(sys.nT))
+        p_on      = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_on_t$(ii)",      start=stt[:p_on][tkeys[ii]])          for ii in 1:(sys.nT))
+        dev_q     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "dev_q_t$(ii)",     start=stt[:dev_q][tkeys[ii]])         for ii in 1:(sys.nT))
+        p_rgu     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_rgu_t$(ii)",     start=stt[:p_rgu][tkeys[ii]])         for ii in 1:(sys.nT))
+        p_rgd     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_rgd_t$(ii)",     start=stt[:p_rgd][tkeys[ii]])         for ii in 1:(sys.nT))
+        p_scr     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_scr_t$(ii)",     start=stt[:p_scr][tkeys[ii]])         for ii in 1:(sys.nT))
+        p_nsc     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_nsc_t$(ii)",     start=stt[:p_nsc][tkeys[ii]])         for ii in 1:(sys.nT))
+        p_rru_on  = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_rru_on_t$(ii)",  start=stt[:p_rru_on][tkeys[ii]])      for ii in 1:(sys.nT))
+        p_rru_off = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_rru_off_t$(ii)", start=stt[:p_rru_off][tkeys[ii]])     for ii in 1:(sys.nT))
+        p_rrd_on  = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_rrd_on_t$(ii)",  start=stt[:p_rrd_on][tkeys[ii]])      for ii in 1:(sys.nT))
+        p_rrd_off = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_rrd_off_t$(ii)", start=stt[:p_rrd_off][tkeys[ii]])     for ii in 1:(sys.nT))
+        q_qru     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "q_qru_t$(ii)",     start=stt[:q_qru][tkeys[ii]])         for ii in 1:(sys.nT))
+        q_qrd     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "q_qrd_t$(ii)",     start=stt[:q_qrd][tkeys[ii]])         for ii in 1:(sys.nT))
     
         # add a few more (implicit) variables which are necessary for solving this system
-        u_su_dev = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "u_su_dev_t$(ii)", Bin) for ii in 1:(sys.nT))
-        u_sd_dev = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "u_sd_dev_t$(ii)", Bin) for ii in 1:(sys.nT))
+        u_su_dev = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "u_su_dev_t$(ii)", Bin) for ii in 1:(sys.nT))
+        u_sd_dev = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "u_sd_dev_t$(ii)", Bin) for ii in 1:(sys.nT))
         
         # we have the affine "AffExpr" expressions (whose values are specified)
-        dev_p = Dict(tkeys[ii] => Vector{quasiGrad.AffExpr}(undef, sys.ndev) for ii in 1:(sys.nT))
-        p_su  = Dict(tkeys[ii] => Vector{quasiGrad.AffExpr}(undef, sys.ndev) for ii in 1:(sys.nT))
-        p_sd  = Dict(tkeys[ii] => Vector{quasiGrad.AffExpr}(undef, sys.ndev) for ii in 1:(sys.nT))
+        dev_p = Dict(tkeys[ii] => Vector{AffExpr}(undef, sys.ndev) for ii in 1:(sys.nT))
+        p_su  = Dict(tkeys[ii] => Vector{AffExpr}(undef, sys.ndev) for ii in 1:(sys.nT))
+        p_sd  = Dict(tkeys[ii] => Vector{AffExpr}(undef, sys.ndev) for ii in 1:(sys.nT))
     
         # now, we need to loop and set the affine expressions to 0
         #   -> see: https://jump.dev/JuMP.jl/stable/manual/expressions/
         for tii in prm.ts.time_keys
             for dev in 1:sys.ndev
-                dev_p[tii][dev] = quasiGrad.AffExpr(0.0)
-                p_su[tii][dev]  = quasiGrad.AffExpr(0.0)
-                p_sd[tii][dev]  = quasiGrad.AffExpr(0.0)
+                dev_p[tii][dev] = AffExpr(0.0)
+                p_su[tii][dev]  = AffExpr(0.0)
+                p_sd[tii][dev]  = AffExpr(0.0)
             end
         end
     
@@ -1107,7 +1107,7 @@ function solve_Gurobi_IBR!(prm::quasiGrad.Param, idx::quasiGrad.Idx, stt::Dict{S
         #
         # afterwards, we initialize adam with the closest feasible
         # solution variable values.
-        obj = quasiGrad.AffExpr(0.0)
+        obj = AffExpr(0.0)
     #add_to_expression!(ex, 2.0, x)
     
         for (t_ind, tii) in enumerate(prm.ts.time_keys)
@@ -1139,7 +1139,7 @@ function solve_Gurobi_IBR!(prm::quasiGrad.Param, idx::quasiGrad.Idx, stt::Dict{S
             for dev in 1:sys.ndev
                 # define an anonymous variable which is used to
                 # bound objective function error
-                t = quasiGrad.@variable(model)
+                t = @variable(model)
                 u_on_dev[tii][dev]  - stt[:u_on_dev][tii]
     
     
@@ -1159,19 +1159,19 @@ function solve_Gurobi_IBR!(prm::quasiGrad.Param, idx::quasiGrad.Idx, stt::Dict{S
         end
     
     
-        u_on_dev  = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "u_on_dev_t$(ii)",  start=round(stt[:u_on_dev][tkeys[ii]]), Bin) for ii in 1:(sys.nT))
-        p_on      = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_on_t$(ii)",      start=stt[:p_on][tkeys[ii]]) for ii in 1:(sys.nT))
-        dev_q     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "dev_q_t$(ii)",     start=stt[:dev_q][tkeys[ii]])         for ii in 1:(sys.nT))
-        p_rgu     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_rgu_t$(ii)",     start=stt[:p_rgu][tkeys[ii]])         for ii in 1:(sys.nT))
-        p_rgd     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_rgd_t$(ii)",     start=stt[:p_rgd][tkeys[ii]])         for ii in 1:(sys.nT))
-        p_scr     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_scr_t$(ii)",     start=stt[:p_scr][tkeys[ii]])         for ii in 1:(sys.nT))
-        p_nsc     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_nsc_t$(ii)",     start=stt[:p_nsc][tkeys[ii]])         for ii in 1:(sys.nT))
-        p_rru_on  = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_rru_on_t$(ii)",  start=stt[:p_rru_on][tkeys[ii]])      for ii in 1:(sys.nT))
-        p_rru_off = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_rru_off_t$(ii)", start=stt[:p_rru_off][tkeys[ii]])     for ii in 1:(sys.nT))
-        p_rrd_on  = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_rrd_on_t$(ii)",  start=stt[:p_rrd_on][tkeys[ii]])      for ii in 1:(sys.nT))
-        p_rrd_off = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "p_rrd_off_t$(ii)", start=stt[:p_rrd_off][tkeys[ii]])     for ii in 1:(sys.nT))
-        q_qru     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "q_qru_t$(ii)",     start=stt[:q_qru][tkeys[ii]])         for ii in 1:(sys.nT))
-        q_qrd     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => quasiGrad.@variable(model,[1:sys.ndev],base_name = "q_qrd_t$(ii)",     start=stt[:q_qrd][tkeys[ii]])         for ii in 1:(sys.nT))
+        u_on_dev  = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "u_on_dev_t$(ii)",  start=round(stt[:u_on_dev][tkeys[ii]]), Bin) for ii in 1:(sys.nT))
+        p_on      = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_on_t$(ii)",      start=stt[:p_on][tkeys[ii]]) for ii in 1:(sys.nT))
+        dev_q     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "dev_q_t$(ii)",     start=stt[:dev_q][tkeys[ii]])         for ii in 1:(sys.nT))
+        p_rgu     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_rgu_t$(ii)",     start=stt[:p_rgu][tkeys[ii]])         for ii in 1:(sys.nT))
+        p_rgd     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_rgd_t$(ii)",     start=stt[:p_rgd][tkeys[ii]])         for ii in 1:(sys.nT))
+        p_scr     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_scr_t$(ii)",     start=stt[:p_scr][tkeys[ii]])         for ii in 1:(sys.nT))
+        p_nsc     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_nsc_t$(ii)",     start=stt[:p_nsc][tkeys[ii]])         for ii in 1:(sys.nT))
+        p_rru_on  = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_rru_on_t$(ii)",  start=stt[:p_rru_on][tkeys[ii]])      for ii in 1:(sys.nT))
+        p_rru_off = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_rru_off_t$(ii)", start=stt[:p_rru_off][tkeys[ii]])     for ii in 1:(sys.nT))
+        p_rrd_on  = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_rrd_on_t$(ii)",  start=stt[:p_rrd_on][tkeys[ii]])      for ii in 1:(sys.nT))
+        p_rrd_off = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "p_rrd_off_t$(ii)", start=stt[:p_rrd_off][tkeys[ii]])     for ii in 1:(sys.nT))
+        q_qru     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "q_qru_t$(ii)",     start=stt[:q_qru][tkeys[ii]])         for ii in 1:(sys.nT))
+        q_qrd     = Dict{Symbol, quasiGrad.Vector{quasiGrad.JuMP.VariableRef}}(tkeys[ii] => @variable(model,[1:sys.ndev],base_name = "q_qrd_t$(ii)",     start=stt[:q_qrd][tkeys[ii]])         for ii in 1:(sys.nT))
     
     
     
@@ -2543,4 +2543,726 @@ end
         z_prev[:encs] = scale_z(scr[:encs])
         z_prev[:zsus] = scale_z(scr[:zsus])
 
-    else
+end
+
+stt[:q_qru][tii][intersect(idx.pr_devs,idx.J_pqe)] .= 0.0   # see (117)
+stt[:q_qrd][tii][intersect(idx.pr_devs,idx.J_pqe)] .= 0.0   # see (118)
+stt[:q_qru][tii][intersect(idx.cs_devs,idx.J_pqe)] .= 0.0   # see (127)
+stt[:q_qrd][tii][intersect(idx.cs_devs,idx.J_pqe)] .= 0.0   # see (128)
+
+# filter out the ones in Jpqe
+pr_NOT_Jpqe_on_bus = setdiff(pr_devs_on_bus, idx.J_pqe)
+cs_NOT_Jpqe_on_bus = setdiff(cs_devs_on_bus, idx.J_pqe)
+
+# keep the ones in Jpqe
+pr_AND_Jpqe_on_bus = intersect(pr_devs_on_bus, idx.J_pqe)
+cs_AND_Jpqe_on_bus = intersect(cs_devs_on_bus, idx.J_pqe)
+
+# solve power flow (to some degree of accuracy)
+function solve_linear_pf_with_Gurobi!(Jac::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
+    # ask Gurobi to solve a linearize power flow. two options here:
+    #   1) define device variables which are bounded, and then insert them into the power balance expression
+    #   2) just define power balance bounds based on device characteristics, and then, at the end, optimally
+    #      dispatch the devices via updating.
+    # 
+    # I am pretty sure 1) is slower, but it is (1) safer, (2) simpler, and (3) more flexible -- and it will
+    # require less trouble-shooting. Plus, it will be easy to update/improve in the future! Go with it.
+    #
+    #
+    # here is power balance:
+    #
+    # p_pr - p_cs - pdc = p_lines/xfm/shunt => this is typical.
+    #
+    # vm0 = stt[:vm][tii]
+    # va0 = stt[:va][tii][2:end-1]
+    #
+    # bias point: msc[:pinj0, qinj0] === Y * stt[:vm, va]
+    qG.Gurobi_pf_obj            = "min_dispatch_distance"
+    qG.compute_pf_injs_with_Jac = true
+
+    # build and empty the model!
+    model = Model(Gurobi.Optimizer)
+    @info "Running lineaized power flow across $(sys.nT) time periods."
+
+    # loop over time
+    for tii in prm.ts.time_keys
+
+        # initialize
+        init_pf = true
+        run_pf  = true
+        pf_cnt  = 0
+
+        # 1. update the ideal dispatch point (active power) -- we do this just once
+        quasiGrad.ideal_dispatch!(idx, msc, stt, sys, tii)
+
+        # 2. update the injection bounds (upper and lower P/Q bounds) -- no longer needed
+        quasiGrad.get_injection_bounds!(idx, msc, prm, stt, sys, tii)
+
+        # 3. update y_bus and Jacobian and bias point -- this
+        #    only needs to be done once per time, since xfm/shunt
+        #    values are not changing between iterations
+        Ybus_real, Ybus_imag = quasiGrad.update_Ybus(idx, ntk, prm, stt, sys, tii)
+
+        # loop over pf solves
+        while run_pf == true
+
+            # increment
+            pf_cnt += 1
+
+            # first, rebuild the jacobian, and update the
+            # base points: msc[:pinj0], msc[:qinj0]
+            Jac = quasiGrad.build_acpf_Jac_and_pq0(msc, qG, stt, sys, tii, Ybus_real, Ybus_imag);
+            
+            # quiet down!!!
+            empty!(model)
+            set_silent(model)
+            quasiGrad.set_optimizer_attribute(model, "OutputFlag", qG.GRB_output_flag)
+
+            # define the variables (single time index)
+            @variable(model, x_in[1:(2*sys.nb - 1)])
+            @variable(model, x_out[1:2*sys.nb])
+
+            # assign
+            dvm   = x_in[1:sys.nb]
+            dva   = x_in[(sys.nb+1):end]
+            dpinj = x_out[1:sys.nb]
+            dqinj = x_out[(sys.nb+1):end]
+            #
+            # note:
+            # vm   = vm0   + dvm
+            # va   = va0   + dva
+            # pinj = pinj0 + dpinj
+            # qinj = qinj0 + dqinj
+            #
+            # key equation:
+            #                       dPQ .== Jac*dVT
+            #                       dPQ + basePQ(v) = devicePQ
+            #
+            #                       Jac*dVT + basePQ(v) == devicePQ
+            #
+            # so, we don't actually need to model dPQ explicitly (cool)
+            #
+            # so, the optimizer asks, how shall we tune dVT in order to produce a power perurbation
+            # which, when added to the base point, lives inside the feasible device region?
+            #
+            # based on the result, we only have to actually update the device set points on the very
+            # last power flow iteration, where we have converged.
+
+            # now, model all nodal injections from the device/dc line side, all put in nodal_p/q
+            nodal_p = Vector{AffExpr}(undef, sys.nb)
+            nodal_q = Vector{AffExpr}(undef, sys.nb)
+            for bus in 1:sys.nb
+                nodal_p[bus] = AffExpr(0.0)
+                nodal_q[bus] = AffExpr(0.0)
+            end
+
+            # create a flow variable for each dc line and sum these into the nodal vectors
+            if sys.nldc == 0
+                # nothing to see here
+            else
+
+                # define dc variables
+                @variable(model, pdc_vars[1:sys.nldc])    # oriented so that fr = + !!
+                @variable(model, qdc_fr_vars[1:sys.nldc])
+                @variable(model, qdc_to_vars[1:sys.nldc])
+
+                # bound dc power
+                @constraint(model, -prm.dc.pdc_ub    .<= pdc_vars    .<= prm.dc.pdc_ub)
+                @constraint(model,  prm.dc.qdc_fr_lb .<= qdc_fr_vars .<= prm.dc.qdc_fr_ub)
+                @constraint(model,  prm.dc.qdc_to_lb .<= qdc_to_vars .<= prm.dc.qdc_to_ub)
+
+                # now, we need to loop and set the affine expressions to 0, and then add powers
+                #   -> see: https://jump.dev/JuMP.jl/stable/manual/expressions/
+                for bus in 1:sys.nb
+                    # sum over line powers
+                    nodal_p[bus] -= sum(pdc_vars[idx.bus_is_dc_frs[bus]];    init=0.0)
+                    nodal_p[bus] += sum(pdc_vars[idx.bus_is_dc_tos[bus]];    init=0.0)
+                    nodal_q[bus] -= sum(qdc_fr_vars[idx.bus_is_dc_frs[bus]]; init=0.0)
+                    nodal_q[bus] -= sum(qdc_to_vars[idx.bus_is_dc_tos[bus]]; init=0.0)
+                end
+            end
+            
+            # next, deal with devices
+            @variable(model, dev_p_vars[1:sys.ndev])
+            @variable(model, dev_q_vars[1:sys.ndev])
+
+            # call the bounds
+            dev_plb = stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind)
+            dev_pub = stt[:u_on_dev][tii].*getindex.(prm.dev.p_ub,t_ind)
+            dev_qlb = stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind)
+            dev_qub = stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind)
+
+            # first, define p_on at this time
+            p_on = dev_p_vars - stt[:p_su][tii] - stt[:p_sd][tii]
+
+            # bound
+            @constraint(model, dev_plb .<= p_on       .<= dev_pub)
+            @constraint(model, dev_qlb .<= dev_q_vars .<= dev_qub)
+
+            # apply additional bounds: J_pqe (equality constraints)
+            if ~isempty(idx.J_pqe)
+                @constraint(model, dev_q_vars[idx.J_pqe] .== prm.dev.q_0[dev]*stt[:u_sum][tii][idx.J_pqe] + prm.dev.beta[idx.J_pqe]*dev_p_vars[idx.J_pqe])
+            end
+
+            # apply additional bounds: J_pqmin/max (inequality constraints)
+            #
+            # note: when the reserve products are negelected, pr and cs constraints are the same
+            #   remember: idx.J_pqmax == idx.J_pqmin
+            if ~isempty(idx.J_pqmax)
+                @constraint(model, dev_q_vars[idx.J_pqmax] .<= prm.dev.q_0_ub[idx.J_pqmax]*stt[:u_sum][tii][idx.J_pqmax] + prm.dev.beta_ub[idx.J_pqmax]*dev_p_vars[idx.J_pqmax])
+                @constraint(model, prm.dev.q_0_lb[idx.J_pqmax]*stt[:u_sum][tii][idx.J_pqmax] + prm.dev.beta_lb[idx.J_pqmax]*dev_p_vars[idx.J_pqmax] .<= dev_q_vars[idx.J_pqmax])
+            end
+
+            # great, now just update the nodal injection vectors
+            for bus in 1:sys.nb
+                # sum over line powers
+                nodal_p[bus] += sum(dev_p_vars[idx.pr[bus]]; init=0.0)
+                nodal_p[bus] -= sum(dev_p_vars[idx.cs[bus]]; init=0.0)
+                nodal_q[bus] += sum(dev_q_vars[idx.pr[bus]]; init=0.0)
+                nodal_q[bus] -= sum(dev_q_vars[idx.cs[bus]]; init=0.0)
+            end
+
+            # bound system variables ==============================================
+            #
+            # bound variables -- voltage
+            @constraint(model, prm.bus.vm_lb .<= stt[:vm][tii] + dvm   .<= prm.bus.vm_ub)
+
+            # mapping
+            noref_Jac = @view Jac[:,[1:sys.nb; (sys.nb+2):end]]
+
+
+
+
+
+            # loop, bound, and apply
+            for dev in 1:sys.ndev
+
+                # first, define p_on at this time
+                p_on = dev_p_vars[dev] - stt[:p_su][tii] - stt[:p_sd][tii]
+
+                # next, bound the active power: p_on
+                @constraint(model, -prm.dc.pdc_ub    .<= p_on    .<= prm.dc.pdc_ub)
+
+
+
+
+
+
+
+            nodal_qdc_fr = Vector{AffExpr}(undef, sys.nb)
+            nodal_qdc_to = Vector{AffExpr}(undef, sys.nb)
+            nodal_p_pr = Vector{AffExpr}(undef, sys.nb)
+            nodal_p_cs = Vector{AffExpr}(undef, sys.nb)
+            nodal_q_pr = Vector{AffExpr}(undef, sys.nb)
+            nodal_q_cs = Vector{AffExpr}(undef, sys.nb)
+            for bus in 1:sys.nb
+                nodal_pdc_fr[bus]  = AffExpr(0.0)
+                nodal_pdc_to[bus]  = AffExpr(0.0)
+                nodal_qdc_fr[bus]  = AffExpr(0.0)
+                nodal_qdc_to[bus]  = AffExpr(0.0)
+            end
+
+
+            # create a active power flow variable for each line and sum these into a nodal vector
+            if sys.nldc == 0
+                # nothing to see here
+                nodal_pdc_fr = Vector{AffExpr}(undef, sys.nb)
+                nodal_pdc_to = Vector{AffExpr}(undef, sys.nb)
+                nodal_qdc_fr = Vector{AffExpr}(undef, sys.nb)
+                nodal_qdc_to = Vector{AffExpr}(undef, sys.nb)
+                for bus in 1:sys.nb
+                    nodal_pdc_fr[bus]  = AffExpr(0.0)
+                    nodal_pdc_to[bus]  = AffExpr(0.0)
+                    nodal_qdc_fr[bus]  = AffExpr(0.0)
+                    nodal_qdc_to[bus]  = AffExpr(0.0)
+                end
+            else
+                # deal with the lines
+                nodal_pdc_fr = Vector{AffExpr}(undef, sys.nb)
+                nodal_pdc_to = Vector{AffExpr}(undef, sys.nb)
+                nodal_qdc_fr = Vector{AffExpr}(undef, sys.nb)
+                nodal_qdc_to = Vector{AffExpr}(undef, sys.nb)
+
+                # define dc variables
+                @variable(model, pdc_vars[1:sys.nldc])    # oriented so that fr = + !!
+                @variable(model, qdc_fr_vars[1:sys.nldc])
+                @variable(model, qdc_to_vars[1:sys.nldc])
+
+                # bound dc power
+                @constraint(model, -prm.dc.pdc_ub    .<= pdc_vars    .<= prm.dc.pdc_ub)
+                @constraint(model,  prm.dc.qdc_fr_lb .<= qdc_fr_vars .<= prm.dc.qdc_fr_ub)
+                @constraint(model,  prm.dc.qdc_to_lb .<= qdc_to_vars .<= prm.dc.qdc_to_ub)
+
+                # now, we need to loop and set the affine expressions to 0, and then add powers
+                #   -> see: https://jump.dev/JuMP.jl/stable/manual/expressions/
+                for bus in 1:sys.nb
+                    nodal_pdc_fr[bus]  = AffExpr(0.0)
+                    nodal_pdc_to[bus]  = AffExpr(0.0)
+                    nodal_qdc_fr[bus]  = AffExpr(0.0)
+                    nodal_qdc_to[bus]  = AffExpr(0.0)
+
+                    # sum over line powers
+                    nodal_pdc_fr[bus] += sum(pdc_vars[idx.bus_is_dc_frs[bus]];    init=0.0)
+                    nodal_pdc_to[bus] -= sum(pdc_vars[idx.bus_is_dc_tos[bus]];    init=0.0)
+                    nodal_qdc_fr[bus] += sum(qdc_fr_vars[idx.bus_is_dc_frs[bus]]; init=0.0)
+                    nodal_qdc_to[bus] += sum(qdc_to_vars[idx.bus_is_dc_tos[bus]]; init=0.0)
+                end
+            end
+
+            # next, deal with devices -- 
+            nodal_p_pr = Vector{AffExpr}(undef, sys.nb)
+            nodal_p_cs = Vector{AffExpr}(undef, sys.nb)
+            nodal_q_pr = Vector{AffExpr}(undef, sys.nb)
+            nodal_q_cs = Vector{AffExpr}(undef, sys.nb)
+
+
+            # create P and Q power variables for constant power factor devices -- pr
+            # 
+            # 
+            pr_and_Jpqe
+            cs_and_Jpqe
+
+            dev_plb = stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind)
+            dev_pub = stt[:u_on_dev][tii].*getindex.(prm.dev.p_ub,t_ind)
+            dev_qlb = stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind)
+            dev_qub = stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind)
+
+
+            nJpqe_pr = length(idx.pr_and_Jpqe)
+            if nJpqe_pr == 0
+                # nothing to see here
+                nodal_p_Jpqe_pr = Vector{AffExpr}(undef, sys.nb)
+                nodal_q_Jpqe_pr = Vector{AffExpr}(undef, sys.nb)
+                for bus in 1:sys.nb
+                    nodal_p_Jpqe_pr[bus] = AffExpr(0.0)
+                    nodal_q_Jpqe_pr[bus] = AffExpr(0.0)
+                end
+            else
+
+                # define an active power variable, but let q be implicit
+                @variable(model, p_Jpqe_pr_vars[1:sys.nldc])
+                q_Jpqe_pr_vars = Vector{AffExpr}(undef, nJpqe_pr)
+
+                # loop and bound
+                dev_cnt = 1
+                for dev in idx.pr_and_Jpqe
+                    # first, bound p_Jpqe_pr_vars
+                    @constraint(model, p_Jpqe_pr_vars[dev])
+                    # second, implicitly define q_Jpqe_pr_vars via equality
+                    q_Jpqe_pr_vars[dev_cnt] = AffExpr(0.0)
+
+                    # finally, bound q_Jpqe_pr_vars
+                    q_Jpqe_pr[dev_cnt] += prm.dev.q_0[dev]*stt[:u_sum][tii][dev] + prm.dev.beta[dev]*stt[:dev_p][tii][dev]
+                    dev_cnt += 1
+                end
+
+                # compute reactive power
+                stt[:dev_q][tii][dev] = prm.dev.q_0[dev]*stt[:u_sum][tii][dev] + prm.dev.beta[dev]*stt[:dev_p][tii][dev]
+
+
+
+
+                @variable(model, q_Jpqe_pr_vars[1:nJpqe_pr])
+
+                # bound these variables
+                @constraint(model, dev_qlb[idx.pr_and_Jpqe] .<= q_Jpqe_pr_vars .<= dev_qub[idx.pr_and_Jpqe])
+
+                # for beta devices, compute reactive power as a function of active power
+                for dev in 1:sys.ndev
+                    # only a subset of devices will have a reactive power equality constraint
+                    if dev in idx.J_pqe
+                        # the following (pr vs cs) are equivalent
+                        if dev in idx.pr_devs
+                            stt[:dev_q][tii][dev] = prm.dev.q_0[dev]*stt[:u_sum][tii][dev] + prm.dev.beta[dev]*stt[:dev_p][tii][dev]
+                        else
+                            stt[:dev_q][tii][dev] = prm.dev.q_0[dev]*stt[:u_sum][tii][dev] + prm.dev.beta[dev]*stt[:dev_p][tii][dev]
+                        end
+                    end
+                    
+                    # now, populate the nodal vectors
+                    nodal_p_Jpqe_pr = Vector{AffExpr}(undef, sys.nb)
+                    nodal_q_Jpqe_pr = Vector{AffExpr}(undef, sys.nb)
+                    for bus in 1:sys.nb
+                        nodal_p_Jpqe_pr[bus]  = AffExpr(0.0)
+                        nodal_p_Jpqe_pr[bus] += sum(...)
+
+                        nodal_q_Jpqe_pr[bus] = AffExpr(0.0)
+                        nodal_q_Jpqe_pr[bus] += sum(...)
+                    end
+                    
+                end
+            end
+
+            # bound system variables ==============================================
+            #
+            # bound variables -- voltage
+            @constraint(model, prm.bus.vm_lb .<= stt[:vm][tii] + dvm   .<= prm.bus.vm_ub)
+
+            # bound variables -- active power -- must include dc line constraints
+            @constraint(model, msc[:plb]     .<= msc[:pinj0]   + dpinj + nodal_p_Jpqe_pr - nodal_p_Jpqe_cs - nodal_pdc_fr - nodal_pdc_to .<= msc[:pub])
+
+            # bound variables -- reactive power -- must include beta equality links between P and Q
+            @constraint(model, msc[:qlb]     .<= msc[:qinj0]   + dqinj + nodal_q_Jpqe_pr - nodal_q_Jpqe_cs .<= msc[:qub])
+
+            # mapping
+            noref_Jac = @view Jac[:,[1:sys.nb; (sys.nb+2):end]]
+            @constraint(model, x_out .== noref_Jac*x_in)
+
+
+            # objective: hold p (and v?) close to its initial value
+            # => || msc[:pinj_ideal] - (p0 + dp) || + regularization
+            if qG.Gurobi_pf_obj == "min_dispatch_distance"
+                # this finds a solution close to the dispatch point -- does not converge without v,a regularization
+                obj    = AffExpr(0.0)
+                tmp_vm = @variable(model)
+                tmp_va = @variable(model)
+                for bus in 1:sys.nb
+                    tmp = @variable(model)
+                    @constraint(model, msc[:pinj_ideal][bus] - (dpinj[bus] + msc[:pinj0][bus]) <= tmp)
+                    @constraint(model, (dpinj[bus] + msc[:pinj0][bus]) - msc[:pinj_ideal][bus] <= tmp)
+                    add_to_expression!(obj, tmp)
+
+                    # voltage regularization
+                    @constraint(model, -dvm[bus] <= tmp_vm)
+                    @constraint(model,  dvm[bus] <= tmp_vm)
+
+                    # phase regularization
+                    if bus > 1
+                        @constraint(model, -dva[bus-1] <= tmp_va)
+                        @constraint(model,  dva[bus-1] <= tmp_va)
+                    end
+                end
+
+                # this adds light regularization and causes convergence
+                add_to_expression!(obj, tmp_vm)
+                add_to_expression!(obj, tmp_va)
+
+            elseif qG.Gurobi_pf_obj == "min_dispatch_perturbation"
+                # this finds a solution with minimum movement -- not really needed
+                # now that "min_dispatch_distance" converges
+                tmp_p  = @variable(model)
+                tmp_vm = @variable(model)
+                tmp_va = @variable(model)
+                for bus in 1:sys.nb
+                    #tmp = @variable(model)
+                    @constraint(model, -dpinj[bus] <= tmp_p)
+                    @constraint(model,  dpinj[bus] <= tmp_p)
+
+                    @constraint(model, -dvm[bus] <= tmp_vm)
+                    @constraint(model,  dvm[bus] <= tmp_vm)
+
+                    if bus > 1
+                        @constraint(model, -dva[bus-1] <= tmp_va)
+                        @constraint(model,  dva[bus-1] <= tmp_va)
+                    end
+                    # for l1 norm: add_to_expression!(obj, tmp)
+                end
+                obj = tmp_p + tmp_vm + tmp_va
+            else
+                @warn "pf solver objective not recognized!"
+            end
+
+            # set the objective
+            @objective(model, Min, obj)
+
+            # solve
+            optimize!(model)
+
+            # take the norm of dv
+            norm_dv = quasiGrad.norm(value.(dvm))
+            
+            # println("========================================================")
+            println(termination_status(model),". ",primal_status(model),". objective value: ", round(objective_value(model), sigdigits = 5), "dv norm: ", round(norm_dv, sigdigits = 5))
+            # println("========================================================")
+
+            # now, update the state vector with the soluion
+            stt[:vm][tii]        = stt[:vm][tii]        + value.(dvm)
+            stt[:va][tii][2:end] = stt[:va][tii][2:end] + value.(dva)
+
+            # shall we terminate?
+            if (norm_dv < 1e-3) || (pf_cnt == qG.max_linear_pfs)
+                run_pf = false
+            end
+        end
+
+    end
+end
+
+# get these at the bus level, too..
+for bus = 1:sys.nb
+    # are the devices consumers or producers?
+    pr_devs_on_bus = dev_on_bus_inds[in.(dev_on_bus_inds,Ref(pr_inds))]
+    cs_devs_on_bus = dev_on_bus_inds[in.(dev_on_bus_inds,Ref(cs_inds))]
+end
+
+# solve power flow (to some degree of accuracy)
+#=
+function solve_linear_pf_with_Gurobi_simple_bounds!(Jac::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
+    # ask Gurobi to solve a linearize power flow
+    #
+    # here is power balance:
+    #
+    # p_pr - p_cs - pdc - () = p_lines => this is typical.
+    #
+    # vm0 = stt[:vm][tii]
+    # va0 = stt[:va][tii][2:end-1]
+    #
+    # bias point: msc[:pinj0, qinj0] === Y * stt[:vm, va]
+    qG.Gurobi_pf_obj            = "min_dispatch_distance"
+    qG.compute_pf_injs_with_Jac = true
+
+    # build and empty the model!
+    model = Model(Gurobi.Optimizer)
+    @info "Running lineaized power flow across $(sys.nT) time periods."
+
+    # loop over time
+    for tii in prm.ts.time_keys
+
+        # initialize
+        init_pf = true
+        run_pf  = true
+        pf_cnt  = 0
+
+        # 1. update the ideal dispatch point (active power)
+        quasiGrad.ideal_dispatch!(idx, msc, stt, sys, tii)
+
+        # 2. update the injection bounds (upper and lower P/Q bounds)
+        quasiGrad.get_injection_bounds!(idx, msc, prm, stt, sys, tii)
+
+        # 3. update y_bus and Jacobian and bias point -- this
+        #    only needs to be done once per time, since xfm/shunt
+        #    values are not changing between iterations
+        Ybus_real, Ybus_imag = quasiGrad.update_Ybus(idx, ntk, prm, stt, sys, tii)
+
+        # loop over pf solves
+        while run_pf == true
+
+            # increment
+            pf_cnt += 1
+
+            # first, rebuild the jacobian, and update the
+            # base points: msc[:pinj0], msc[:qinj0]
+            Jac = quasiGrad.build_acpf_Jac_and_pq0(msc, qG, stt, sys, tii, Ybus_real, Ybus_imag);
+            
+            # quiet down!!!
+            empty!(model)
+            set_silent(model)
+            quasiGrad.set_optimizer_attribute(model, "OutputFlag", qG.GRB_output_flag)
+
+            # define the variables (single time index)
+            @variable(model, x_in[1:(2*sys.nb - 1)])
+            @variable(model, x_out[1:2*sys.nb])
+
+            # assign
+            dvm   = x_in[1:sys.nb]
+            dva   = x_in[(sys.nb+1):end]
+            dpinj = x_out[1:sys.nb]
+            dqinj = x_out[(sys.nb+1):end]
+            #
+            # note:
+            # vm   = vm0   + dvm
+            # va   = va0   + dva
+            # pinj = pinj0 + dpinj
+            # qinj = qinj0 + dqinj
+
+            # create a active power flow variable for each line and sum these into a nodal vector
+            if sys.nldc == 0
+                # nothing to see here
+                nodal_pdc_fr = Vector{AffExpr}(undef, sys.nb)
+                nodal_pdc_to = Vector{AffExpr}(undef, sys.nb)
+                for bus in 1:sys.nb
+                    nodal_pdc_fr[bus]  = AffExpr(0.0)
+                    nodal_pdc_to[bus]  = AffExpr(0.0)
+                end
+            else
+                # deal with the lines
+                nodal_pdc_fr = Vector{AffExpr}(undef, sys.nb)
+                nodal_pdc_to = Vector{AffExpr}(undef, sys.nb)
+                @variable(model, pdc_vars[1:sys.nldc]) # oriented so that fr = + !!
+
+                # bound dc power
+                @constraint(model, -prm.dc.pdc_ub .<= pdc_vars .<= prm.dc.pdc_ub)
+
+                # now, we need to loop and set the affine expressions to 0
+                #   -> see: https://jump.dev/JuMP.jl/stable/manual/expressions/
+                for bus in 1:sys.nb
+                    nodal_pdc_fr[bus]  = AffExpr(0.0)
+                    nodal_pdc_to[bus]  = AffExpr(0.0)
+                    nodal_pdc_fr[bus] += sum(pdc_vars[idx.bus_is_dc_frs[bus]]; init=0.0)
+                    nodal_pdc_to[bus] -= sum(pdc_vars[idx.bus_is_dc_tos[bus]]; init=0.0)
+                end
+            end
+
+            # create P and Q power variables for constant power factor devices -- pr
+            # 
+            # 
+            pr_and_Jpqe
+            cs_and_Jpqe
+
+            dev_plb = stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind)
+            dev_pub = stt[:u_on_dev][tii].*getindex.(prm.dev.p_ub,t_ind)
+            dev_qlb = stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind)
+            dev_qub = stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind)
+
+
+            nJpqe_pr = length(idx.pr_and_Jpqe)
+            if nJpqe_pr == 0
+                # nothing to see here
+                nodal_p_Jpqe_pr = Vector{AffExpr}(undef, sys.nb)
+                nodal_q_Jpqe_pr = Vector{AffExpr}(undef, sys.nb)
+                for bus in 1:sys.nb
+                    nodal_p_Jpqe_pr[bus] = AffExpr(0.0)
+                    nodal_q_Jpqe_pr[bus] = AffExpr(0.0)
+                end
+            else
+
+                # define an active power variable, but let q be implicit
+                @variable(model, p_Jpqe_pr_vars[1:sys.nldc])
+                q_Jpqe_pr_vars = Vector{AffExpr}(undef, nJpqe_pr)
+
+                # loop and bound
+                dev_cnt = 1
+                for dev in idx.pr_and_Jpqe
+                    # first, bound p_Jpqe_pr_vars
+                    @constraint(model, p_Jpqe_pr_vars[dev])
+                    # second, implicitly define q_Jpqe_pr_vars via equality
+                    q_Jpqe_pr_vars[dev_cnt] = AffExpr(0.0)
+
+                    # finally, bound q_Jpqe_pr_vars
+                    q_Jpqe_pr[dev_cnt] += prm.dev.q_0[dev]*stt[:u_sum][tii][dev] + prm.dev.beta[dev]*stt[:dev_p][tii][dev]
+                    dev_cnt += 1
+                end
+
+                # compute reactive power
+                stt[:dev_q][tii][dev] = prm.dev.q_0[dev]*stt[:u_sum][tii][dev] + prm.dev.beta[dev]*stt[:dev_p][tii][dev]
+
+
+
+
+                @variable(model, q_Jpqe_pr_vars[1:nJpqe_pr])
+
+                # bound these variables
+                @constraint(model, dev_qlb[idx.pr_and_Jpqe] .<= q_Jpqe_pr_vars .<= dev_qub[idx.pr_and_Jpqe])
+
+                # for beta devices, compute reactive power as a function of active power
+                for dev in 1:sys.ndev
+                    # only a subset of devices will have a reactive power equality constraint
+                    if dev in idx.J_pqe
+                        # the following (pr vs cs) are equivalent
+                        if dev in idx.pr_devs
+                            stt[:dev_q][tii][dev] = prm.dev.q_0[dev]*stt[:u_sum][tii][dev] + prm.dev.beta[dev]*stt[:dev_p][tii][dev]
+                        else
+                            stt[:dev_q][tii][dev] = prm.dev.q_0[dev]*stt[:u_sum][tii][dev] + prm.dev.beta[dev]*stt[:dev_p][tii][dev]
+                        end
+                    end
+                    
+                    # now, populate the nodal vectors
+                    nodal_p_Jpqe_pr = Vector{AffExpr}(undef, sys.nb)
+                    nodal_q_Jpqe_pr = Vector{AffExpr}(undef, sys.nb)
+                    for bus in 1:sys.nb
+                        nodal_p_Jpqe_pr[bus]  = AffExpr(0.0)
+                        #nodal_p_Jpqe_pr[bus] += sum(...)
+
+                        nodal_q_Jpqe_pr[bus] = AffExpr(0.0)
+                        #nodal_q_Jpqe_pr[bus] += sum(...)
+                    end
+                    
+                end
+            end
+
+            # bound system variables ==============================================
+            #
+            # bound variables -- voltage
+            @constraint(model, prm.bus.vm_lb .<= stt[:vm][tii] + dvm   .<= prm.bus.vm_ub)
+
+            # bound variables -- active power -- must include dc line constraints
+            @constraint(model, msc[:plb]     .<= msc[:pinj0]   + dpinj + nodal_p_Jpqe_pr - nodal_p_Jpqe_cs - nodal_pdc_fr - nodal_pdc_to .<= msc[:pub])
+
+            # bound variables -- reactive power -- must include beta equality links between P and Q
+            @constraint(model, msc[:qlb]     .<= msc[:qinj0]   + dqinj + nodal_q_Jpqe_pr - nodal_q_Jpqe_cs .<= msc[:qub])
+
+            # mapping
+            noref_Jac = @view Jac[:,[1:sys.nb; (sys.nb+2):end]]
+            @constraint(model, x_out .== noref_Jac*x_in)
+
+
+            # objective: hold p (and v?) close to its initial value
+            # => || msc[:pinj_ideal] - (p0 + dp) || + regularization
+            if qG.Gurobi_pf_obj == "min_dispatch_distance"
+                # this finds a solution close to the dispatch point -- does not converge without v,a regularization
+                obj    = AffExpr(0.0)
+                tmp_vm = @variable(model)
+                tmp_va = @variable(model)
+                for bus in 1:sys.nb
+                    tmp = @variable(model)
+                    @constraint(model, msc[:pinj_ideal][bus] - (dpinj[bus] + msc[:pinj0][bus]) <= tmp)
+                    @constraint(model, (dpinj[bus] + msc[:pinj0][bus]) - msc[:pinj_ideal][bus] <= tmp)
+                    add_to_expression!(obj, tmp)
+
+                    # voltage regularization
+                    @constraint(model, -dvm[bus] <= tmp_vm)
+                    @constraint(model,  dvm[bus] <= tmp_vm)
+
+                    # phase regularization
+                    if bus > 1
+                        @constraint(model, -dva[bus-1] <= tmp_va)
+                        @constraint(model,  dva[bus-1] <= tmp_va)
+                    end
+                end
+
+                # this adds light regularization and causes convergence
+                add_to_expression!(obj, tmp_vm)
+                add_to_expression!(obj, tmp_va)
+
+            elseif qG.Gurobi_pf_obj == "min_dispatch_perturbation"
+                # this finds a solution with minimum movement -- not really needed
+                # now that "min_dispatch_distance" converges
+                tmp_p  = @variable(model)
+                tmp_vm = @variable(model)
+                tmp_va = @variable(model)
+                for bus in 1:sys.nb
+                    #tmp = @variable(model)
+                    @constraint(model, -dpinj[bus] <= tmp_p)
+                    @constraint(model,  dpinj[bus] <= tmp_p)
+
+                    @constraint(model, -dvm[bus] <= tmp_vm)
+                    @constraint(model,  dvm[bus] <= tmp_vm)
+
+                    if bus > 1
+                        @constraint(model, -dva[bus-1] <= tmp_va)
+                        @constraint(model,  dva[bus-1] <= tmp_va)
+                    end
+                    # for l1 norm: add_to_expression!(obj, tmp)
+                end
+                obj = tmp_p + tmp_vm + tmp_va
+            else
+                @warn "pf solver objective not recognized!"
+            end
+
+            # set the objective
+            @objective(model, Min, obj)
+
+            # solve
+            optimize!(model)
+
+            # take the norm of dv
+            norm_dv = quasiGrad.norm(value.(dvm))
+            
+            # println("========================================================")
+            println(termination_status(model),". ",primal_status(model),". objective value: ", round(objective_value(model), sigdigits = 5), "dv norm: ", round(norm_dv, sigdigits = 5))
+            # println("========================================================")
+
+            # now, update the state vector with the soluion
+            stt[:vm][tii]        = stt[:vm][tii]        + value.(dvm)
+            stt[:va][tii][2:end] = stt[:va][tii][2:end] + value.(dva)
+
+            # shall we terminate?
+            if (norm_dv < 1e-3) || (pf_cnt == qG.max_linear_pfs)
+                run_pf = false
+            end
+        end
+
+        # apply the updated injections to the devices
+    end
+end
+=#

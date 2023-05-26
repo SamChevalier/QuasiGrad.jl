@@ -51,4 +51,7 @@ const eps_beta   = 1e-6::Float64
 const eps_susd   = 1e-6::Float64
 const d_unit     = 5e-3::Float64
 
+# export?
+export JuMP
+
 end

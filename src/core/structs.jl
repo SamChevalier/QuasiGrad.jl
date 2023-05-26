@@ -29,6 +29,7 @@ mutable struct QG
     eval_grad::Bool
     binary_projection_weight::Float64
     p_on_projection_weight::Float64
+    dev_q_projection_weight::Float64
     print_final_stats::Bool
     FeasibilityTol::Float64
     IntFeasTol::Float64
@@ -71,6 +72,19 @@ mutable struct QG
     pqbal_grad_mod_weight_p::Float64
     pqbal_grad_mod_weight_q::Float64
     pqbal_grad_mod_eps2::Float64
+    compute_pf_injs_with_Jac::Bool
+    max_pf_dx::Float64   
+    max_linear_pfs::Int64
+    max_linear_pfs_total::Int64
+    print_linear_pf_iterations::Bool
+    Gurobi_pf_obj::String
+    initialize_shunt_to_given_value::Bool
+    initialize_vm_to_given_value::Bool
+    include_energy_costs_lbfgs::Bool
+    include_lbfgs_p0_regularization::Bool
+    print_lbfgs_iterations::Bool
+    initial_pf_lbfgs_step::Float64 
+    num_lbfgs_steps::Int64
 end
 
 struct Shunt
@@ -289,6 +303,8 @@ struct Idx
     acline_to_bus::Vector{Int64}
     xfm_fr_bus::Vector{Int64}
     xfm_to_bus::Vector{Int64}
+    dc_fr_bus::Vector{Int64}
+    dc_to_bus::Vector{Int64}
     ac_line_flows::Vector{Int64}
     ac_xfm_flows::Vector{Int64}
     ac_phi::Vector{Int64}
@@ -306,9 +322,18 @@ struct Idx
     pr::Dict{Int64, Vector{Int64}}
     cs::Dict{Int64, Vector{Int64}}
     sh::Dict{Int64, Vector{Int64}}
+    bus_to_pr_not_Jpqe::Dict{Int64, Vector{Int64}}
+    bus_to_cs_not_Jpqe::Dict{Int64, Vector{Int64}}
+    bus_to_pr_and_Jpqe::Dict{Int64, Vector{Int64}}
+    bus_to_cs_and_Jpqe::Dict{Int64, Vector{Int64}}
     shunt_bus::Vector{Int64}
     pr_devs::Vector{Int64}
     cs_devs::Vector{Int64}
+    pr_and_Jpqe::Vector{Int64}
+    cs_and_Jpqe::Vector{Int64}
+    pr_not_Jpqe::Vector{Int64}
+    cs_not_Jpqe::Vector{Int64}
+    device_to_bus::Vector{Int64}
     pr_pzone::Dict{Int64, Vector{Int64}}
     cs_pzone::Dict{Int64, Vector{Int64}}
     dev_pzone::Dict{Int64, Vector{Int64}}
@@ -375,4 +400,6 @@ struct Ntk
     Ybr_ChPr::quasiGrad.Preconditioners.CholeskyPreconditioner{quasiGrad.Preconditioners.LimitedLDLFactorizations.LimitedLDLFactorization{Float64, Int64, Vector{Int64}, Vector{Int64}}} # Any # quasiGrad.Preconditioners.CholeskyPreconditioner{quasiGrad.Preconditioners.LimitedLDLFactorizations.LimitedLDLFactorization{Float64, Int64}}        
     u_k::Dict{Int64, Vector{Float64}} # Dict{Int64, SparseArrays.SparseVector{Float64, Int64}} # Dict{Int64, Vector{Float64}}             
     g_k::Dict{Int64, Float64}
+    Ybus_acline_real::SparseArrays.SparseMatrixCSC{Float64, Int64}
+    Ybus_acline_imag::SparseArrays.SparseMatrixCSC{Float64, Int64}
 end

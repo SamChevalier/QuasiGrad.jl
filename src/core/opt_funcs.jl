@@ -91,6 +91,7 @@ function run_adam_with_plotting!(
         grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, 
         idx::quasiGrad.Idx,
         mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
+        msc::Dict{Symbol, Vector{Float64}},
         ntk::quasiGrad.Ntk,
         plt::Dict{Symbol, Integer},
         prm::quasiGrad.Param,
@@ -147,7 +148,7 @@ function run_adam_with_plotting!(
         beta2_decay = beta2_decay*beta2
 
         # compute all states and grads
-        quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+        quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
 
         # take an adam step
         quasiGrad.adam!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
@@ -172,7 +173,7 @@ function run_adam_with_plotting!(
 
     # one last clip + state computation -- no grad needed!
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+    quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
 
     # turn it back on
     qG.eval_grad = true
@@ -184,9 +185,9 @@ function run_adam!(
         flw::Dict{Symbol, Vector{Float64}},
         grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, 
         idx::quasiGrad.Idx,
-        mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
+        mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}},
+        msc::Dict{Symbol, Vector{Float64}},
         ntk::quasiGrad.Ntk,
-        plt::Dict{Symbol, Integer},
         prm::quasiGrad.Param,
         qG::quasiGrad.QG, 
         scr::Dict{Symbol, Float64},
@@ -214,7 +215,6 @@ function run_adam!(
     # loop over adam steps
     while run_adam
         # increment
-        plt[:global_adm_step] += 1 # for plotting
         adm_step += 1
 
         # what type of step decay should we employ?
@@ -232,7 +232,7 @@ function run_adam!(
         beta2_decay = beta2_decay*beta2
 
         # compute all states and grads
-        quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+        quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
 
         # take an adam step
         quasiGrad.adam!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
@@ -253,13 +253,13 @@ function run_adam!(
 
     # one last clip + state computation -- no grad needed!
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+    quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
 
     # turn it back on
     qG.eval_grad = true
 end
 
-function update_states_and_grads!(cgd::quasiGrad.Cgd, flw::Dict{Symbol, Vector{Float64}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, dz_dpinj_base::Vector{Vector{Float64}}, theta_k_base::Vector{Vector{Float64}}, worst_ctgs::Vector{Vector{Int64}})
+function update_states_and_grads!(cgd::quasiGrad.Cgd, flw::Dict{Symbol, Vector{Float64}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, dz_dpinj_base::Vector{Vector{Float64}}, theta_k_base::Vector{Vector{Float64}}, worst_ctgs::Vector{Vector{Int64}})
     # if we are here, we want to make sure we are running su/sd updates
     qG.run_susd_updates = true
 
@@ -267,7 +267,11 @@ function update_states_and_grads!(cgd::quasiGrad.Cgd, flw::Dict{Symbol, Vector{F
     quasiGrad.flush_gradients!(grd, mgd, prm, sys)
 
     # clip all basic states (i.e., the states which are iterated on)
-    quasiGrad.clip_all!(prm, stt)
+    # => 
+    # println("clipping off!!!")
+    # println("bin_clip is true!")
+    bin_clip = true
+    quasiGrad.clip_all!(bin_clip, prm, stt)
     
     # compute network flows and injections
     quasiGrad.acline_flows!(grd, idx, prm, qG, stt)
@@ -285,7 +289,7 @@ function update_states_and_grads!(cgd::quasiGrad.Cgd, flw::Dict{Symbol, Vector{F
     quasiGrad.device_reserve_costs!(prm, stt)
 
     # now, we can compute the power balances
-    quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
+    quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
 
     # compute reserve margins and penalties (no grads here)
     quasiGrad.reserve_balance!(idx, prm, stt, sys)
@@ -307,7 +311,22 @@ function update_states_and_grads!(cgd::quasiGrad.Cgd, flw::Dict{Symbol, Vector{F
     quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 end
 
-function update_states_and_grads_solve_pf!(dpf0::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, zpf::Dict{Symbol, Dict{Symbol, Float64}})
+function update_states_for_distributed_slack_pf!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+    # in this function, we only update the flow, xfm, and shunt states
+    #
+    # clip voltage
+    # println("clipping off")
+    quasiGrad.clip_voltage!(prm, stt)
+
+    # compute network flows and injections
+    qG.eval_grad = false
+    quasiGrad.acline_flows!(grd, idx, prm, qG, stt)
+    quasiGrad.xfm_flows!(grd, idx, prm, qG, stt)
+    quasiGrad.shunts!(grd, idx, prm, qG, stt)
+    qG.eval_grad = true
+end
+
+function update_states_and_grads_for_solve_pf_lbfgs!(cgd::quasiGrad.Cgd, dpf0::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, zpf::Dict{Symbol, Dict{Symbol, Float64}})
     # in this function, we only update the states and gradients needed
     # to solve a single-time-period ACOPF with lbfgs:
     # 1) flush
@@ -326,7 +345,8 @@ function update_states_and_grads_solve_pf!(dpf0::Dict{Symbol, Dict{Symbol, Vecto
     quasiGrad.flush_gradients!(grd, mgd, prm, sys)
 
     # clip all basic states (i.e., the states which are iterated on)
-    quasiGrad.clip_all!(prm, stt)
+    bin_clip = true
+    quasiGrad.clip_all!(bin_clip, prm, stt)
     
     # compute network flows and injections
     quasiGrad.acline_flows!(grd, idx, prm, qG, stt)
@@ -336,19 +356,25 @@ function update_states_and_grads_solve_pf!(dpf0::Dict{Symbol, Dict{Symbol, Vecto
     # device powers
     quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
     quasiGrad.device_reactive_powers!(idx, prm, stt, sys)
-    # => add this back in? quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
+
+    # include OPF costs? this regularizes/biases the solution
+    if qG.include_energy_costs_lbfgs
+        quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
+    end
 
     # now, we can compute the power balances
-    quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
+    quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
 
     # take quadratic distance and directly take/apply the master gradient
-    quasiGrad.quadratic_distance!(dpf0, mgd, prm, qG, stt)
+    if qG.include_lbfgs_p0_regularization
+        quasiGrad.quadratic_distance!(dpf0, mgd, prm, qG, stt)
+    end
 
     # score
     quasiGrad.score_solve_pf!(prm, stt, zpf)
 
     # compute the master grad
-    quasiGrad.master_grad_solve_pf!(grd, idx, mgd, prm, qG, stt, sys)
+    quasiGrad.master_grad_solve_pf!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 end
 
 function batch_fix!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, pct_round::Float64, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
@@ -385,17 +411,23 @@ function batch_fix!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, pct_round:
 end
 
 # initialize the plot
-function initialize_plot(plt::Dict{Symbol, Integer}, scr::Dict{Symbol, Float64})
+function initialize_plot(cgd::quasiGrad.Cgd, flw::Dict{Symbol, Vector{Float64}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, plt::Dict{Symbol, Integer}, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, dz_dpinj_base::Vector{Vector{Float64}}, theta_k_base::Vector{Vector{Float64}}, worst_ctgs::Vector{Vector{Int64}})
+    # first, make sure scores are updated!
+    qG.eval_grad = false
+    quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+    qG.eval_grad = true
+
+    # now, initialize
     fig = quasiGrad.Makie.Figure(resolution=(1200, 600), fontsize=18) 
     ax  = quasiGrad.Makie.Axis(fig[1, 1], xlabel = "adam iteration", ylabel = "score values (z)", title = "quasiGrad")
     quasiGrad.Makie.xlims!(ax, [1, plt[:N_its]])
 
     # set ylims -- this is tricky, since we use "1000" as zero, so the scale goes,
     # -10^4 -10^3 0 10^3 10^4...
-    min_y     = (-log10(abs(scr[:zms])) - 1.0) + 3.0
+    min_y     = (-log10(abs(scr[:zms]) + 0.1) - 1.0) + 3.0
     min_y_int = ceil(min_y)
 
-    max_y     = (+log10(scr[:ed_obj]) + 0.25) - 3.0
+    max_y     = (+log10(scr[:ed_obj]  + 0.1) + 0.25) - 3.0
     max_y_int = floor(max_y)
 
     # since "1000" is our reference -- see scaling function notes
@@ -723,7 +755,7 @@ function lbfgs!(lbfgs::Dict{Symbol, Vector{Float64}}, lbfgs_diff::Dict{Symbol, V
 end
 
 # lbfgs
-function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, pf_lbfgs_diff::Dict{Symbol, Dict{Symbol, Vector{Vector{Float64}}}}, pf_lbfgs_idx::Vector{Int64}, pf_lbfgs_map::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, pf_lbfgs_step::Dict{Symbol, Dict{Symbol, Float64}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, zpf::Dict{Symbol})
+function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, pf_lbfgs_diff::Dict{Symbol, Dict{Symbol, Vector{Vector{Float64}}}}, pf_lbfgs_idx::Vector{Int64}, pf_lbfgs_map::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, pf_lbfgs_step::Dict{Symbol, Dict{Symbol, Float64}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, zpf::Dict{Symbol})
     # note: pf_lbfgs_idx is a set of ordered indices, where the first is the most
     #       recent step information, and the last is the oldest step information
     #       in the following order: (k-1), (k-2)
@@ -733,9 +765,8 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
         for tii in prm.ts.time_keys
             # states to update
             if var_key in keys(upd)
-                update_subset = upd[var_key][tii]
-                pf_lbfgs[:x_now][tii][pf_lbfgs_map[var_key][tii]]     = copy(stt[var_key][tii][update_subset]) # no update_subset needed on lbfgs side
-                pf_lbfgs[:gradf_now][tii][pf_lbfgs_map[var_key][tii]] = copy(mgd[var_key][tii][update_subset]) # no update_subset needed on lbfgs side
+                pf_lbfgs[:x_now][tii][pf_lbfgs_map[var_key][tii]]     = copy(stt[var_key][tii][upd[var_key][tii]]) # no update_subset needed on lbfgs side
+                pf_lbfgs[:gradf_now][tii][pf_lbfgs_map[var_key][tii]] = copy(mgd[var_key][tii][upd[var_key][tii]]) # no update_subset needed on lbfgs side
             else
                 pf_lbfgs[:x_now][tii][pf_lbfgs_map[var_key][tii]]     = copy(stt[var_key][tii])
                 pf_lbfgs[:gradf_now][tii][pf_lbfgs_map[var_key][tii]] = copy(mgd[var_key][tii])
@@ -756,10 +787,9 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
             for tii in prm.ts.time_keys
                 # states to update
                 if var_key in keys(upd)
-                    update_subset = upd[var_key][tii]
-                    stt[var_key][tii][update_subset] = pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key][tii]] # no update_subset needed
+                    stt[var_key][tii][upd[var_key][tii]] = pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key][tii]] # no update_subset needed
                 else
-                    stt[var_key][tii]                = pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key][tii]]
+                    stt[var_key][tii]                    = pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key][tii]]
                 end
             end
         end
@@ -773,11 +803,12 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
     else
         # we solve pf at each instant, so loop over all time!
         for tii in prm.ts.time_keys
+
             # udpdate the state difference
             idx_km1 = pf_lbfgs_idx[1]
             pf_lbfgs_diff[:s][tii][idx_km1] = pf_lbfgs[:x_now][tii]     - pf_lbfgs[:x_prev][tii]
             pf_lbfgs_diff[:y][tii][idx_km1] = pf_lbfgs[:gradf_now][tii] - pf_lbfgs[:gradf_prev][tii]
-            pf_lbfgs[:rho][tii][idx_km1]    = 1.0/(quasiGrad.dot(pf_lbfgs_diff[:s][tii][idx_km1],pf_lbfgs_diff[:y][tii][idx_km1]))
+            pf_lbfgs[:rho][tii][idx_km1]    = 1.0/(quasiGrad.dot(pf_lbfgs_diff[:s][tii][idx_km1], pf_lbfgs_diff[:y][tii][idx_km1]))
 
             # now, double-loop and compute lbfgs values
             q = copy(pf_lbfgs[:gradf_now][tii])
@@ -795,9 +826,10 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
                 r += pf_lbfgs_diff[:s][tii][ii]*(pf_lbfgs[:alpha][tii][ii] - pf_lbfgs[:rho][tii][ii]*quasiGrad.dot(pf_lbfgs_diff[:y][tii][ii], r))
             end
 
+            # step size: let adam control?
             if sum(pf_lbfgs_idx) == 1
-                # this is the first step, so just use 0.15
-                pf_lbfgs_step[:step][tii] = 0.10
+                # this is the first step, so just use qG.initial_pf_lbfgs_step (about ~0.1)
+                pf_lbfgs_step[:step][tii] = qG.initial_pf_lbfgs_step
             else
                 # decay beta
                 pf_lbfgs_step[:beta1_decay][tii] = pf_lbfgs_step[:beta1_decay][tii]*qG.beta1
@@ -821,10 +853,9 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
             for tii in prm.ts.time_keys
                 # states to update
                 if var_key in keys(upd)
-                    update_subset = upd[var_key][tii]
-                    stt[var_key][tii][update_subset] = pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key][tii]] # no update_subset needed
+                    stt[var_key][tii][upd[var_key][tii]] = copy(pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key][tii]]) # no update_subset needed
                 else
-                    stt[var_key][tii]                = pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key][tii]]
+                    stt[var_key][tii]                    = copy(pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key][tii]])
                 end
             end
         end
@@ -863,10 +894,632 @@ function quadratic_distance!(dpf0::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
     for tii in prm.ts.time_keys
         # grab the distance between p_on and its initial value -- this is something we 
         # minimize, so the regularization function is positive valued
-        zdist      =   qG.cdist_psolve*(stt[:p_on][tii] - dpf0[:p_on][tii]).^2
+        # => value not needed: zdist      =   qG.cdist_psolve*(stt[:p_on][tii] - dpf0[:p_on][tii]).^2
         zdist_grad = 2*qG.cdist_psolve*(stt[:p_on][tii] - dpf0[:p_on][tii])
 
         # now, apply the gradients directly (no need to use dp_alpha!())
         mgd[:p_on][tii] .+= zdist_grad
     end
-end 
+end
+
+function build_acpf_Jac_and_pq0(msc::Dict{Symbol, Vector{Float64}}, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol, Ybus_real::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, Ybus_imag::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64})
+
+    # build the admittance structure
+    NY  = [Ybus_real -Ybus_imag;
+          -Ybus_imag -Ybus_real]
+
+    # complex voltage
+    cva = cos.(stt[:va][tii])
+    sva = sin.(stt[:va][tii])
+    vr  = stt[:vm][tii].*cva
+    vi  = stt[:vm][tii].*sva
+
+    # complex current:
+    # ic = Yc*vc = (Ycr + j*Yci) * (vr + j*vi)
+    # Ir = Ycr*vr - Yci*vi
+    # Ii = Yci*vr + Ycr*vi
+    Ir = Ybus_real*vr - Ybus_imag*vi
+    Ii = Ybus_imag*vr + Ybus_real*vi
+
+    # Populate MI
+    MIr = quasiGrad.spdiagm(sys.nb, sys.nb, Ir)
+    MIi = quasiGrad.spdiagm(sys.nb, sys.nb, Ii)
+    MI  = [MIr  MIi;
+          -MIi  MIr]
+
+    # Populate MV
+    MVr = quasiGrad.spdiagm(sys.nb, sys.nb, vr)
+    MVi = quasiGrad.spdiagm(sys.nb, sys.nb, vi)
+    MV  = [MVr -MVi;
+           MVi  MVr]
+
+    # Populate RV
+    RV = [quasiGrad.spdiagm(sys.nb, sys.nb, cva)  quasiGrad.spdiagm(sys.nb, sys.nb,-vi); 
+          quasiGrad.spdiagm(sys.nb, sys.nb, sva)  quasiGrad.spdiagm(sys.nb, sys.nb,vr)];
+
+    # build full Jacobian
+    Jac = (MI + MV*NY)*RV
+
+    # also compute injections?
+    if qG.compute_pf_injs_with_Jac
+        # complex coordinates -- don't actually do this :)
+        # => Yb = Ybus_real + im*Ybus_imag
+        # => vc = stt[:vm][tii].*(exp.(im*stt[:va][tii]))
+        # => ic = Yb*vc
+        # => sc = vc.*conj.(ic)
+        # => pinj = real(sc)
+        # => qinj = imag(sc)
+        msc[:pinj0] = (vr.*Ir + vi.*Ii)
+        msc[:qinj0] = (vi.*Ir - vr.*Ii)
+    end
+
+    # Output
+    return Jac
+end
+
+# solve power flow
+function newton_power_flow(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, KP::Float64, pi_p::Vector{Float64}, prm::quasiGrad.Param, PQidx::Vector{Int64}, qG::quasiGrad.QG, residual::Vector{Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol, Ybus_real::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, Ybus_imag::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64})
+    # initialize
+    run_pf = true
+
+    # ============
+    @warn "This function doesn't work -- but it can be easily updated if we want it to."
+
+    # start with all buses as PV if they have Q capacity
+    buses = 1:sys.nb
+    # => alternative: PQidx  = buses[isapprox.(qub,qlb,atol=1e-6) || isapprox.(qub,Qinj,atol=1e-6) || isapprox.(qlb,Qinj,atol=1e-6)]
+    PVidx  = setdiff(buses, PQidx)
+    nPQ    = length(PQidx)
+    residual_idx = [buses;           # => P
+                   sys.nb .+ PQidx]  # => Q
+    # note => ref = 1, but it is a PV bus :)
+
+    # keep running?
+    while run_pf == true
+        #
+        # build the state
+        x = [stt[:vm][tii]; stt[:va][tii][2:end]]
+        
+        # loop over each bus and compute the residual
+        quasiGrad.power_flow_residual!(idx, residual, stt, sys, tii)
+
+        # test the residual for termination
+        if quasiGrad.norm(residual[residual_idx]) < 1e-5
+            run_pf = false
+        else
+            println("residual:")
+            println(quasiGrad.norm(residual[residual_idx]))
+            sleep(0.75)
+
+            # update the Jacobian
+            Jac = quasiGrad.build_acpf_Jac(stt, sys, tii, Ybus_real, Ybus_imag)
+
+            # take a Newton step -- do NOT put the step scaler inside the parantheses
+            x = x - (Jac\residual[residual_idx])
+
+            # update the state
+            stt[:vm][tii][PQidx] = x[1:nPQ]
+            stt[:va][tii][2:end] = x[(nPQ+2):end]
+
+            # update the flows and residual and such
+            quasiGrad.update_states_for_pf!(grd, idx, prm, qG, stt)
+        end
+    end
+end
+
+function power_flow_residual!(idx::quasiGrad.Idx, residual::Vector{Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
+    # loop over each bus and compute the residual
+    for bus in 1:sys.nb
+        # active power balance: stt[:pb][:slack][tii][bus] to record with time
+        residual[bus] = 
+            # consumers (positive)
+            sum(stt[:dev_p][tii][idx.cs[bus]]; init=0.0) +
+            # shunt
+            sum(stt[:sh_p][tii][idx.sh[bus]]; init=0.0) +
+            # acline
+            sum(stt[:acline_pfr][tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
+            sum(stt[:acline_pto][tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
+            # xfm
+            sum(stt[:xfm_pfr][tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
+            sum(stt[:xfm_pto][tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
+            # dcline
+            sum(stt[:dc_pfr][tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
+            sum(stt[:dc_pto][tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
+            # producer (negative)
+            -sum(stt[:dev_p][tii][idx.pr[bus]]; init=0.0)
+    
+        # reactive power balance
+        residual[sys.nb + bus] = 
+            # consumers (positive)
+            sum(stt[:dev_q][tii][idx.cs[bus]]; init=0.0) +
+            # shunt
+            sum(stt[:sh_q][tii][idx.sh[bus]]; init=0.0) +
+            # acline
+            sum(stt[:acline_qfr][tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
+            sum(stt[:acline_qto][tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
+            # xfm
+            sum(stt[:xfm_qfr][tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
+            sum(stt[:xfm_qto][tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
+            # dcline
+            sum(stt[:dc_qfr][tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
+            sum(stt[:dc_qto][tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
+            # producer (negative)
+            -sum(stt[:dev_q][tii][idx.pr[bus]]; init=0.0)
+    end
+end
+
+function solve_power_flow!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param,qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
+    # 1. fire up lbfgs, as controlled by adam, WITH regularization + OPF
+    # 2. after a short period, use Gurobi to solve successive power flows
+    # 3. pass solution back to lbfgs to clean up, WITHOUT regularization + OPF -- not needed yet
+    #
+    # step 1: intialize lbfgs =======================================
+    dpf0, pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, zpf = quasiGrad.initialize_pf_lbfgs(mgd, prm, stt, sys, upd);
+
+    # turn on extra influence
+    qG.include_energy_costs_lbfgs      = true
+    qG.include_lbfgs_p0_regularization = true
+
+    # set the loss function to quadratic -- low gradient factor
+    qG.pqbal_grad_mod_type = "quadratic_for_lbfgs"
+
+    # loop -- lbfgs
+    init_pf   = true
+    run_lbfgs = true
+    lbfgs_cnt = 0
+    zt0       = 0.0
+
+    # initialize: compute all states and grads
+    quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+
+    # loop -- lbfgs
+    while run_lbfgs == true
+        # take an lbfgs step
+        quasiGrad.solve_pf_lbfgs!(pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, mgd, prm, qG, stt, upd, zpf)
+
+        # save zpf BEFORE updating with the new state -- don't track bias terms
+        for tii in prm.ts.time_keys
+            pf_lbfgs_step[:zpf_prev][tii] = (zpf[:zp][tii]+zpf[:zq][tii]) 
+        end
+
+        # compute all states and grads
+        quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+
+        # store the first value
+        zp = sum(sum([zpf[:zp][tii] for tii in prm.ts.time_keys]))
+        zq = sum(sum([zpf[:zq][tii] for tii in prm.ts.time_keys]))
+        zt = zp + zq
+        if init_pf == true
+            zt0 = copy(zt)
+            init_pf = false
+        end
+
+        # print
+        if qG.print_lbfgs_iterations == true
+            ztr = round(zt; sigdigits = 3)
+            zpr = round(zp; sigdigits = 3)
+            zqr = round(zq; sigdigits = 3)
+            stp = round(sum(pf_lbfgs_step[:step][tii] for tii in prm.ts.time_keys)/sys.nT; sigdigits = 3)
+            println("Total: $(ztr), P penalty: $(zpr), Q penalty: $(zqr), avg adam step: $(stp)!")
+        end
+
+        # increment
+        lbfgs_cnt += 1
+
+        # quit if the error gets too large relative to the first one
+        if (lbfgs_cnt > qG.num_lbfgs_steps) || (zt > 5.0*zt0)
+            run_lbfgs = false
+        end
+    end
+
+    # step 2: Gurobi linear solve (projection)
+    quasiGrad.solve_linear_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
+
+    # step 3: clean up without regularization/OPF influence (?)
+    # => qG.include_energy_costs_lbfgs      = true
+    # => qG.include_lbfgs_p0_regularization = true
+
+    # change the gradient type back
+    qG.pqbal_grad_mod_type = "soft_abs"
+end
+
+# compute ideal dispatch
+function ideal_dispatch!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
+    # here, we compute the "ideal" dipatch point (after a few steps of LBFGS)
+    #
+    # pinj = p_pr - p_cs - p_dc
+    #
+    # loop over each bus
+    for bus in 1:sys.nb
+        msc[:pinj_ideal][bus] = 
+            # consumers (positive)
+            -sum(stt[:dev_p][tii][idx.cs[bus]]; init=0.0) +
+            # dcline
+            -sum(stt[:dc_pfr][tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
+            -sum(stt[:dc_pto][tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
+            # producer (negative)
+            sum(stt[:dev_p][tii][idx.pr[bus]]; init=0.0)
+    end
+end
+
+# solve power flow (to some degree of accuracy)
+function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+    # ask Gurobi to solve a linearize power flow. two options here:
+    #   1) define device variables which are bounded, and then insert them into the power balance expression
+    #   2) just define power balance bounds based on device characteristics, and then, at the end, optimally
+    #      dispatch the devices via updating.
+    # 
+    # I am pretty sure 1) is slower, but it is (1) safer, (2) simpler, and (3) more flexible -- and it will
+    # require less trouble-shooting. Plus, it will be easy to update/improve in the future! Go with it.
+    #
+    #
+    # here is power balance:
+    #
+    # p_pr - p_cs - pdc = p_lines/xfm/shunt => this is typical.
+    #
+    # vm0 = stt[:vm][tii]
+    # va0 = stt[:va][tii][2:end-1]
+    #
+    # bias point: msc[:pinj0, qinj0] === Y * stt[:vm, va]
+    qG.Gurobi_pf_obj            = "min_dispatch_distance"
+    qG.compute_pf_injs_with_Jac = true
+
+    # build and empty the model!
+    model = Model(Gurobi.Optimizer)
+    @info "Running lineaized power flow across $(sys.nT) time periods."
+
+    # loop over time
+    for (t_ind, tii) in enumerate(prm.ts.time_keys)
+
+        # initialize
+        run_pf    = true
+        pf_cnt    = 0  # successes
+        total_pfs = 0  # successes AND fails
+
+        # set a q_margin and a v_margin to make convergence easier (0.0 is nominal)
+        first_fail = true
+        q_margin   = 0.0
+        v_margin   = 0.0
+
+        # 1. update the ideal dispatch point (active power) -- we do this just once
+        quasiGrad.ideal_dispatch!(idx, msc, stt, sys, tii)
+
+        # 2. update y_bus and Jacobian and bias point -- this
+        #    only needs to be done once per time, since xfm/shunt
+        #    values are not changing between iterations
+        Ybus_real, Ybus_imag = quasiGrad.update_Ybus(idx, ntk, prm, stt, sys, tii)
+
+        # loop over pf solves
+        while run_pf == true
+
+            # safety margins should NEVER be 0
+            q_margin = max(q_margin, 0.0)
+            v_margin = max(v_margin, 0.0)
+
+            # increment
+            total_pfs += 1
+            pf_cnt    += 1
+
+            # first, rebuild the jacobian, and update the
+            # base points: msc[:pinj0], msc[:qinj0]
+            Jac = quasiGrad.build_acpf_Jac_and_pq0(msc, qG, stt, sys, tii, Ybus_real, Ybus_imag);
+            
+            # quiet down!!!
+            empty!(model)
+            set_silent(model)
+
+            # define the variables (single time index)
+            @variable(model, x_in[1:(2*sys.nb - 1)])
+            set_start_value.(x_in, [stt[:vm][tii]; stt[:va][tii][2:end]])
+
+            # assign
+            dvm   = x_in[1:sys.nb]
+            dva   = x_in[(sys.nb+1):end]
+
+            # note:
+            # vm   = vm0   + dvm
+            # va   = va0   + dva
+            # pinj = pinj0 + dpinj
+            # qinj = qinj0 + dqinj
+            #
+            # key equation:
+            #                       dPQ .== Jac*dVT
+            #                       dPQ + basePQ(v) = devicePQ
+            #
+            #                       Jac*dVT + basePQ(v) == devicePQ
+            #
+            # so, we don't actually need to model dPQ explicitly (cool)
+            #
+            # so, the optimizer asks, how shall we tune dVT in order to produce a power perurbation
+            # which, when added to the base point, lives inside the feasible device region?
+            #
+            # based on the result, we only have to actually update the device set points on the very
+            # last power flow iteration, where we have converged.
+
+            # now, model all nodal injections from the device/dc line side, all put in nodal_p/q
+            nodal_p = Vector{AffExpr}(undef, sys.nb)
+            nodal_q = Vector{AffExpr}(undef, sys.nb)
+            for bus in 1:sys.nb
+                # now, we need to loop and set the affine expressions to 0, and then add powers
+                #   -> see: https://jump.dev/JuMP.jl/stable/manual/expressions/
+                nodal_p[bus] = AffExpr(0.0)
+                nodal_q[bus] = AffExpr(0.0)
+            end
+
+            # create a flow variable for each dc line and sum these into the nodal vectors
+            if sys.nldc == 0
+                # nothing to see here
+            else
+
+                # define dc variables
+                @variable(model, pdc_vars[1:sys.nldc])    # oriented so that fr = + !!
+                @variable(model, qdc_fr_vars[1:sys.nldc])
+                @variable(model, qdc_to_vars[1:sys.nldc])
+
+                set_start_value.(pdc_vars, stt[:dc_pfr][tii])
+                set_start_value.(qdc_fr_vars, stt[:dc_qfr][tii])
+                set_start_value.(qdc_to_vars, stt[:dc_qto][tii])
+
+                # bound dc power
+                @constraint(model, -prm.dc.pdc_ub    .<= pdc_vars    .<= prm.dc.pdc_ub)
+                @constraint(model,  prm.dc.qdc_fr_lb .<= qdc_fr_vars .<= prm.dc.qdc_fr_ub)
+                @constraint(model,  prm.dc.qdc_to_lb .<= qdc_to_vars .<= prm.dc.qdc_to_ub)
+
+                # loop and add to the nodal injection vectors
+                for dcl in 1:sys.nldc
+                    add_to_expression!(nodal_p[idx.dc_fr_bus[dcl]], -pdc_vars[dcl])
+                    add_to_expression!(nodal_p[idx.dc_to_bus[dcl]], +pdc_vars[dcl])
+                    add_to_expression!(nodal_q[idx.dc_fr_bus[dcl]], -qdc_fr_vars[dcl])
+                    add_to_expression!(nodal_q[idx.dc_to_bus[dcl]], -qdc_to_vars[dcl])
+                end
+            end
+            
+            # next, deal with devices
+            @variable(model, dev_p_vars[1:sys.ndev])
+            @variable(model, dev_q_vars[1:sys.ndev])
+  
+            set_start_value.(dev_p_vars, stt[:dev_p][tii])
+            set_start_value.(dev_q_vars, stt[:dev_q][tii])
+
+            # call the bounds
+            dev_plb = stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind)
+            dev_pub = stt[:u_on_dev][tii].*getindex.(prm.dev.p_ub,t_ind)
+            dev_qlb = stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind)
+            dev_qub = stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind)
+
+            # first, define p_on at this time
+            # => p_on = dev_p_vars - stt[:p_su][tii] - stt[:p_sd][tii]
+
+            # bound
+            @constraint(model, dev_plb + stt[:p_su][tii] + stt[:p_sd][tii] .<= dev_p_vars .<= dev_pub + stt[:p_su][tii] + stt[:p_sd][tii])
+            # alternative: => @constraint(model, dev_plb .<= dev_p_vars - stt[:p_su][tii] - stt[:p_sd][tii] .<= dev_pub)
+            @constraint(model, (dev_qlb .- q_margin) .<= dev_q_vars .<= (dev_qub .+ q_margin))
+
+
+            # apply additional bounds: J_pqe (equality constraints)
+            if ~isempty(idx.J_pqe)
+                @constraint(model, dev_q_vars[idx.J_pqe] - prm.dev.beta[idx.J_pqe]*dev_p_vars[idx.J_pqe] .== prm.dev.q_0[idx.J_pqe]*stt[:u_sum][tii][idx.J_pqe])
+                # alternative: @constraint(model, dev_q_vars[idx.J_pqe] .== prm.dev.q_0[idx.J_pqe]*stt[:u_sum][tii][idx.J_pqe] + prm.dev.beta[idx.J_pqe]*dev_p_vars[idx.J_pqe])
+            end
+
+            # apply additional bounds: J_pqmin/max (inequality constraints)
+            #
+            # note: when the reserve products are negelected, pr and cs constraints are the same
+            #   remember: idx.J_pqmax == idx.J_pqmin
+            if ~isempty(idx.J_pqmax)
+                @constraint(model, dev_q_vars[idx.J_pqmax] .<= prm.dev.q_0_ub[idx.J_pqmax]*stt[:u_sum][tii][idx.J_pqmax] + prm.dev.beta_ub[idx.J_pqmax]*dev_p_vars[idx.J_pqmax])
+                @constraint(model, prm.dev.q_0_lb[idx.J_pqmax]*stt[:u_sum][tii][idx.J_pqmax] + prm.dev.beta_lb[idx.J_pqmax]*dev_p_vars[idx.J_pqmax] .<= dev_q_vars[idx.J_pqmax])
+            end
+
+            # great, now just update the nodal injection vectors
+            for dev in 1:sys.ndev
+                if dev in idx.pr_devs
+                    # producers
+                    add_to_expression!(nodal_p[idx.device_to_bus[dev]], dev_p_vars[dev])
+                    add_to_expression!(nodal_q[idx.device_to_bus[dev]], dev_q_vars[dev])
+                else
+                    # consumers
+                    add_to_expression!(nodal_p[idx.device_to_bus[dev]], -dev_p_vars[dev])
+                    add_to_expression!(nodal_q[idx.device_to_bus[dev]], -dev_q_vars[dev])
+                end
+            end
+
+            # bound system variables ==============================================
+            #
+            # bound variables -- voltage
+            @constraint(model, (prm.bus.vm_lb .- v_margin) - stt[:vm][tii] .<= dvm .<= (prm.bus.vm_ub .+ v_margin) - stt[:vm][tii])
+            # alternative: => @constraint(model, prm.bus.vm_lb .<= stt[:vm][tii] + dvm .<= prm.bus.vm_ub)
+
+            # mapping
+            JacP_noref = @view Jac[1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
+            JacQ_noref = @view Jac[(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
+
+            # balance p and q
+            #= this is slightly faster:
+            add_to_expression!.(nodal_p, -msc[:pinj0])
+            add_to_expression!.(nodal_q, -msc[:qinj0])
+            # constrain
+            @constraint(model, JacP_noref*x_in .== nodal_p)
+            @constraint(model, JacQ_noref*x_in .== nodal_q)
+            # remove these values!
+            add_to_expression!.(nodal_p, msc[:pinj0])
+            add_to_expression!.(nodal_q, msc[:qinj0])
+            =#
+            
+            # alternative: => @constraint(model, JacP_noref*x_in + msc[:pinj0] .== nodal_p)
+            # alternative: => @constraint(model, JacQ_noref*x_in + msc[:qinj0] .== nodal_q)
+            @constraint(model, JacP_noref*x_in + msc[:pinj0] .== nodal_p)
+            @constraint(model, JacQ_noref*x_in + msc[:qinj0] .== nodal_q)
+
+            # objective: hold p (and v?) close to its initial value
+            # => || msc[:pinj_ideal] - (p0 + dp) || + regularization
+            if qG.Gurobi_pf_obj == "min_dispatch_distance"
+                # this finds a solution close to the dispatch point -- does not converge without v,a regularization
+                obj    = AffExpr(0.0)
+                tmp_vm = @variable(model)
+                tmp_va = @variable(model)
+                for bus in 1:sys.nb
+                    tmp = @variable(model)
+                    # => @constraint(model, msc[:pinj_ideal][bus] - nodal_p[bus] <= tmp)
+                    # => @constraint(model, nodal_p[bus] - msc[:pinj_ideal][bus] <= tmp)
+                    #
+                    @constraint(model, msc[:pinj_ideal][bus] - nodal_p[bus] <= tmp)
+                    @constraint(model, nodal_p[bus] - msc[:pinj_ideal][bus] <= tmp)
+                    # slightly faster:
+                    #=
+                    add_to_expression!(nodal_p[bus], -msc[:pinj_ideal][bus])
+                    @constraint(model,  nodal_p[bus] <= tmp)
+                    @constraint(model, -nodal_p[bus] <= tmp)
+                    add_to_expression!(obj, tmp)
+                    =#
+
+                    # voltage regularization
+                    @constraint(model, -dvm[bus] <= tmp_vm)
+                    @constraint(model,  dvm[bus] <= tmp_vm)
+
+                    # phase regularization
+                    if bus > 1
+                        @constraint(model, -dva[bus-1] <= tmp_va)
+                        @constraint(model,  dva[bus-1] <= tmp_va)
+                    end
+                end
+
+                # this adds light regularization and causes convergence
+                add_to_expression!(obj, tmp_vm)
+                add_to_expression!(obj, tmp_va)
+
+            elseif qG.Gurobi_pf_obj == "min_dispatch_perturbation"
+                # this finds a solution with minimum movement -- not really needed
+                # now that "min_dispatch_distance" converges
+                tmp_p  = @variable(model)
+                tmp_vm = @variable(model)
+                tmp_va = @variable(model)
+                for bus in 1:sys.nb
+                    #tmp = @variable(model)
+                    @constraint(model, -JacP_noref[bus,:]*x_in <= tmp_p)
+                    @constraint(model,  JacP_noref[bus,:]*x_in <= tmp_p)
+
+                    @constraint(model, -dvm[bus] <= tmp_vm)
+                    @constraint(model,  dvm[bus] <= tmp_vm)
+
+                    if bus > 1
+                        @constraint(model, -dva[bus-1] <= tmp_va)
+                        @constraint(model,  dva[bus-1] <= tmp_va)
+                    end
+                    # for l1 norm: add_to_expression!(obj, tmp)
+                end
+                obj = tmp_p + tmp_vm + tmp_va
+            else
+                @warn "pf solver objective not recognized!"
+            end
+
+            # set the objective
+            @objective(model, Min, obj)
+
+            # solve
+            optimize!(model)
+
+            # test solution!
+            soln_valid = solution_status(model::quasiGrad.Model)
+
+            # if we have reached our max number of tries, jjsut quit after this
+            if total_pfs == qG.max_linear_pfs_total
+                run_pf = false
+            end
+
+            # test validity
+            if soln_valid == true
+                # no matter what, we update the voltage soluion
+                stt[:vm][tii]        = stt[:vm][tii]        + value.(dvm)
+                stt[:va][tii][2:end] = stt[:va][tii][2:end] + value.(dva)
+
+                if q_margin > 0.0
+                    # Let's update the margins, but this isn't a valid (marginless) solution yet..
+                    if (v_margin > 0.0)
+                        # in this case, let's try again, but without voltage support
+                        v_margin = 0.0
+                        q_margin = 0.01
+                    else
+                        q_margin = 0.01
+                    end
+                else
+                    # valid solution, and no margins needed!
+                    #
+                    # take the norm of dv
+                    max_dx = maximum(value.(x_in))
+                    
+                    # println("========================================================")
+                    if qG.print_linear_pf_iterations == true
+                        println(termination_status(model),". ",primal_status(model),". objective value: ", round(objective_value(model), sigdigits = 5), ". max dx: ", round(max_dx, sigdigits = 5))
+                    end
+                    # println("========================================================")
+                    #
+                    # shall we terminate?
+                    if (maximum(value.(x_in)) < qG.max_pf_dx) || (pf_cnt == qG.max_linear_pfs)
+                        run_pf = false
+
+                        # now, apply the updated injections to the devices
+                        stt[:dev_p][tii]  = value.(dev_p_vars)
+                        stt[:p_on][tii]   = stt[:dev_p][tii] - stt[:p_su][tii] - stt[:p_sd][tii]
+                        stt[:dev_q][tii]  = value.(dev_q_vars)
+                        if sys.nldc > 0
+                            stt[:dc_pfr][tii] =  value.(pdc_vars)
+                            stt[:dc_pto][tii] = -value.(pdc_vars)  # also, performed in clipping
+                            stt[:dc_qfr][tii] = value.(qdc_fr_vars)
+                            stt[:dc_qto][tii] = value.(qdc_to_vars)
+                        end
+                    end
+                end
+            else
+                # the solution is NOT valid, so we should increase bounds and try again
+                if first_fail == true
+                    first_fail = false
+                    q_margin = 0.01
+                else
+                    q_margin += 0.025
+                    v_margin += 0.001
+                end
+            end
+        end
+    end
+end
+
+# test solution soln_status
+function solution_status(model::quasiGrad.Model)
+    # to get all potential statuses, call: typeof(termination_status(model))
+    # 
+    #   OPTIMIZE_NOT_CALLED = 0
+    #   OPTIMAL = 1
+    #   INFEASIBLE = 2
+    #   DUAL_INFEASIBLE = 3
+    #   LOCALLY_SOLVED = 4
+    #   LOCALLY_INFEASIBLE = 5
+    #   INFEASIBLE_OR_UNBOUNDED = 6
+    #   ALMOST_OPTIMAL = 7
+    #   ALMOST_INFEASIBLE = 8
+    #   ALMOST_DUAL_INFEASIBLE = 9
+    #   ALMOST_LOCALLY_SOLVED = 10
+    #   ITERATION_LIMIT = 11
+    #   TIME_LIMIT = 12
+    #   NODE_LIMIT = 13
+    #   SOLUTION_LIMIT = 14
+    #   MEMORY_LIMIT = 15
+    #   OBJECTIVE_LIMIT = 16
+    #   NORM_LIMIT = 17
+    #   OTHER_LIMIT = 18
+    #   SLOW_PROGRESS = 19
+    #   NUMERICAL_ERROR = 20
+    #   INVALID_MODEL = 21
+    #   INVALID_OPTION = 22
+    #   INTERRUPTED = 23
+    #   OTHER_ERROR = 24
+    soln_status = Int(termination_status(model))
+    if soln_status in [1, 4, 7] # optimal, locally solved, or almost optimal
+        soln_valid = true
+    else
+        soln_valid = false
+    end
+
+    # output
+    return soln_valid
+end

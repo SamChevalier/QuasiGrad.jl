@@ -13,8 +13,8 @@ file_name = "scenario_002_zen_min_mod.json"
 jsn = quasiGrad.load_json(data_path*file_name);
 
 # %% initialize
-adm, cgd, GRB, grd, idx, mgd, ntk, prm, qG, scr, stt, 
-sys, upd, flw, dz_dpinj_base, theta_k_base, worst_ctgs = 
+adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, 
+sys, upd, dz_dpinj_base, theta_k_base, worst_ctgs = 
     quasiGrad.base_initialization(jsn, true, 0.25);
 
 # compute states

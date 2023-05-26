@@ -41,7 +41,7 @@ function acline_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float6
         stt[:acline_pfr][tii] = u_on_lines.*pfr
         
         # reactive power flow -- from -> to
-        qfr = (-b_sr-b_fr-b_ch/2).*vff + (b_sr.*cos_ftp - g_sr.*sin_ftp).*vft
+        qfr = (-b_sr-b_fr-b_ch/2.0).*vff + (b_sr.*cos_ftp - g_sr.*sin_ftp).*vft
         stt[:acline_qfr][tii] = u_on_lines.*qfr
         
         # apparent power flow -- to -> from
@@ -52,7 +52,7 @@ function acline_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float6
         stt[:acline_pto][tii] = u_on_lines.*pto
         
         # reactive power flow -- to -> from
-        qto = (-b_sr-b_to-b_ch/2).*vtt + (b_sr.*cos_ftp + g_sr.*sin_ftp).*vft
+        qto = (-b_sr-b_to-b_ch/2.0).*vtt + (b_sr.*cos_ftp + g_sr.*sin_ftp).*vft
         stt[:acline_qto][tii] = u_on_lines.*qto
 
         # apparent power flow -- to -> from
@@ -69,7 +69,7 @@ function acline_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float6
         # evaluate the grd?
         if qG.eval_grad
             # Gradients: active power flow -- from -> to
-            grd[:acline_pfr][:vmfr][tii] = u_on_lines.*(2*(g_sr+g_fr).*vm_fr + 
+            grd[:acline_pfr][:vmfr][tii] = u_on_lines.*(2.0*(g_sr+g_fr).*vm_fr + 
                     (-g_sr.*cos_ftp - b_sr.*sin_ftp).*vm_to)
             grd[:acline_pfr][:vmto][tii] = u_on_lines.*(
                     (-g_sr.*cos_ftp - b_sr.*sin_ftp).*vm_fr)
@@ -80,7 +80,7 @@ function acline_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float6
             grd[:acline_pfr][:uon][tii] = pfr   
             # ====================================================== #
             # Gradients: reactive power flow -- from -> to
-            grd[:acline_qfr][:vmfr][tii] = u_on_lines.*(2*(-b_sr-b_fr-b_ch/2).*vm_fr +
+            grd[:acline_qfr][:vmfr][tii] = u_on_lines.*(2.0*(-b_sr-b_fr-b_ch/2.0).*vm_fr +
                     (b_sr.*cos_ftp - g_sr.*sin_ftp).*vm_to)
             grd[:acline_qfr][:vmto][tii] = u_on_lines.*(
                     (b_sr.*cos_ftp - g_sr.*sin_ftp).*vm_fr)
@@ -96,7 +96,7 @@ function acline_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float6
             # Gradients: active power flow -- to -> from
             grd[:acline_pto][:vmfr][tii] = u_on_lines.*( 
                     (-g_sr.*cos_ftp + b_sr.*sin_ftp).*vm_to)
-            grd[:acline_pto][:vmto][tii] = u_on_lines.*(2*(g_sr+g_to).*vm_to +
+            grd[:acline_pto][:vmto][tii] = u_on_lines.*(2.0*(g_sr+g_to).*vm_to +
                     (-g_sr.*cos_ftp + b_sr.*sin_ftp).*vm_fr)
             grd[:acline_pto][:vafr][tii] = u_on_lines.*(
                     (g_sr.*sin_ftp + b_sr.*cos_ftp).*vft)
@@ -107,7 +107,7 @@ function acline_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float6
             # Gradients: reactive power flow -- to -> from
             grd[:acline_qto][:vmfr][tii] = u_on_lines.*(
                     (b_sr.*cos_ftp + g_sr.*sin_ftp).*vm_to)
-            grd[:acline_qto][:vmto][tii] = u_on_lines.*(2*(-b_sr-b_to-b_ch/2).*vm_to +
+            grd[:acline_qto][:vmto][tii] = u_on_lines.*(2.0*(-b_sr-b_to-b_ch/2.0).*vm_to +
                     (b_sr.*cos_ftp + g_sr.*sin_ftp).*vm_fr)
             grd[:acline_qto][:vafr][tii] = u_on_lines.*(
                     (-b_sr.*sin_ftp + g_sr.*cos_ftp).*vft)
@@ -201,7 +201,7 @@ function xfm_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}
         stt[:xfm_pfr][tii] = u_on_xfm.*pfr
         
         # reactive power flow -- from -> to
-        qfr = (-b_sr-b_fr-b_ch/2).*vff_tau2 + (b_sr.*cos_ftp - g_sr.*sin_ftp).*vft_tau
+        qfr = (-b_sr-b_fr-b_ch/2.0).*vff_tau2 + (b_sr.*cos_ftp - g_sr.*sin_ftp).*vft_tau
         stt[:xfm_qfr][tii] = u_on_xfm.*qfr
         
         # apparent power flow -- from -> to
@@ -212,7 +212,7 @@ function xfm_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}
         stt[:xfm_pto][tii] = u_on_xfm.*pto
         
         # reactive power flow -- to -> from
-        qto = (-b_sr-b_to-b_ch/2).*vtt + (b_sr.*cos_ftp + g_sr.*sin_ftp).*vft_tau
+        qto = (-b_sr-b_to-b_ch/2.0).*vtt + (b_sr.*cos_ftp + g_sr.*sin_ftp).*vft_tau
         stt[:xfm_qto][tii] = u_on_xfm.*qto
         
         # apparent power flow -- to -> from
@@ -229,7 +229,7 @@ function xfm_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}
         # evaluate the grd?
         if qG.eval_grad     
             # Gradients: active power flow -- from -> to
-            grd[:xfm_pfr][:vmfr][tii] = u_on_xfm.*(2*(g_sr+g_fr).*vf_tau2 + 
+            grd[:xfm_pfr][:vmfr][tii] = u_on_xfm.*(2.0*(g_sr+g_fr).*vf_tau2 + 
                     (-g_sr.*cos_ftp - b_sr.*sin_ftp).*vt_tau)
             grd[:xfm_pfr][:vmto][tii] = u_on_xfm.*(
                     (-g_sr.*cos_ftp - b_sr.*sin_ftp).*vf_tau)
@@ -237,14 +237,14 @@ function xfm_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}
                     (g_sr.*sin_ftp - b_sr.*cos_ftp).*vft_tau)
             grd[:xfm_pfr][:vato][tii] = u_on_xfm.*(
                     (-g_sr.*sin_ftp + b_sr.*cos_ftp).*vft_tau)
-            grd[:xfm_pfr][:tau][tii] = u_on_xfm.*(-2*(g_sr+g_fr).*vff_tau3 + 
+            grd[:xfm_pfr][:tau][tii] = u_on_xfm.*(-2.0*(g_sr+g_fr).*vff_tau3 + 
                     -(-g_sr.*cos_ftp - b_sr.*sin_ftp).*vft_tau2)
             grd[:xfm_pfr][:phi][tii] = grd[:xfm_pfr][:vato][tii]
             grd[:xfm_pfr][:uon][tii] = pfr
     
             # ====================================================== #
             # Gradients: reactive power flow -- from -> to
-            grd[:xfm_qfr][:vmfr][tii] = u_on_xfm.*(2*(-b_sr-b_fr-b_ch/2).*vf_tau2 +
+            grd[:xfm_qfr][:vmfr][tii] = u_on_xfm.*(2.0*(-b_sr-b_fr-b_ch/2.0).*vf_tau2 +
                     (b_sr.*cos_ftp - g_sr.*sin_ftp).*vt_tau)
             grd[:xfm_qfr][:vmto][tii] = u_on_xfm.*(
                     (b_sr.*cos_ftp - g_sr.*sin_ftp).*vf_tau)
@@ -252,7 +252,7 @@ function xfm_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}
                     (-b_sr.*sin_ftp - g_sr.*cos_ftp).*vft_tau)
             grd[:xfm_qfr][:vato][tii] = u_on_xfm.*(
                     (b_sr.*sin_ftp + g_sr.*cos_ftp).*vft_tau)
-            grd[:xfm_qfr][:tau][tii]  = u_on_xfm.*(-2*(-b_sr-b_fr-b_ch/2).*vff_tau3 +
+            grd[:xfm_qfr][:tau][tii]  = u_on_xfm.*(-2.0*(-b_sr-b_fr-b_ch/2.0).*vff_tau3 +
                     -(b_sr.*cos_ftp - g_sr.*sin_ftp).*vft_tau2)
             grd[:xfm_qfr][:phi][tii]  = grd[:xfm_qfr][:vato][tii]
             grd[:xfm_qfr][:uon][tii]  = qfr
@@ -264,7 +264,7 @@ function xfm_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}
             # Gradients: active power flow -- to -> from
             grd[:xfm_pto][:vmfr][tii] = u_on_xfm.*( 
                     (-g_sr.*cos_ftp + b_sr.*sin_ftp).*vt_tau)
-            grd[:xfm_pto][:vmto][tii] = u_on_xfm.*(2*(g_sr+g_to).*vm_to +
+            grd[:xfm_pto][:vmto][tii] = u_on_xfm.*(2.0*(g_sr+g_to).*vm_to +
                     (-g_sr.*cos_ftp + b_sr.*sin_ftp).*vf_tau)
             grd[:xfm_pto][:vafr][tii] = u_on_xfm.*(
                     (g_sr.*sin_ftp + b_sr.*cos_ftp).*vft_tau)
@@ -279,7 +279,7 @@ function xfm_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}
             # Gradients: reactive power flow -- to -> from
             grd[:xfm_qto][:vmfr][tii] = u_on_xfm.*(
                     (b_sr.*cos_ftp + g_sr.*sin_ftp).*vt_tau)
-            grd[:xfm_qto][:vmto][tii] = u_on_xfm.*(2*(-b_sr-b_to-b_ch/2).*vm_to +
+            grd[:xfm_qto][:vmto][tii] = u_on_xfm.*(2.0*(-b_sr-b_to-b_ch/2.0).*vm_to +
                     (b_sr.*cos_ftp + g_sr.*sin_ftp).*vf_tau)
             grd[:xfm_qto][:vafr][tii] = u_on_xfm.*(
                     (-b_sr.*sin_ftp + g_sr.*cos_ftp).*vft_tau)

@@ -68,8 +68,8 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 jsn = quasiGrad.load_json(path)
 
 # init
-adm, cgd, GRB, grd, idx, mgd, ntk, prm, qG, scr, stt, 
-sys, upd, flw, dz_dpinj_base, theta_k_base, worst_ctgs = 
+adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, 
+sys, upd, dz_dpinj_base, theta_k_base, worst_ctgs = 
     quasiGrad.base_initialization(jsn, false, 1.0);
 
 # %% solve
@@ -87,8 +87,8 @@ quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, s
 qG.eval_grad = true
 
 # ===== new score?
-quasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys)
-quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.dcpf_initialization!(flw, idx, msc, ntk, prm, qG, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
 
 # %% now, run a dedicated adam-power flow :)
 qG.adam_max_time = 300.0

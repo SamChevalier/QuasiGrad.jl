@@ -263,15 +263,25 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Sy
     end
 end
 
-function master_grad_solve_pf!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+function master_grad_solve_pf!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # this function takes the gradient of zms with respect to the
     # variables which will help to resolve power flow.
     # Notably, even though we solve time-independent power flow
     # problems, we can still use this case exactly, since:
     # dzms_dv => dpftii_dv maps without any issue
-    
-    # loop over time
+
     for tii in prm.ts.time_keys
+        # g1 (zen): nzms => zbase => zt => => zen => (dev_p, u_on_dev)
+        #
+        # all devices
+        if qG.include_energy_costs_lbfgs == true
+            for dev in 1:sys.ndev
+                # OG=> alpha = grd[:nzms][:zbase] .* grd[:zbase][:zt] .* grd[:zt][:zen_dev][dev] .* grd[:zen_dev][:dev_p][tii][dev]
+                alpha = -cgd.dzt_dzen[dev] .* grd[:zen_dev][:dev_p][tii][dev]
+                dp_alpha!(grd, dev, tii, alpha)
+            end
+        end
+
         # g15 (zp): nzms => zbase => zt => zp => (all p injection variables)
         master_grad_zp!(tii, prm, idx, stt, grd, mgd, sys)
         # g16 (zq): nzms => zbase => zt => zq => (all q injection variables)
@@ -522,10 +532,10 @@ function master_grad_zp!(tii::Symbol, prm::quasiGrad.Param, idx::quasiGrad.Idx, 
             vatopfr = grd[:acline_pfr][:vato][tii][line]
 
             # update the master grad -- pfr, at this bus and its corresponding "to" bus
-            mgd[:vm][tii][bus_fr] += mgd_com*vmfrpfr
-            mgd[:va][tii][bus_fr] += mgd_com*vafrpfr
-            mgd[:vm][tii][bus_to] += mgd_com*vmtopfr
-            mgd[:va][tii][bus_to] += mgd_com*vatopfr
+            mgd[:vm][tii][bus_fr]        += mgd_com*vmfrpfr
+            mgd[:va][tii][bus_fr]        += mgd_com*vafrpfr
+            mgd[:vm][tii][bus_to]        += mgd_com*vmtopfr
+            mgd[:va][tii][bus_to]        += mgd_com*vatopfr
             mgd[:u_on_acline][tii][line] += mgd_com*uonpfr
         end
         # line injections -- "to" flows
@@ -905,32 +915,32 @@ end
 function flush_gradients!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, sys::quasiGrad.System)
     for tii in prm.ts.time_keys
         # set all to 0
-        mgd[:vm][tii]           = zeros(sys.nb)      
-        mgd[:va][tii]           = zeros(sys.nb)          
-        mgd[:tau][tii]          = zeros(sys.nx)           
-        mgd[:phi][tii]          = zeros(sys.nx) 
-        mgd[:dc_pfr][tii]       = zeros(sys.nldc)
-        mgd[:dc_qfr][tii]       = zeros(sys.nldc)
-        mgd[:dc_qto][tii]       = zeros(sys.nldc)
-        mgd[:u_on_acline][tii]  = zeros(sys.nl)  
-        mgd[:u_on_xfm][tii]     = zeros(sys.nx)  
-        mgd[:u_step_shunt][tii] = zeros(sys.nsh) 
-        mgd[:u_on_dev][tii]     = zeros(sys.ndev)
-        mgd[:p_on][tii]         = zeros(sys.ndev)
-        mgd[:dev_q][tii]        = zeros(sys.ndev)
-        mgd[:p_rgu][tii]        = zeros(sys.ndev)
-        mgd[:p_rgd][tii]        = zeros(sys.ndev)
-        mgd[:p_scr][tii]        = zeros(sys.ndev)
-        mgd[:p_nsc][tii]        = zeros(sys.ndev)
-        mgd[:p_rru_on][tii]     = zeros(sys.ndev)
-        mgd[:p_rrd_on][tii]     = zeros(sys.ndev)
-        mgd[:p_rru_off][tii]    = zeros(sys.ndev)
-        mgd[:p_rrd_off][tii]    = zeros(sys.ndev)
-        mgd[:q_qru][tii]        = zeros(sys.ndev)
-        mgd[:q_qrd][tii]        = zeros(sys.ndev)
+        mgd[:vm][tii]           .= 0.0    
+        mgd[:va][tii]           .= 0.0        
+        mgd[:tau][tii]          .= 0.0         
+        mgd[:phi][tii]          .= 0.0
+        mgd[:dc_pfr][tii]       .= 0.0
+        mgd[:dc_qfr][tii]       .= 0.0
+        mgd[:dc_qto][tii]       .= 0.0
+        mgd[:u_on_acline][tii]  .= 0.0
+        mgd[:u_on_xfm][tii]     .= 0.0
+        mgd[:u_step_shunt][tii] .= 0.0
+        mgd[:u_on_dev][tii]     .= 0.0
+        mgd[:p_on][tii]         .= 0.0
+        mgd[:dev_q][tii]        .= 0.0
+        mgd[:p_rgu][tii]        .= 0.0
+        mgd[:p_rgd][tii]        .= 0.0
+        mgd[:p_scr][tii]        .= 0.0
+        mgd[:p_nsc][tii]        .= 0.0
+        mgd[:p_rru_on][tii]     .= 0.0
+        mgd[:p_rrd_on][tii]     .= 0.0
+        mgd[:p_rru_off][tii]    .= 0.0
+        mgd[:p_rrd_off][tii]    .= 0.0
+        mgd[:q_qru][tii]        .= 0.0
+        mgd[:q_qrd][tii]        .= 0.0
         # device active and reactive power gradients
-        grd[:dx][:dp][tii]      = zeros(sys.ndev)
-        grd[:dx][:dq][tii]      = zeros(sys.ndev)
+        grd[:dx][:dp][tii]      .= 0.0
+        grd[:dx][:dq][tii]      .= 0.0
     end
 end
 

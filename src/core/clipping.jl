@@ -1,4 +1,4 @@
-function clip_all!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+function clip_all!(bin_clip::Bool, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
     # sequentially clip -- order does not matter
     #
     # note: "clamp" is much faster than the alternatives!
@@ -10,7 +10,7 @@ function clip_all!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{F
     clip_reserves!(prm, stt)
 
     # clip dev_p and dev_q after binaries, since p_on clipping depends on u_on
-    clip_pq!(prm, stt)
+    clip_pq!(bin_clip, prm, stt)
 end
 
 function clip_dc!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
@@ -101,26 +101,31 @@ function snap_shunts!(fix::Bool, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Sy
     end
 end
 
-function clip_pq!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+function clip_pq!(bin_clip::Bool, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+    # bin_clip: should we clip p and q based on the current values of the binaries?
+    #           there are pros and cons to both decisions, so it is probably best
+    #           to alternate..
     for (t_ind, tii) in enumerate(prm.ts.time_keys)
-        
         # we also clip p_on, even though its value isn't explicitly set \ge 0
             # for justification, see (254) and (110)
             # note: stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind) \ge 0, since p_lb \ge 0
-        stt[:p_on][tii] = max.(stt[:p_on][tii], stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind))
-        # => neglect binaries: stt[:p_on][tii] = max.(stt[:p_on][tii], getindex.(prm.dev.p_lb,t_ind))
-
-
-        # we also clip p_on to its maximum value (see 109)
-        stt[:p_on][tii] = min.(stt[:p_on][tii], stt[:u_on_dev][tii].*getindex.(prm.dev.p_ub,t_ind))
-        # => neglect binaries: stt[:p_on][tii] = min.(stt[:p_on][tii], getindex.(prm.dev.p_ub,t_ind))
+            # we also clip p_on to its maximum value (see 109)
+        if bin_clip == true
+            stt[:p_on][tii] = max.(stt[:p_on][tii], stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind))
+            stt[:p_on][tii] = min.(stt[:p_on][tii], stt[:u_on_dev][tii].*getindex.(prm.dev.p_ub,t_ind))
+        else
+            stt[:p_on][tii] = max.(stt[:p_on][tii], getindex.(prm.dev.p_lb,t_ind))
+            stt[:p_on][tii] = min.(stt[:p_on][tii], getindex.(prm.dev.p_ub,t_ind))
+        end
 
         # clip q -- we clip very simply based on (112), (113), (122), (123), where q_qru is negelcted!
         #
-        #
-        stt[:dev_q][tii] = max.(stt[:dev_q][tii], stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind))
-        stt[:dev_q][tii] = min.(stt[:dev_q][tii], stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind))
-        # => neglect binaries: stt[:dev_q][tii] = max.(stt[:dev_q][tii], getindex.(prm.dev.q_lb,t_ind))
-        # => neglect binaries: stt[:dev_q][tii] = min.(stt[:dev_q][tii], getindex.(prm.dev.q_ub,t_ind))
+        if bin_clip == true
+            stt[:dev_q][tii] = max.(stt[:dev_q][tii], stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind))
+            stt[:dev_q][tii] = min.(stt[:dev_q][tii], stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind))
+        else
+            stt[:dev_q][tii] = max.(stt[:dev_q][tii], getindex.(prm.dev.q_lb,t_ind))
+            stt[:dev_q][tii] = min.(stt[:dev_q][tii], getindex.(prm.dev.q_ub,t_ind))
+        end
     end
 end

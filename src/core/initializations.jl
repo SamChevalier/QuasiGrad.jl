@@ -14,13 +14,6 @@ function initialize_qG(prm::quasiGrad.Param)
     #     adam n   =>   round pcts_to_round[n]
     #     adam n+1 =>   no more rounding! just an LP solve.
 
-    # power flow solve parameters
-    #
-    # strength of quadratic distance regularization
-    cdist_psolve     = 1e3
-    # turn of su/sd updates, which is expensive, during power flow solves
-    run_susd_updates = true
-
     # adam clips anything larger than grad_max
     grad_max  = 1e12
 
@@ -49,9 +42,10 @@ function initialize_qG(prm::quasiGrad.Param)
 
     # amount to prioritize power selection over other variables
     p_on_projection_weight   = 10.0
+    dev_q_projection_weight  = 10.0
 
     # print stats at the end?
-    print_final_stats        = false
+    print_final_stats        = true
 
     # gurobi feasibility tolerance -- needs to be 1e-8 for GO!
     FeasibilityTol           = 1e-8
@@ -83,7 +77,7 @@ function initialize_qG(prm::quasiGrad.Param)
 
     # ctg solver settings
     min_buses_for_krylov     = 25    # don't use Krylov if there are this many or fewer buses
-    frac_ctg_keep            = 1.0   # this is the fraction of ctgs that are scored and differentiated
+    frac_ctg_keep            = 0.05  # this is the fraction of ctgs that are scored and differentiated
                                      # i.e., 100*frac_ctg_keep% of them. half are random, and half are
                                      # the worst case performers from the previous adam iteration.
     # adaptively choose:
@@ -126,10 +120,10 @@ function initialize_qG(prm::quasiGrad.Param)
                                           # contribute (less than) beyond this goal
 
     # initialize adam parameters
-    eps        = 1e-8 # for numerical stability -- keep at 1e-8
+    eps        = 1e-8         # for numerical stability -- keep at 1e-8
     beta1      = 0.99
     beta2      = 0.995
-    alpha_0    = 0.001        # initial step size
+    alpha_0    = 0.0001       # initial step size
     alpha_min  = 0.001/10.0   # for cos decay
     alpha_max  = 0.001/0.5    # for cos decay
     Ti         = 100          # for cos decay -- at Tcurr == Ti, cos() => -1
@@ -146,10 +140,47 @@ function initialize_qG(prm::quasiGrad.Param)
     adam_stopper  = "time" # "iterations"
 
     # gradient modifications -- power balance
-    pqbal_grad_mod_type     = "soft_abs"
+    pqbal_grad_mod_type     = "quadratic_for_lbfgs" #"soft_abs", "standard"
     pqbal_grad_mod_weight_p = prm.vio.p_bus # standard: prm.vio.p_bus
     pqbal_grad_mod_weight_q = prm.vio.p_bus # standard: prm.vio.q_bus
-    pqbal_grad_mod_eps2     = 1e-4
+    pqbal_grad_mod_eps2     = 1e-3
+
+    # shall we compute injections when we build the Jacobian?
+    compute_pf_injs_with_Jac = true
+    max_pf_dx                = 5e-4  # stop when max delta < 5e-4
+    max_linear_pfs           = 4     # stop when number of pfs > max_linear_pfs
+    max_linear_pfs_total     = 10    # this includes failures
+    Gurobi_pf_obj            = "min_dispatch_distance" # or, "min_dispatch_perturbation"
+
+    # don't use given initializations
+    initialize_shunt_to_given_value = false
+    initialize_vm_to_given_value    = true
+
+    # power flow solve parameters ==============================
+    #
+    # strength of quadratic distance regularization
+    cdist_psolve     = 1e4
+
+    # turn of su/sd updates, which is expensive, during power flow solves
+    run_susd_updates = true
+
+    # bias terms of solving bfgs
+    include_energy_costs_lbfgs      = false
+    include_lbfgs_p0_regularization = false
+    print_lbfgs_iterations          = true
+    print_linear_pf_iterations      = true
+    initial_pf_lbfgs_step           = 0.05
+
+    # set the number of lbfgs steps
+    if length(prm.bus.id) < 100
+        num_lbfgs_steps = 1000
+    elseif length(prm.bus.id) < 500    
+        num_lbfgs_steps = 500   
+    elseif length(prm.bus.id) < 1000    
+        num_lbfgs_steps = 150
+    else
+        num_lbfgs_steps = 100
+    end
 
     # build the mutable struct
     qG = QG(
@@ -164,6 +195,7 @@ function initialize_qG(prm::quasiGrad.Param)
         eval_grad,
         binary_projection_weight,
         p_on_projection_weight,
+        dev_q_projection_weight,
         print_final_stats,
         FeasibilityTol,
         IntFeasTol,
@@ -205,7 +237,20 @@ function initialize_qG(prm::quasiGrad.Param)
         pqbal_grad_mod_type,
         pqbal_grad_mod_weight_p,
         pqbal_grad_mod_weight_q,
-        pqbal_grad_mod_eps2)
+        pqbal_grad_mod_eps2,
+        compute_pf_injs_with_Jac,
+        max_pf_dx,
+        max_linear_pfs,
+        max_linear_pfs_total,
+        print_linear_pf_iterations,
+        Gurobi_pf_obj,
+        initialize_shunt_to_given_value,
+        initialize_vm_to_given_value,
+        include_energy_costs_lbfgs,
+        include_lbfgs_p0_regularization,
+        print_lbfgs_iterations,
+        initial_pf_lbfgs_step,
+        num_lbfgs_steps)
     
     # output
     return qG
@@ -221,7 +266,7 @@ function base_initialization(jsn::Dict{String, Any}, perturb_states::Bool, pert_
     qG = initialize_qG(prm)
 
     # intialize (empty) states
-    cgd, GRB, grd, mgd, scr, stt = initialize_states(idx, prm, sys)
+    cgd, GRB, grd, mgd, scr, stt, msc = initialize_states(idx, prm, sys, qG)
 
     # initialize the states which adam will update -- the rest are fixed
     adm = initialize_adam_states(sys)
@@ -250,7 +295,7 @@ function base_initialization(jsn::Dict{String, Any}, perturb_states::Bool, pert_
     worst_ctgs = [collect(1:sys.nctg) for _ in 1:sys.nT]
 
     # output
-    return adm, cgd, GRB, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd, flw,
+    return adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd,
            dz_dpinj_base, theta_k_base, worst_ctgs
 end
 
@@ -296,13 +341,17 @@ function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
     end
 
     # split into producers and consumers
-    pr_inds      = findall(x -> x == "producer", prm.dev.device_type)
-    cs_inds      = findall(x -> x == "consumer", prm.dev.device_type)
+    pr_inds = findall(x -> x == "producer", prm.dev.device_type)
+    cs_inds = findall(x -> x == "consumer", prm.dev.device_type)
 
     # pr and cs and shunt device mappings
-    bus_to_pr = Dict(ii => Int64[] for ii in 1:(sys.nb))
-    bus_to_cs = Dict(ii => Int64[] for ii in 1:(sys.nb))
-    bus_to_sh = Dict(ii => Int64[] for ii in 1:(sys.nb))
+    bus_to_pr          = Dict(ii => Int64[] for ii in 1:(sys.nb))
+    bus_to_cs          = Dict(ii => Int64[] for ii in 1:(sys.nb))
+    bus_to_sh          = Dict(ii => Int64[] for ii in 1:(sys.nb))
+    bus_to_pr_not_Jpqe = Dict(ii => Int64[] for ii in 1:(sys.nb))
+    bus_to_cs_not_Jpqe = Dict(ii => Int64[] for ii in 1:(sys.nb))
+    bus_to_pr_and_Jpqe = Dict(ii => Int64[] for ii in 1:(sys.nb))
+    bus_to_cs_and_Jpqe = Dict(ii => Int64[] for ii in 1:(sys.nb))
 
     # we are also going to append the devices associated with a given bus
     # into their corresponding zones -- slow, but necessary
@@ -314,11 +363,17 @@ function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
     cs_qzone  = Dict(ii => Int64[] for ii in 1:(sys.nzQ))
     dev_qzone = Dict(ii => Int64[] for ii in 1:(sys.nzQ))
 
+    # 1:1 mapping, from device number, to its bus
+    device_to_bus = zeros(Int64, sys.ndev)
+
     for bus = 1:sys.nb
         # get the devices tied to this bus
         bus_id             = prm.bus.id[bus]
         dev_on_bus_inds    = findall(x -> x == bus_id, prm.dev.bus)
         sh_dev_on_bus_inds = findall(x -> x == bus_id, prm.shunt.bus)
+
+        # broadcast
+        device_to_bus[dev_on_bus_inds] .= bus
 
         # are the devices consumers or producers?
         pr_devs_on_bus = dev_on_bus_inds[in.(dev_on_bus_inds,Ref(pr_inds))]
@@ -328,6 +383,14 @@ function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
         bus_to_pr[bus] = pr_devs_on_bus
         bus_to_cs[bus] = cs_devs_on_bus
         bus_to_sh[bus] = sh_dev_on_bus_inds
+
+        # filter out the devs in Jpqe
+        bus_to_pr_not_Jpqe[bus] = setdiff(pr_devs_on_bus, prm.dev.J_pqe)
+        bus_to_cs_not_Jpqe[bus] = setdiff(cs_devs_on_bus, prm.dev.J_pqe)
+
+        # keep just the devs in Jpqe
+        bus_to_pr_and_Jpqe[bus] = intersect(pr_devs_on_bus, prm.dev.J_pqe)
+        bus_to_cs_and_Jpqe[bus] = intersect(cs_devs_on_bus, prm.dev.J_pqe)
 
         # first, the active power zones
         for pzone_id in prm.bus.active_rsvid[bus]
@@ -352,6 +415,12 @@ function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
         end
     end
 
+    # let's also get the set of pr/cs not in pqe (without equality linking)
+    pr_and_Jpqe = intersect(pr_inds, prm.dev.J_pqe)
+    cs_and_Jpqe = intersect(cs_inds, prm.dev.J_pqe)
+    pr_not_Jpqe = setdiff(pr_inds,   prm.dev.J_pqe)
+    cs_not_Jpqe = setdiff(cs_inds,   prm.dev.J_pqe)
+
     # build the various timing sets (Ts) needed by devices -- this is quite
     # a bit of data to store, but regenerating it each time is way too slow
     Ts_mndn, Ts_mnup, Ts_sdpc, ps_sdpc_set, Ts_supc,
@@ -364,6 +433,8 @@ function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
         acline_to_bus,
         xfm_fr_bus,
         xfm_to_bus,
+        dc_fr_bus,
+        dc_to_bus,
         ac_line_flows,        # index of acline flows in a vector of all lines
         ac_xfm_flows,         # index of xfm flows in a vector of all line flows
         ac_phi,               # index of xfm shifts in a vector of all lines
@@ -374,16 +445,25 @@ function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
         bus_is_dc_frs,
         bus_is_dc_tos,
         prm.dev.J_pqe,
-        prm.dev.J_pqmax,       # NOTE: J_pqmax == J_pqmin
-        prm.dev.J_pqmax,
+        prm.dev.J_pqmax,       # NOTE: J_pqmax == J_pqmin :)
+        prm.dev.J_pqmax,       # NOTE: J_pqmax == J_pqmin :)
         prm.xfm.J_fpd,
         prm.xfm.J_fwr,
         bus_to_pr,             # maps a bus number to the pr's on that bus
         bus_to_cs,             # maps a bus number to the cs's on that bus
         bus_to_sh,             # maps a bus number to the sh's on that bus
+        bus_to_pr_not_Jpqe,    # maps a bus number to the pr's on that bus (not in Jpqe)
+        bus_to_cs_not_Jpqe,    # maps a bus number to the cs's on that bus (not in Jpqe)
+        bus_to_pr_and_Jpqe,    # maps a bus number to the pr's on that bus (also in Jpqe)
+        bus_to_cs_and_Jpqe,    # maps a bus number to the cs's on that bus (also in Jpqe)
         shunt_bus,             # simple list of buses for shunt devices
         pr_inds,               # simple list of producer inds
         cs_inds,               # simple list of consumer inds
+        pr_and_Jpqe,           # prs that have equality links on Q
+        cs_and_Jpqe,           # css that have equality links on Q
+        pr_not_Jpqe,           # prs that DO NOT have equality links on Q
+        cs_not_Jpqe,           # css that DO NOT have equality links on Q
+        device_to_bus,         # device index => bus index
         pr_pzone,              # maps a pzone number to the list of producers in that zone
         cs_pzone,              # maps a pzone number to the list of consumers in that zone
         dev_pzone,             # maps a pzone number to the list of devices in that zone
@@ -439,12 +519,12 @@ function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
     return  idx
 end
 
-function initialize_states(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiGrad.System)
+function initialize_states(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.QG)
     # define the time elements
     tkeys = [Symbol("t"*string(ii)) for ii in 1:(sys.nT)]
 
     # build stt
-    stt = build_state(prm, sys)
+    stt = build_state(prm, sys, qG)
 
     # build grd
     grd = build_grad(prm, sys)
@@ -497,13 +577,28 @@ function initialize_states(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiG
         :q_qru     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
         :q_qrd     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)))
 
+    # vector of miscellaneous vectors (so I don't have to initialize a new one each time)
+    msc = Dict(
+        :pinj_ideal => zeros(sys.nb),
+        :pb_slack   => zeros(sys.nb),
+        :qb_slack   => zeros(sys.nb),
+        :pub        => zeros(sys.nb),
+        :plb        => zeros(sys.nb),
+        :qub        => zeros(sys.nb),
+        :qlb        => zeros(sys.nb),
+        :pinj0      => zeros(sys.nb), # bias point
+        :qinj0      => zeros(sys.nb), # bias point
+        :pinj_dc    => zeros(sys.nb),
+        :theta_r    => zeros(sys.nb-1),
+        )
+    
     # mgd = master grad -- this is the gradient which relates the negative market surplus function 
     # with all "basis" variables -- i.e., the variables for which all others are computed.
     # These are *exactly* (I think..) the variables which are reported in the solution file
     mgd = build_master_grad(prm, sys)
 
     # output
-    return cgd, GRB, grd, mgd, scr, stt
+    return cgd, GRB, grd, mgd, scr, stt, msc
 end
 
 function identify_update_states(prm::quasiGrad.Param, idx::quasiGrad.Idx, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
@@ -565,16 +660,16 @@ function identify_update_states(prm::quasiGrad.Param, idx::quasiGrad.Idx, stt::D
     #
     # first, we fix the values correctly
     for tii in prm.ts.time_keys
-        stt[:p_rrd_off][tii][idx.pr_devs]                  .= 0.0   # see (106)
-        stt[:p_nsc][tii][idx.cs_devs]                      .= 0.0   # see (107)
-        stt[:p_rru_off][tii][idx.cs_devs]                  .= 0.0   # see (108)
-        stt[:q_qru][tii][intersect(idx.pr_devs,idx.J_pqe)] .= 0.0   # see (117)
-        stt[:q_qrd][tii][intersect(idx.pr_devs,idx.J_pqe)] .= 0.0   # see (118)
-        stt[:q_qru][tii][intersect(idx.cs_devs,idx.J_pqe)] .= 0.0   # see (127)
-        stt[:q_qrd][tii][intersect(idx.cs_devs,idx.J_pqe)] .= 0.0   # see (128)
-        stt[:phi][tii][idx.J_fpd] = prm.xfm.init_phi[idx.J_fpd] # see (144)
-        stt[:tau][tii][idx.J_fwr] = prm.xfm.init_tau[idx.J_fwr] # see (144)
-        stt[:dc_pto][tii] = -stt[:dc_pfr][tii]
+        stt[:p_rrd_off][tii][idx.pr_devs] .= 0.0   # see (106)
+        stt[:p_nsc][tii][idx.cs_devs]     .= 0.0   # see (107)
+        stt[:p_rru_off][tii][idx.cs_devs] .= 0.0   # see (108)
+        stt[:q_qru][tii][idx.pr_and_Jpqe] .= 0.0   # see (117)
+        stt[:q_qrd][tii][idx.pr_and_Jpqe] .= 0.0   # see (118)
+        stt[:q_qru][tii][idx.cs_and_Jpqe] .= 0.0   # see (127)
+        stt[:q_qrd][tii][idx.cs_and_Jpqe] .= 0.0   # see (128)
+        stt[:phi][tii][idx.J_fpd]          = prm.xfm.init_phi[idx.J_fpd] # see (144)
+        stt[:tau][tii][idx.J_fwr]          = prm.xfm.init_tau[idx.J_fwr] # see (144)
+        stt[:dc_pto][tii]                  = -stt[:dc_pfr][tii]
 
         # remove states from the update list -- this is safe
         deleteat!(upd[:p_rrd_off][tii],idx.pr_devs)
@@ -611,7 +706,7 @@ function build_sys(json_data::Dict{String, Any})
     nsh   = length(json_data["network"]["shunt"])
     nl    = length(json_data["network"]["ac_line"])
     nac   = nl+nx
-    ndc   = length(json_data["network"]["dc_line"])
+    nldc  = length(json_data["network"]["dc_line"])
     ndev  = length(json_data["network"]["simple_dispatchable_device"])
     ncs   = sum((ii["device_type"]=="consumer") for ii in json_data["network"]["simple_dispatchable_device"])
     npr   = sum((ii["device_type"]=="producer") for ii in json_data["network"]["simple_dispatchable_device"])
@@ -621,20 +716,20 @@ function build_sys(json_data::Dict{String, Any})
     nzQ   = length(json_data["network"]["reactive_zonal_reserve"])
     nctg  = length(json_data["reliability"]["contingency"])
     sys   = System(
-        nb,
-        nx,
-        nsh,
-        nl,
-        nac,
-        ndc,
-        ndev,
-        ncs,
-        npr,
-        nT,
-        nvar,
-        nzP,
-        nzQ,
-        nctg)
+                    nb,
+                    nx,
+                    nsh,
+                    nl,
+                    nac,
+                    nldc,
+                    ndev,
+                    ncs,
+                    npr,
+                    nT,
+                    nvar,
+                    nzP,
+                    nzQ,
+                    nctg)
 
     # output
     return sys
@@ -858,6 +953,9 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
     xfm_at_bus_sign = Dict(bus => vcat(idx.bus_is_xfm_frs[bus],-idx.bus_is_xfm_tos[bus]) for bus in 2:sys.nb)
     xfm_phi_scalars = Dict(bus => ac_b_params[xfm_at_bus[bus] .+ sys.nl].*sign.(xfm_at_bus_sign[bus]) for bus in 2:sys.nb)
 
+    # compute the constant acline Ybus matrix
+    Ybus_acline_real, Ybus_acline_imag = quasiGrad.initialize_acline_Ybus(idx, prm, sys)
+
     # network parameters
     ntk = Ntk(
             s_max_ctg,     # max contingency flows
@@ -876,10 +974,12 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
             prm.ctg.components,
             prm.ctg.id,
             prm.ctg.ctg_inds,
-            Ybr_Ch,     # base case Cholesky
-            Ybr_ChPr,   # base case preconditioner (everyone uses it!)
-            u_k,        # low rank update vector: u_k = Y\v, w_k = b*u/(1+v'*u*b)
-            g_k)        # low rank update scalar: g_k = b/(1+v'*u*b)
+            Ybr_Ch,           # base case Cholesky
+            Ybr_ChPr,         # base case preconditioner (everyone uses it!)
+            u_k,              # low rank update vector: u_k = Y\v, w_k = b*u/(1+v'*u*b)
+            g_k,              # low rank update scalar: g_k = b/(1+v'*u*b)
+            Ybus_acline_real, # constant acline Ybus 
+            Ybus_acline_imag) # constant acline Ybus 
     
     # v_k,        # low rank update vectors: v*b*v'
     # b_k,        # low rank update scalar: v*b*v'
@@ -934,6 +1034,107 @@ function build_incidence(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiGra
     # output
     return E
 end
+
+function initialize_acline_Ybus(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiGrad.System)
+    # loop over all ac devices and construct incidence matrix
+    #
+    # note: this assumes all lines are on!
+    m = sys.nac
+    n = sys.nb
+
+    # full: Ybus = Ybus_acline + Ybus_xfm + Ybus_shunts
+    # => Ybus_acline   = spzeros(n,n) # constant!!
+    # => Ybus_xfm      = spzeros(n,n) # time varying
+    # => Ybus_shunt    = spzeros(n,n) # time varying
+
+    # acline ===========================
+    row_acline    = prm.acline.line_inds
+    col_acline_fr = idx.acline_fr_bus
+    col_acline_to = idx.acline_to_bus
+    E_acline_fr   = quasiGrad.sparse(row_acline,col_acline_fr, 1, m, n)
+    E_acline_to   = quasiGrad.sparse(row_acline,col_acline_to, -1, m, n)
+    E_acline      = E_acline_fr + E_acline_to
+
+    # build diagonal admittance matrices
+    Yd_acline_series = quasiGrad.spdiagm(m, m, prm.acline.g_sr + im*prm.acline.b_sr) # zero pads!
+    Yd_acline_shunt  = quasiGrad.spzeros(Complex{Float64}, n, n)
+
+    # loop and populate
+    for line in 1:sys.nl
+        fr = idx.acline_fr_bus[line]
+        to = idx.acline_to_bus[line]
+
+        # fr first
+        Yd_acline_shunt[fr,fr] += prm.acline.g_fr[line]
+        Yd_acline_shunt[fr,fr] += im*prm.acline.b_fr[line]
+        Yd_acline_shunt[fr,fr] += im*prm.acline.b_ch[line]/2.0
+
+        # to second
+        Yd_acline_shunt[to,to] += prm.acline.g_to[line]
+        Yd_acline_shunt[to,to] += im*prm.acline.b_to[line]
+        Yd_acline_shunt[to,to] += im*prm.acline.b_ch[line]/2.0
+    end
+
+    # output
+    Ybus_acline      = E_acline'*Yd_acline_series*E_acline + Yd_acline_shunt
+    Ybus_acline_real = real(Ybus_acline)
+    Ybus_acline_imag = imag(Ybus_acline)
+
+    # output
+    return Ybus_acline_real, Ybus_acline_imag
+end
+
+function update_Ybus(idx::quasiGrad.Idx, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
+    # this function updates the Ybus matrix using the time-varying shunt and xfm values
+    #
+    # NOTE: this assumes all xfms are on
+    n = sys.nb
+    Ybus_xfm_imag   = spzeros(n,n)
+    Ybus_shunt_imag = spzeros(n,n)
+    Ybus_xfm_real   = spzeros(n,n)
+    Ybus_shunt_real = spzeros(n,n)
+    #
+    # xfm ===========================
+    for xfm in 1:sys.nx
+        # prepare
+        cos_phi  = cos(stt[:phi][tii][xfm])
+        sin_phi  = sin(stt[:phi][tii][xfm])
+        series_y = prm.xfm.g_sr[xfm] + im*prm.xfm.b_sr[xfm]
+
+        # populate!
+        yff = (series_y + im*prm.xfm.b_ch[xfm]/2.0 + prm.xfm.g_fr[xfm] + im*prm.xfm.b_fr[xfm])/(stt[:tau][tii][xfm]^2)
+        ytt = (series_y + im*prm.xfm.b_ch[xfm]/2.0 + prm.xfm.g_to[xfm] + im*prm.xfm.b_to[xfm])
+        yft = (-series_y)/(stt[:tau][tii][xfm]*(cos_phi - im*sin_phi))
+        ytf = (-series_y)/(stt[:tau][tii][xfm]*(cos_phi + im*sin_phi))
+    
+        # populate real!
+        Ybus_xfm_real[idx.xfm_fr_bus[xfm], idx.xfm_fr_bus[xfm]] += real(yff)
+        Ybus_xfm_real[idx.xfm_to_bus[xfm], idx.xfm_to_bus[xfm]] += real(ytt)
+        Ybus_xfm_real[idx.xfm_fr_bus[xfm], idx.xfm_to_bus[xfm]] += real(yft)
+        Ybus_xfm_real[idx.xfm_to_bus[xfm], idx.xfm_fr_bus[xfm]] += real(ytf)
+
+        # populate imag
+        Ybus_xfm_imag[idx.xfm_fr_bus[xfm], idx.xfm_fr_bus[xfm]] += imag(yff)
+        Ybus_xfm_imag[idx.xfm_to_bus[xfm], idx.xfm_to_bus[xfm]] += imag(ytt)
+        Ybus_xfm_imag[idx.xfm_fr_bus[xfm], idx.xfm_to_bus[xfm]] += imag(yft)
+        Ybus_xfm_imag[idx.xfm_to_bus[xfm], idx.xfm_fr_bus[xfm]] += imag(ytf)
+    end
+
+    # shunt ===========================
+    for shunt in 1:sys.nsh
+        bus = idx.shunt_bus[shunt]
+        Ybus_shunt_real[bus,bus] += prm.shunt.gs[shunt]*(stt[:u_step_shunt][tii][shunt])
+        Ybus_shunt_imag[bus,bus] += prm.shunt.bs[shunt]*(stt[:u_step_shunt][tii][shunt])
+    end
+
+    # construct the output
+    Ybus_real = ntk.Ybus_acline_real + Ybus_xfm_real + Ybus_shunt_real
+    Ybus_imag = ntk.Ybus_acline_imag + Ybus_xfm_imag + Ybus_shunt_imag
+
+    # output
+    return Ybus_real, Ybus_imag
+end
+
 
 function build_DCY(prm::quasiGrad.Param, sys::quasiGrad.System)
     # call the vectors of susceptances and build Yx
@@ -1173,15 +1374,15 @@ function initialize_adam_states(sys::quasiGrad.System)
     return adm
 end
 
-function build_state(prm::quasiGrad.Param, sys::quasiGrad.System)
+function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.QG)
     # define the time elements
     tkeys = [Symbol("t"*string(ii)) for ii in 1:(sys.nT)]
 
     # stt -- use initial values
     stt = Dict(
         # network -- set all network voltages to there given initial values
-        :vm              => Dict(tkeys[ii] => copy(prm.bus.init_vm) for ii in 1:(sys.nT)),
-        :va              => Dict(tkeys[ii] => copy(prm.bus.init_va) for ii in 1:(sys.nT)),
+        :vm              => Dict(tkeys[ii] => ones(sys.nb)          for ii in 1:(sys.nT)), # this is a flat start
+        :va              => Dict(tkeys[ii] => copy(prm.bus.init_va) for ii in 1:(sys.nT)), # this will be overwritten
         # aclines
         :acline_pfr      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
         :acline_qfr      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
@@ -1213,7 +1414,7 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System)
         # shunts
         :sh_p         => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nsh)) for ii in 1:(sys.nT)),
         :sh_q         => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nsh)) for ii in 1:(sys.nT)),
-        :u_step_shunt => Dict(tkeys[ii] => copy(prm.shunt.init_step)        for ii in 1:(sys.nT)),
+        :u_step_shunt => Dict(tkeys[ii] => zeros(sys.nsh)                   for ii in 1:(sys.nT)),
         # producing and consuming devices
         :u_on_dev   => Dict(tkeys[ii] => ones(sys.ndev)                   for ii in 1:(sys.nT)),
         :dev_p      => Dict(tkeys[ii] => zeros(sys.ndev)                  for ii in 1:(sys.nT)), 
@@ -1315,6 +1516,20 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System)
         # for ctg
         :p_inj             => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:(sys.nT)),
         )
+
+        # shunts -- should we use the supplied initialization? default: no!
+        if qG.initialize_shunt_to_given_value
+            for tii in tkeys
+                stt[:u_step_shunt][tii] = copy(prm.shunt.init_step)
+            end
+        end
+
+        # vm -- should we use the supplied initialization? default: no!
+        if qG.initialize_vm_to_given_value
+            for tii in tkeys
+                stt[:vm][tii] = copy(prm.bus.init_vm)
+            end
+        end
 
     # output
     return stt
@@ -1498,7 +1713,7 @@ function perturb_states!(stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::
         stt[:dc_pfr][tii]       = pert_size*0.1*rand(sys.nldc)    
         stt[:dc_qfr][tii]       = pert_size*0.1*rand(sys.nldc)       
         stt[:dc_qto][tii]       = pert_size*0.1*rand(sys.nldc)  
-        stt[:u_step_shunt][tii] = pert_size*4*rand(sys.nsh) # bigger spread
+        stt[:u_step_shunt][tii] = pert_size*4.0*rand(sys.nsh) # bigger spread
         stt[:p_on][tii]         = pert_size*rand(sys.ndev)    
         stt[:dev_q][tii]        = pert_size*rand(sys.ndev)  
         stt[:p_rgu][tii]        = pert_size*rand(sys.ndev) 
@@ -1814,15 +2029,15 @@ function initialize_pf_lbfgs(mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, p
                          :y => Dict(tkeys[ii] => [zeros(n_lbfgs[ii]) for _ in 1:num_lbfgs_to_keep] for ii in 1:(sys.nT)))
 
     # step size control -- for adam!
-    pf_lbfgs_step = Dict(:zpf_prev    => Dict(tkeys[ii] => 0.0   for ii in 1:(sys.nT)),
-                         :beta1_decay => Dict(tkeys[ii] => 1.0   for ii in 1:(sys.nT)),
-                         :beta2_decay => Dict(tkeys[ii] => 1.0   for ii in 1:(sys.nT)),
-                         :m           => Dict(tkeys[ii] => 0.0   for ii in 1:(sys.nT)),   
-                         :v           => Dict(tkeys[ii] => 0.0   for ii in 1:(sys.nT)),   
-                         :mhat        => Dict(tkeys[ii] => 0.0   for ii in 1:(sys.nT)),
-                         :vhat        => Dict(tkeys[ii] => 0.0   for ii in 1:(sys.nT)),
-                         :step        => Dict(tkeys[ii] => 0.0   for ii in 1:(sys.nT)),
-                         :alpha_0     => Dict(tkeys[ii] => 0.01  for ii in 1:(sys.nT)))
+    pf_lbfgs_step = Dict(:zpf_prev    => Dict(tkeys[ii] => 0.0    for ii in 1:(sys.nT)),
+                         :beta1_decay => Dict(tkeys[ii] => 1.0    for ii in 1:(sys.nT)),
+                         :beta2_decay => Dict(tkeys[ii] => 1.0    for ii in 1:(sys.nT)),
+                         :m           => Dict(tkeys[ii] => 0.0    for ii in 1:(sys.nT)),   
+                         :v           => Dict(tkeys[ii] => 0.0    for ii in 1:(sys.nT)),   
+                         :mhat        => Dict(tkeys[ii] => 0.0    for ii in 1:(sys.nT)),
+                         :vhat        => Dict(tkeys[ii] => 0.0    for ii in 1:(sys.nT)),
+                         :step        => Dict(tkeys[ii] => 0.0    for ii in 1:(sys.nT)),
+                         :alpha_0     => Dict(tkeys[ii] => 0.001  for ii in 1:(sys.nT)))
 
     # indices to track where previous differential vectors are stored --
     # lbfgs_idx[1] is always the most recent data, and lbfgs_idx[end] is the oldest
@@ -1838,4 +2053,9 @@ function initialize_pf_lbfgs(mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, p
         :p_on => Dict(tkeys[ii] => deepcopy(stt[:p_on][tkeys[ii]]) for ii in 1:(sys.nT)))
 
     return dpf0, pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, zpf
+end
+
+# print struct fields
+function struct_fields(input_struct)
+    println(fieldnames(typeof(input_struct)))
 end

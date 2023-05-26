@@ -44,8 +44,8 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 jsn = quasiGrad.load_json(path)
 
 # %% initialize the system
-adm, cgd, GRB, grd, idx, mgd, ntk, prm, qG, scr, stt, 
-sys, upd, flw, dz_dpinj_base, theta_k_base, worst_ctgs = 
+adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, 
+sys, upd, dz_dpinj_base, theta_k_base, worst_ctgs = 
     quasiGrad.base_initialization(jsn, true, 0.25);
 
 # reset -- to help with numerical conditioning of the market surplus function 
@@ -62,6 +62,10 @@ include("./test_functions.jl")
 qG.pqbal_grad_mod_type = "standard"
 qG.pcg_tol             = 1e-9
 epsilon                = 5e-5     # maybe set larger when dealing with ctgs + krylov solver..
+
+# gradient modifications -- power balance
+pqbal_grad_mod_type     = "soft_abs"
+pqbal_grad_mod_eps2     = 1e-16
 
 #
 # %% 1. transformer phase shift (phi) =======================================================================
@@ -227,7 +231,7 @@ println(dzdx_num)
 #
 # README: if you perturb over the max power, the device cost will error
 #         out -- this happens a lot.
-quasiGrad.clip_all!(prm, stt)
+quasiGrad.clip_all!(true, prm, stt)
 #
 #              1         2      3       4       5       6      7        8          9          10           11        12      13
 var     = [:u_on_dev, :dev_q, :p_on, :p_rgu, :p_rgd, :p_scr, :p_nsc, :p_rru_on, :p_rrd_on, :p_rru_off, :p_rrd_off, :q_qru, :q_qrd]    

@@ -343,7 +343,7 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
                 # 18p. Linked maximum reactive power reserves (producers)
                 if dev in idx.J_pqmax
-                    cvio = max(stt[:dev_q][tii][dev] + stt[:q_qru][tii][dev] - prm.dev.q_0_ub[dev]*stt[:u_sum][tii][dev] - prm.dev.beta_ub[dev]*stt[:dev_p][tii][dev], 0.0)
+                    cvio                           = max(stt[:dev_q][tii][dev] + stt[:q_qru][tii][dev] - prm.dev.q_0_ub[dev]*stt[:u_sum][tii][dev] - prm.dev.beta_ub[dev]*stt[:dev_p][tii][dev], 0.0)
                     stt[:zhat_qmax_beta][tii][dev] = dt*cvio^2
 
                     # evaluate gradient?

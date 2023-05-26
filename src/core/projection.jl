@@ -5,17 +5,17 @@ function solve_Gurobi_projection!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}
     # loop over each device and solve individually -- not clear if this is faster
     # than solving one big optimization problem all at once. see legacy code for
     # a (n unfinished) version where all devices are solved at once!
-    model = quasiGrad.Model(Gurobi.Optimizer)
-    @info "Running MILP projection across $(sys.ndev) devicse."
+    model = Model(Gurobi.Optimizer)
+    @info "Running MILP projection across $(sys.ndev) devices."
 
     # loop over all devices
     for dev in 1:sys.ndev
         
         # empty the model!
-        quasiGrad.empty!(model)
+        empty!(model)
 
         # quiet down!!!
-        quasiGrad.set_silent(model)
+        set_silent(model)
         quasiGrad.set_optimizer_attribute(model, "OutputFlag", qG.GRB_output_flag)
         
         # set model properties
@@ -28,28 +28,28 @@ function solve_Gurobi_projection!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}
         tkeys = prm.ts.time_keys
 
         # define the minimum set of variables we will need to solve the constraints                                                       -- round() the int?
-        u_on_dev  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => quasiGrad.@variable(model, base_name = "u_on_dev_t$(ii)",  start=stt[:u_on_dev][tkeys[ii]][dev],  binary=true)       for ii in 1:(sys.nT))
-        p_on      = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => quasiGrad.@variable(model, base_name = "p_on_t$(ii)",      start=stt[:p_on][tkeys[ii]][dev])                         for ii in 1:(sys.nT))
-        dev_q     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => quasiGrad.@variable(model, base_name = "dev_q_t$(ii)",     start=stt[:dev_q][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_rgu     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => quasiGrad.@variable(model, base_name = "p_rgu_t$(ii)",     start=stt[:p_rgu][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_rgd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => quasiGrad.@variable(model, base_name = "p_rgd_t$(ii)",     start=stt[:p_rgd][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_scr     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => quasiGrad.@variable(model, base_name = "p_scr_t$(ii)",     start=stt[:p_scr][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_nsc     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => quasiGrad.@variable(model, base_name = "p_nsc_t$(ii)",     start=stt[:p_nsc][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_rru_on  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => quasiGrad.@variable(model, base_name = "p_rru_on_t$(ii)",  start=stt[:p_rru_on][tkeys[ii]][dev],  lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_rru_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => quasiGrad.@variable(model, base_name = "p_rru_off_t$(ii)", start=stt[:p_rru_off][tkeys[ii]][dev], lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_rrd_on  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => quasiGrad.@variable(model, base_name = "p_rrd_on_t$(ii)",  start=stt[:p_rrd_on][tkeys[ii]][dev],  lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_rrd_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => quasiGrad.@variable(model, base_name = "p_rrd_off_t$(ii)", start=stt[:p_rrd_off][tkeys[ii]][dev], lower_bound = 0.0) for ii in 1:(sys.nT))
-        q_qru     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => quasiGrad.@variable(model, base_name = "q_qru_t$(ii)",     start=stt[:q_qru][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-        q_qrd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => quasiGrad.@variable(model, base_name = "q_qrd_t$(ii)",     start=stt[:q_qrd][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
+        u_on_dev  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "u_on_dev_t$(ii)",  start=stt[:u_on_dev][tkeys[ii]][dev],  binary=true)       for ii in 1:(sys.nT))
+        p_on      = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_on_t$(ii)",      start=stt[:p_on][tkeys[ii]][dev])                         for ii in 1:(sys.nT))
+        dev_q     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "dev_q_t$(ii)",     start=stt[:dev_q][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
+        p_rgu     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rgu_t$(ii)",     start=stt[:p_rgu][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
+        p_rgd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rgd_t$(ii)",     start=stt[:p_rgd][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
+        p_scr     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_scr_t$(ii)",     start=stt[:p_scr][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
+        p_nsc     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_nsc_t$(ii)",     start=stt[:p_nsc][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
+        p_rru_on  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rru_on_t$(ii)",  start=stt[:p_rru_on][tkeys[ii]][dev],  lower_bound = 0.0) for ii in 1:(sys.nT))
+        p_rru_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rru_off_t$(ii)", start=stt[:p_rru_off][tkeys[ii]][dev], lower_bound = 0.0) for ii in 1:(sys.nT))
+        p_rrd_on  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rrd_on_t$(ii)",  start=stt[:p_rrd_on][tkeys[ii]][dev],  lower_bound = 0.0) for ii in 1:(sys.nT))
+        p_rrd_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rrd_off_t$(ii)", start=stt[:p_rrd_off][tkeys[ii]][dev], lower_bound = 0.0) for ii in 1:(sys.nT))
+        q_qru     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "q_qru_t$(ii)",     start=stt[:q_qru][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
+        q_qrd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "q_qrd_t$(ii)",     start=stt[:q_qrd][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
 
         # add a few more (implicit) variables which are necessary for solving this system
-        u_su_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => quasiGrad.@variable(model, base_name = "u_su_dev_t$(ii)", start=stt[:u_su_dev][tkeys[ii]][dev], binary=true) for ii in 1:(sys.nT))
-        u_sd_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => quasiGrad.@variable(model, base_name = "u_sd_dev_t$(ii)", start=stt[:u_sd_dev][tkeys[ii]][dev], binary=true) for ii in 1:(sys.nT))
+        u_su_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "u_su_dev_t$(ii)", start=stt[:u_su_dev][tkeys[ii]][dev], binary=true) for ii in 1:(sys.nT))
+        u_sd_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "u_sd_dev_t$(ii)", start=stt[:u_sd_dev][tkeys[ii]][dev], binary=true) for ii in 1:(sys.nT))
         
         # we have the affine "AffExpr" expressions (whose values are specified)
-        dev_p = Dict(tkeys[ii] => quasiGrad.AffExpr(0.0) for ii in 1:(sys.nT))
-        p_su  = Dict(tkeys[ii] => quasiGrad.AffExpr(0.0) for ii in 1:(sys.nT))
-        p_sd  = Dict(tkeys[ii] => quasiGrad.AffExpr(0.0) for ii in 1:(sys.nT))
+        dev_p = Dict(tkeys[ii] => AffExpr(0.0) for ii in 1:(sys.nT))
+        p_su  = Dict(tkeys[ii] => AffExpr(0.0) for ii in 1:(sys.nT))
+        p_sd  = Dict(tkeys[ii] => AffExpr(0.0) for ii in 1:(sys.nT))
 
         # == define active power constraints ==
         for (t_ind, tii) in enumerate(prm.ts.time_keys)
@@ -261,7 +261,7 @@ function solve_Gurobi_projection!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}
         #
         # afterwards, we initialize adam with the closest feasible
         # solution variable values.
-        obj = quasiGrad.AffExpr(0.0)
+        obj = AffExpr(0.0)
 
         for (t_ind, tii) in enumerate(prm.ts.time_keys)
             # if a device is *not* in the set of variables,
@@ -271,7 +271,7 @@ function solve_Gurobi_projection!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}
                 @constraint(model, u_on_dev[tii] == stt[:u_on_dev][tii][dev])
             else
                 # add it to the objective function
-                tmp = quasiGrad.@variable(model)
+                tmp = @variable(model)
                 @constraint(model, u_on_dev[tii]  - stt[:u_on_dev][tii][dev] <= tmp)
                 @constraint(model, stt[:u_on_dev][tii][dev] - u_on_dev[tii]  <= tmp)
                 add_to_expression!(obj, tmp, qG.binary_projection_weight)
@@ -281,7 +281,7 @@ function solve_Gurobi_projection!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}
                 @constraint(model, p_rrd_off[tii] == stt[:p_rrd_off][tii][dev])
             else
                 # add it to the objective function
-                tmp = quasiGrad.@variable(model)
+                tmp = @variable(model)
                 @constraint(model, p_rrd_off[tii] - stt[:p_rrd_off][tii][dev] <= tmp)
                 @constraint(model, stt[:p_rrd_off][tii][dev] - p_rrd_off[tii] <= tmp)
                 add_to_expression!(obj, tmp)
@@ -291,7 +291,7 @@ function solve_Gurobi_projection!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}
                 @constraint(model, p_nsc[tii] == stt[:p_nsc][tii][dev])
             else
                 # add it to the objective function
-                tmp = quasiGrad.@variable(model)
+                tmp = @variable(model)
                 @constraint(model, p_nsc[tii]  - stt[:p_nsc][tii][dev] <= tmp)
                 @constraint(model, stt[:p_nsc][tii][dev] - p_nsc[tii] <= tmp)
                 add_to_expression!(obj, tmp)
@@ -301,7 +301,7 @@ function solve_Gurobi_projection!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}
                 @constraint(model, p_rru_off[tii] == stt[:p_rru_off][tii][dev])
             else
                 # add it to the objective function
-                tmp = quasiGrad.@variable(model)
+                tmp = @variable(model)
                 @constraint(model, p_rru_off[tii]  - stt[:p_rru_off][tii][dev] <= tmp)
                 @constraint(model, stt[:p_rru_off][tii][dev] - p_rru_off[tii]  <= tmp)
                 add_to_expression!(obj, tmp)
@@ -311,7 +311,7 @@ function solve_Gurobi_projection!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}
                 @constraint(model, q_qru[tii] == stt[:q_qru][tii][dev])
             else
                 # add it to the objective function
-                tmp = quasiGrad.@variable(model)
+                tmp = @variable(model)
                 @constraint(model, q_qru[tii]  - stt[:q_qru][tii][dev] <= tmp)
                 @constraint(model, stt[:q_qru][tii][dev] - q_qru[tii]  <= tmp)
                 add_to_expression!(obj, tmp)
@@ -320,7 +320,7 @@ function solve_Gurobi_projection!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}
                 @constraint(model, q_qrd[tii] == stt[:q_qrd][tii][dev])
             else
                 # add it to the objective function
-                tmp = quasiGrad.@variable(model)
+                tmp = @variable(model)
                 @constraint(model, q_qrd[tii]  - stt[:q_qrd][tii][dev] <= tmp)
                 @constraint(model, stt[:q_qrd][tii][dev] - q_qrd[tii]  <= tmp)
                 add_to_expression!(obj, tmp)
@@ -331,46 +331,46 @@ function solve_Gurobi_projection!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}
             if dev ∉ idx.J_pqe
 
                 # add it to the objective function
-                tmp = quasiGrad.@variable(model)
+                tmp = @variable(model)
                 @constraint(model, dev_q[tii]  - stt[:dev_q][tii][dev] <= tmp)
                 @constraint(model, stt[:dev_q][tii][dev] - dev_q[tii]  <= tmp)
-                add_to_expression!(obj, tmp)
+                add_to_expression!(obj, tmp, qG.dev_q_projection_weight)
             end
 
             # and now the rest -- none of which are in fixed sets
             #
             # p_on
-            tmp = quasiGrad.@variable(model)
+            tmp = @variable(model)
             @constraint(model, p_on[tii]  - stt[:p_on][tii][dev] <= tmp)
             @constraint(model, stt[:p_on][tii][dev] - p_on[tii]  <= tmp)
             add_to_expression!(obj, tmp, qG.p_on_projection_weight)
             
             # p_rgu 
-            tmp = quasiGrad.@variable(model)
+            tmp = @variable(model)
             @constraint(model, p_rgu[tii]  - stt[:p_rgu][tii][dev] <= tmp)
             @constraint(model, stt[:p_rgu][tii][dev] - p_rgu[tii]  <= tmp)
             add_to_expression!(obj, tmp)
             
             # p_rgd
-            tmp = quasiGrad.@variable(model)
+            tmp = @variable(model)
             @constraint(model, p_rgd[tii]  - stt[:p_rgd][tii][dev] <= tmp)
             @constraint(model, stt[:p_rgd][tii][dev] - p_rgd[tii]  <= tmp)
             add_to_expression!(obj, tmp)
 
             # p_scr
-            tmp = quasiGrad.@variable(model)
+            tmp = @variable(model)
             @constraint(model, p_scr[tii]  - stt[:p_scr][tii][dev] <= tmp)
             @constraint(model, stt[:p_scr][tii][dev] - p_scr[tii]  <= tmp)
             add_to_expression!(obj, tmp)
 
             # p_rru_on
-            tmp = quasiGrad.@variable(model)
+            tmp = @variable(model)
             @constraint(model, p_rru_on[tii]  - stt[:p_rru_on][tii][dev] <= tmp)
             @constraint(model, stt[:p_rru_on][tii][dev] - p_rru_on[tii]  <= tmp)
             add_to_expression!(obj, tmp)
 
             # p_rrd_on
-            tmp = quasiGrad.@variable(model)
+            tmp = @variable(model)
             @constraint(model, p_rrd_on[tii]  - stt[:p_rrd_on][tii][dev] <= tmp)
             @constraint(model, stt[:p_rrd_on][tii][dev] - p_rrd_on[tii]  <= tmp)
             add_to_expression!(obj, tmp)
