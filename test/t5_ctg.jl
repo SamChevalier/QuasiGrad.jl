@@ -46,8 +46,7 @@ adm = quasiGrad.initialize_adam_states(sys)
 upd = quasiGrad.identify_update_states(prm, idx, stt, sys)
 ntk = quasiGrad.initialize_ctg(sys, prm, qG, idx)
 
-quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
-                                        dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # call the ctg solver
 #include("../src/core/initializations.jl")
@@ -64,7 +63,7 @@ include("../src/core/contingencies.jl")
 
 # solve ctg (with gradients)
 qG.eval_grad = true
-quasiGrad.solve_ctgs!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 
 # %% 1. test if the gradient solution is correct -- p_on
 quasiGrad.flush_gradients!(grd, mgd, prm, sys)
@@ -73,7 +72,7 @@ qG.pcg_tol = 0.00000001
 epsilon = 1e-5
 tii     = :t1 #Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = 2   #Int64(round(rand(1)[1]*sys.nb)); (ind == 0 ? ind = 1 : ind = ind)
-quasiGrad.solve_ctgs!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 for (t_ind, tii) in enumerate(prm.ts.time_keys)
     for dev in 1:sys.ndev
         quasiGrad.apply_dev_q_grads!(tii, t_ind, prm, qG, idx, stt, grd, mgd, dev, grd[:dx][:dq][tii][dev])
@@ -87,7 +86,7 @@ dzdx    = copy(mgd[:p_on][tii][ind])
 stt[:p_on][tii][ind] += epsilon
 stt[:dev_p][tii] = stt[:p_on][tii] + stt[:p_su][tii] + stt[:p_sd][tii]
 quasiGrad.flush_gradients!(grd, mgd, prm, sys)
-quasiGrad.solve_ctgs!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 zp      = copy(-(scr[:zbase] + scr[:zctg_min] + scr[:zctg_avg]))
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -100,7 +99,7 @@ qG.pcg_tol = 0.000000001
 epsilon = 1e-4
 tii     = :t1 #Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = 2   #Int64(round(rand(1)[1]*sys.nb)); (ind == 0 ? ind = 1 : ind = ind)
-quasiGrad.solve_ctgs!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 for tii in prm.ts.time_keys
     for dev in 1:sys.ndev
         quasiGrad.apply_dev_q_grads!(tii, prm, idx, stt, grd, mgd, dev, grd[:dx][:dq][tii][dev])
@@ -113,7 +112,7 @@ dzdx    = copy(mgd[:vm][tii][ind])
 # update device power
 stt[:vm][tii][ind] += epsilon
 quasiGrad.flush_gradients!(grd, mgd, prm, sys)
-quasiGrad.solve_ctgs!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 zp      = copy(-(scr[:zbase] + scr[:zctg_min] + scr[:zctg_avg]))
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -125,7 +124,7 @@ println(dzdx_num)
 # solve a ctg
 qG.pcg_tol = 1e-9
 
-quasiGrad.solve_ctgs!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 # grab a flow
 tii    = :t1
 ctg_ii = 1
@@ -139,7 +138,7 @@ pf  = copy(ctg[:pflow_k][tii][end][line])
 
 stt[:p_on][tii][dev] += epsilon
 stt[:dev_p][tii] = stt[:p_on][tii] + stt[:p_su][tii] + stt[:p_sd][tii]
-quasiGrad.solve_ctgs!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 pf_new = copy(ctg[:pflow_k][tii][end][line])
 
 # how much did the power flow change? can the ptdf matrix explain it?
@@ -158,20 +157,18 @@ println(ptdf[line,bus-1])
 
 
 # %% compute the states (without gradients)
-quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
-                                        dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # solve and apply a Gurobi projection!
-quasiGrad.solve_Gurobi_projection!(GRB, idx, prm, qG, stt, sys, upd)
-quasiGrad.quasiGrad.apply_Gurobi_projection!(GRB, idx, prm, stt)
+quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
+quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
 
 # %% re-compute the states (without gradients)
 #ctg[:theta_k][tii][end] = zeros(sys.nb-1)
 #qG.pcg_tol = 0.01
 #qG.pcg_tol = 0.001
 #qG.pcg_tol = 0.000001
-quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
-                                        dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # %% write a solution :)
 soln_dict = quasiGrad.prepare_solution(prm, stt, sys)
@@ -354,13 +351,13 @@ ac_qto              = zeros(sys.nac)
 dsmax_dp_flow       = zeros(sys.nac)
 dsmax_dqfr_flow     = zeros(sys.nac)
 dsmax_dqto_flow     = zeros(sys.nac)
-dz_dpinj_base       = [zeros(sys.nb-1) for _ in 1:sys.nctg]
+ctd       = [zeros(sys.nb-1) for _ in 1:sys.nctg]
 p_inj               = zeros(sys.nb)
-theta_k_base        = [zeros(sys.nb-1) for _ in 1:sys.nT]
-worst_ctgs = [collect(1:sys.nctg) for _ in 1:sys.nT]
+ctb        = [zeros(sys.nb-1) for _ in 1:sys.nT]
+wct = [collect(1:sys.nctg) for _ in 1:sys.nT]
 
 # %%
-quasiGrad.solve_ctgs!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 # %%
 include("../src/core/contingencies.jl")
 
@@ -371,11 +368,11 @@ qG.base_solver   = "pcg"
 
 @time solve_ctgs!(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys,
                           ac_phi, ac_qfr, ac_qto, dsmax_dp_flow, dsmax_dqfr_flow,     
-                          dsmax_dqto_flow, dz_dpinj_base, p_inj, theta_k_base, worst_ctgs)
+                          dsmax_dqto_flow, ctd, p_inj, ctb, wct)
 
 
 # %%
-@btime worst_ctgs[t_ind] = sortperm(stt[:zctg][tii])
+@btime wct[t_ind] = sortperm(stt[:zctg][tii])
 @btime sortperm(stt[:zctg][tii])
 # %%
 
@@ -402,7 +399,7 @@ ac_qto,
 dsmax_dp_flow,  
 dsmax_dqfr_flow,     
 dsmax_dqto_flow,  
-dz_dpinj_base,
+ctd,
 p_inj,          
-theta_k_base,   
-worst_ctgs)
+ctb,   
+wct)

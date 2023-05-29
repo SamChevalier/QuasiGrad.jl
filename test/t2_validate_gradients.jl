@@ -44,9 +44,8 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 jsn = quasiGrad.load_json(path)
 
 # %% initialize the system
-adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, 
-sys, upd, dz_dpinj_base, theta_k_base, worst_ctgs = 
-    quasiGrad.base_initialization(jsn, true, 0.25);
+adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
+stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # reset -- to help with numerical conditioning of the market surplus function 
 # (so that we can take its derivative numerically)
@@ -258,12 +257,10 @@ if true == false
     qG.scale_c_sflow_testing = 1.0
 
     # run and write
-    quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
-                                        dz_dpinj_base, theta_k_base, worst_ctgs)
-    quasiGrad.solve_Gurobi_projection!(GRB, idx, prm, qG, stt, sys, upd)
-    quasiGrad.quasiGrad.apply_Gurobi_projection!(GRB, idx, prm, stt)
-    quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
-                                        dz_dpinj_base, theta_k_base, worst_ctgs)
+    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
+    quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
+    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
     # write a solution :)
     soln_dict = quasiGrad.prepare_solution(prm, stt, sys)

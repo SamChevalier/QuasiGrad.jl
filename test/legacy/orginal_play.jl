@@ -14,7 +14,7 @@ file_name = "scenario_002.json"
 # %%
 g = Dict("t1" => 1, "t2" => 5)
 
-sum(v for (~,v) in g)
+sum(v for (_,v) in g)
 
 
 # %%
@@ -3109,11 +3109,11 @@ for tii in prm.ts.time_keys
 
     # now that we have scored the contingencies, let's only include the 
     # gradients associated with the worst X% of them (at this time!!!)
-    worst_ctgs = sortperm(stt[:zctg][tii])[ntk.ctg_to_score]
-    worst_ctgs = sortperm(stt[:zctg][tii])[1:500]
+    wct = sortperm(stt[:zctg][tii])[ntk.ctg_to_score]
+    wct = sortperm(stt[:zctg][tii])[1:500]
     
     # loop over ctgs
-    for ctg_ii in worst_ctgs
+    for ctg_ii in wct
         # evaluate the gradients?
         if qG.eval_grad
             # What are the gradients? build indicators
@@ -3130,7 +3130,7 @@ for tii in prm.ts.time_keys
             dsmax_dqto_flow[gamma_to] = stt[:ac_qto][tii][gamma_to]./flw[:sto][ctg_ii][gamma_to]
 
             # is this the worst ctg of the lot? (most negative!)
-            if ctg_ii == worst_ctgs[1]
+            if ctg_ii == wct[1]
                 gc = copy(gc_avg) + copy(gc_min)
             else
                 gc = copy(gc_avg)
@@ -3202,17 +3202,17 @@ using BenchmarkTool
 # %% ==========
 v  = randn(616)
 rhs = randn(616)
-ctg[:dz_dpinj_base][tii][ctg_ii] = copy(v)
+ctg[:ctd][tii][ctg_ii] = copy(v)
 qG.pcg_tol = 1e-3
-@btime quasiGrad.cg!(ctg[:dz_dpinj_base][tii][ctg_ii], ntk.Ybr, rhs, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr)
+@btime quasiGrad.cg!(ctg[:ctd][tii][ctg_ii], ntk.Ybr, rhs, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr)
 
-ctg[:dz_dpinj_base][tii][ctg_ii] = copy(v)
+ctg[:ctd][tii][ctg_ii] = copy(v)
 qG.pcg_tol = 1e-4
-@btime quasiGrad.cg!(ctg[:dz_dpinj_base][tii][ctg_ii], ntk.Ybr, rhs, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr)
+@btime quasiGrad.cg!(ctg[:ctd][tii][ctg_ii], ntk.Ybr, rhs, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr)
 
-ctg[:dz_dpinj_base][tii][ctg_ii] = copy(v)
+ctg[:ctd][tii][ctg_ii] = copy(v)
 qG.pcg_tol = 1e-4
-@btime quasiGrad.cg!(ctg[:dz_dpinj_base][tii][ctg_ii], ntk.Ybr, rhs, abstol = qG.pcg_tol)
+@btime quasiGrad.cg!(ctg[:ctd][tii][ctg_ii], ntk.Ybr, rhs, abstol = qG.pcg_tol)
 
 @btime ntk.Ybr\rhs
 # %%
@@ -3249,7 +3249,7 @@ v_k = ntk.Ybr\ntk.Er[1,:]
 # %% =========
 for (t_ind, tii) in enumerate(prm.ts.time_keys)
     for ctg_ii = 1:563
-        ctg[:dz_dpinj_base][tii][ctg_ii] = zeros(616)
+        ctg[:ctd][tii][ctg_ii] = zeros(616)
         ctg[:theta_k][tii][ctg_ii]       = zeros(616)
     end
 end
@@ -3337,11 +3337,11 @@ z   = zeros(5000)
 
 update_states_and_grads!(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
                           ac_phi, ac_qfr, ac_qto, dsmax_dp_flow, dsmax_dqfr_flow,
-                          dsmax_dqto_flow, dz_dpinj_base, p_inj, theta_k_base, worst_ctgs)
+                          dsmax_dqto_flow, ctd, p_inj, ctb, wct)
 
 update_states_and_grads!(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
                           ac_phi, ac_qfr, ac_qto, dsmax_dp_flow, dsmax_dqfr_flow,
-                          dsmax_dqto_flow, dz_dpinj_base, p_inj, theta_k_base, worst_ctgs)
+                          dsmax_dqto_flow, ctd, p_inj, ctb, wct)
 
 # %%
 #
@@ -3448,7 +3448,7 @@ f(x,y) = quasiGrad.dot(x,y)
 
 
 # %%
-quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # %%
 

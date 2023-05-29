@@ -8,25 +8,24 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 jsn = quasiGrad.load_json(path)
 
 # %% init
-adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, 
-sys, upd, dz_dpinj_base, theta_k_base, worst_ctgs = 
-    quasiGrad.base_initialization(jsn, false, 1.0);
+adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
+stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # solve
-quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # run an ED
 ED = quasiGrad.solve_economic_dispatch(GRB, idx, prm, qG, scr, stt, sys, upd);
-quasiGrad.apply_economic_dispatch_projection!(ED, idx, prm, stt);
+quasiGrad.apply_economic_dispatch_projection!(ED, idx, prm, qG, stt, sys);
 
 # recompute the state
 qG.eval_grad = false
-quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 qG.eval_grad = true
 
 # ===== new score?
 quasiGrad.dcpf_initialization!(flw, idx, msc, ntk, prm, qG, stt, sys)
-quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # intialize lbfgs
 dpf0, pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, zpf = quasiGrad.initialize_pf_lbfgs(mgd, prm, stt, sys, upd);
@@ -79,12 +78,12 @@ for ii in 1:1500
 end
 
 # %% write solution
-quasiGrad.solve_Gurobi_projection!(GRB, idx, prm, qG, stt, sys, upd)
-quasiGrad.quasiGrad.apply_Gurobi_projection!(GRB, idx, prm, stt)
+quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
+quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
 
 # one last clip + state computation -- no grad needed!
 qG.eval_grad = false
-quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # write the final solution
 soln_dict = quasiGrad.prepare_solution(prm, stt, sys)

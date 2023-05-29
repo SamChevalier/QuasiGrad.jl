@@ -3,6 +3,7 @@ function initialize_qG(prm::quasiGrad.Param)
     # and intructions related to how the qG solver will operate. 
     # It also contains all of the adam solver parameters!
     #
+    num_bus = length(prm.bus.id)
     #
     # pcts_to_round = [25.0; 50.0; 75.0; 90.0; 95.0; 100.0]
     pcts_to_round = [25.0; 50.0; 75.0; 90.0; 100.0]
@@ -54,7 +55,7 @@ function initialize_qG(prm::quasiGrad.Param)
     # mip gap for Gurobi
     mip_gap                  = 1/100.0
 
-    # Gurobi time limit
+    # Gurobi time limit (projection)
     time_lim                 = 5.0
 
     # how much should Gurobi print?
@@ -62,7 +63,7 @@ function initialize_qG(prm::quasiGrad.Param)
 
     # print zms at every adam iteration?
     print_zms                = true
-    print_freq               = 15 # (i.e., every how often)
+    print_freq               = 5 # (i.e., every how often)
 
     # for testing:
     scale_c_pbus_testing     = 1.0
@@ -76,6 +77,7 @@ function initialize_qG(prm::quasiGrad.Param)
     bias_pf_scale_pgrad = 1e-3   # grad_p = bias_pf_scale_pgrad*grad_p
 
     # ctg solver settings
+    score_all_ctgs           = false # this is used for testing/post-processing
     min_buses_for_krylov     = 25    # don't use Krylov if there are this many or fewer buses
     frac_ctg_keep            = 0.05  # this is the fraction of ctgs that are scored and differentiated
                                      # i.e., 100*frac_ctg_keep% of them. half are random, and half are
@@ -87,22 +89,23 @@ function initialize_qG(prm::quasiGrad.Param)
     elseif length(prm.ctg.id) < 50
         frac_ctg_keep = 0.5
     elseif length(prm.ctg.id) < 250
-        frac_ctg_keep = 0.05
+        frac_ctg_keep = 0.25
     elseif length(prm.ctg.id) < 1000
-        frac_ctg_keep = 0.02
+        frac_ctg_keep = 0.25
     elseif length(prm.ctg.id) < 5000
-        frac_ctg_keep = 0.01
+        frac_ctg_keep = 0.25
     else
-        frac_ctg_keep = 0.0025
+        frac_ctg_keep = 0.25
     end
 
     # cg error: set the max allowable error (no error can be larger than this)
-    emax = 2e-5*sqrt(length(prm.bus.id))
+    emax = 2e-5*sqrt(num_bus)
     # more generally, emax > sqrt((Ax-b)'(Ax-b)), which grows at sqrt(n) for
     # a constant error value, so we scale given error by sqrt(n) -- seems reasonable
     #
     # ctg_max_to_score score: using sortperm of negative scores, so we score 1:X
     pcg_tol                  = emax
+    max_pcg_its              = Int64(round(sqrt(num_bus)))
     grad_ctg_tol             = 1e-4  # only take the gradient of ctg violations larger than this
     base_solver              = "pcg" # "lu", "pcg" for approx
     ctg_solver               = "wmi" # "lu", "pcg", for approx, "wmi" for low rank updates
@@ -116,14 +119,15 @@ function initialize_qG(prm::quasiGrad.Param)
     # therefore, cutoff_level / memory is self-scaling! meaning, it automatically gets multuplied by "n"
     cutoff_level                 = 10     # for preconditioner -- let's be bullish here
     build_basecase_cholesky      = true   # we use this to compute the cholesky decomp of the base case
-    accuracy_sparsify_lr_updates = 0.995  # trim all (sorted) values in the lr update vectors which
+    accuracy_sparsify_lr_updates = 0.95   # trim all (sorted) values in the lr update vectors which
                                           # contribute (less than) beyond this goal
+    accuracy_sparsify_lr_updates = 1.0
 
     # initialize adam parameters
     eps        = 1e-8         # for numerical stability -- keep at 1e-8
     beta1      = 0.99
     beta2      = 0.995
-    alpha_0    = 0.0001       # initial step size
+    alpha_0    = 0.000025     # initial step size
     alpha_min  = 0.001/10.0   # for cos decay
     alpha_max  = 0.001/0.5    # for cos decay
     Ti         = 100          # for cos decay -- at Tcurr == Ti, cos() => -1
@@ -143,7 +147,7 @@ function initialize_qG(prm::quasiGrad.Param)
     pqbal_grad_mod_type     = "quadratic_for_lbfgs" #"soft_abs", "standard"
     pqbal_grad_mod_weight_p = prm.vio.p_bus # standard: prm.vio.p_bus
     pqbal_grad_mod_weight_q = prm.vio.p_bus # standard: prm.vio.q_bus
-    pqbal_grad_mod_eps2     = 1e-3
+    pqbal_grad_mod_eps2     = 1e-10
 
     # shall we compute injections when we build the Jacobian?
     compute_pf_injs_with_Jac = true
@@ -170,13 +174,15 @@ function initialize_qG(prm::quasiGrad.Param)
     print_lbfgs_iterations          = true
     print_linear_pf_iterations      = true
     initial_pf_lbfgs_step           = 0.05
+    lbfgs_map_over_all_time         = false # assume the same set of variables
+                                            # are optimized at each time step
 
     # set the number of lbfgs steps
-    if length(prm.bus.id) < 100
+    if num_bus < 100
         num_lbfgs_steps = 1000
-    elseif length(prm.bus.id) < 500    
+    elseif num_bus < 500    
         num_lbfgs_steps = 500   
-    elseif length(prm.bus.id) < 1000    
+    elseif num_bus < 1000    
         num_lbfgs_steps = 150
     else
         num_lbfgs_steps = 100
@@ -209,9 +215,11 @@ function initialize_qG(prm::quasiGrad.Param)
         scale_c_sflow_testing,
         bias_pf,
         bias_pf_scale_pgrad,
+        score_all_ctgs,
         min_buses_for_krylov,
         frac_ctg_keep,
         pcg_tol,
+        max_pcg_its,
         grad_ctg_tol,
         cutoff_level,
         build_basecase_cholesky,      
@@ -250,6 +258,7 @@ function initialize_qG(prm::quasiGrad.Param)
         include_lbfgs_p0_regularization,
         print_lbfgs_iterations,
         initial_pf_lbfgs_step,
+        lbfgs_map_over_all_time,
         num_lbfgs_steps)
     
     # output
@@ -266,7 +275,7 @@ function base_initialization(jsn::Dict{String, Any}, perturb_states::Bool, pert_
     qG = initialize_qG(prm)
 
     # intialize (empty) states
-    cgd, GRB, grd, mgd, scr, stt, msc = initialize_states(idx, prm, sys, qG)
+    cgd, grd, mgd, scr, stt, msc = initialize_states(idx, prm, sys, qG)
 
     # initialize the states which adam will update -- the rest are fixed
     adm = initialize_adam_states(sys)
@@ -287,16 +296,21 @@ function base_initialization(jsn::Dict{String, Any}, perturb_states::Bool, pert_
         upd = identify_update_states(prm, idx, stt, sys)
     end
 
-    # contingency structures
-    dz_dpinj_base       = [zeros(sys.nb-1) for _ in 1:sys.nctg]
-    theta_k_base        = [zeros(sys.nb-1) for _ in 1:sys.nT]
+    # contingency structure: ctb and ctd
+    ctb = [zeros(sys.nb-1) for _ in 1:sys.nT]     # ctb
+    ctd = [zeros(sys.nb-1) for _ in 1:sys.nctg]   # ctd
 
     # build the full set of vectors, but only use the top fraction (for testing ease, mostly)
-    worst_ctgs = [collect(1:sys.nctg) for _ in 1:sys.nT]
+    wct = [collect(1:sys.nctg) for _ in 1:sys.nT] # wct
+
+    # I don't want to put these into dicts, because I want them
+    # to be as fasttt as possible, and we read/write into them a lot!
+        # alt: => ctb  = [zeros(sys.nb-1) for _ in 1:sys.nT]
+        # alt: => ctd  = [zeros(sys.nb-1) for _ in 1:sys.nctg]
+        # alt: => wct  = [collect(1:sys.nctg) for _ in 1:sys.nT]
 
     # output
-    return adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd,
-           dz_dpinj_base, theta_k_base, worst_ctgs
+    return adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct
 end
 
 function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
@@ -562,20 +576,24 @@ function initialize_states(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiG
         :ed_obj          => 0.0) # hold the ed solution
 
     # GRB = Gurobi solutions -- Vector{Float64}(undef,(sys.ndev))
-    GRB = Dict(
-        :u_on_dev  => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
-        :p_on      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
-        :dev_q     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
-        :p_rgu     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
-        :p_rgd     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
-        :p_scr     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
-        :p_nsc     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
-        :p_rru_on  => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
-        :p_rru_off => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
-        :p_rrd_on  => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
-        :p_rrd_off => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
-        :q_qru     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
-        :q_qrd     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)))
+    #
+    # not needed anymore -- to save memory, we pass the solution
+    # directly to the stt dict!
+    #
+    # GRB = Dict(
+    #     :u_on_dev  => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
+    #     :p_on      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
+    #     :dev_q     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
+    #     :p_rgu     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
+    #     :p_rgd     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
+    #     :p_scr     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
+    #     :p_nsc     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
+    #     :p_rru_on  => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
+    #     :p_rru_off => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
+    #     :p_rrd_on  => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
+    #     :p_rrd_off => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
+    #     :q_qru     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
+    #     :q_qrd     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)))
 
     # vector of miscellaneous vectors (so I don't have to initialize a new one each time)
     msc = Dict(
@@ -588,8 +606,7 @@ function initialize_states(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiG
         :qlb        => zeros(sys.nb),
         :pinj0      => zeros(sys.nb), # bias point
         :qinj0      => zeros(sys.nb), # bias point
-        :pinj_dc    => zeros(sys.nb),
-        :theta_r    => zeros(sys.nb-1),
+        :pinj_dc    => zeros(sys.nb)
         )
     
     # mgd = master grad -- this is the gradient which relates the negative market surplus function 
@@ -598,7 +615,7 @@ function initialize_states(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiG
     mgd = build_master_grad(prm, sys)
 
     # output
-    return cgd, GRB, grd, mgd, scr, stt, msc
+    return cgd, grd, mgd, scr, stt, msc
 end
 
 function identify_update_states(prm::quasiGrad.Param, idx::quasiGrad.Idx, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
@@ -933,9 +950,9 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
     # theta_k       = Dict(tkeys[ii] => [zeros(sys.nb-1) for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT))
     # pflow_k       = Dict(tkeys[ii] => [zeros(sys.nac)  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT))
     # this is the gradient solution assuming a base case admittance (it is then rank 1 corrected to dz_dpinj)
-    # dz_dpinj_base = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT)) 
-    # dz_dpinj_base = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT))   
-    # this is the gradient solution, corrected from dz_dpinj_base
+    # ctd = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT)) 
+    # ctd = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT))   
+    # this is the gradient solution, corrected from ctd
     # dz_dpinj      = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT)) 
     # dz_dpinj      = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT)) 
 
@@ -988,7 +1005,7 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
     #    :pflow_k         => pflow_k,
     #    :theta_k         => theta_k,
     #    :dz_dpinj        => dz_dpinj,
-    #    :dz_dpinj_base   => dz_dpinj_base)
+    #    :ctd   => ctd)
     # ctg
     #flw = Dict(
     #    :sfr             => sfr,     
@@ -1392,8 +1409,8 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
         :u_su_acline     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
         :u_sd_acline     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
         # xfms
-        :phi          => Dict(tkeys[ii] => copy(prm.xfm.init_phi)      for ii in 1:(sys.nT)),
-        :tau          => Dict(tkeys[ii] => copy(prm.xfm.init_tau)      for ii in 1:(sys.nT)),
+        :phi          => Dict(tkeys[ii] => copy(prm.xfm.init_phi)          for ii in 1:(sys.nT)),
+        :tau          => Dict(tkeys[ii] => copy(prm.xfm.init_tau)          for ii in 1:(sys.nT)),
         :xfm_pfr      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
         :xfm_qfr      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
         :xfm_pto      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
@@ -1412,20 +1429,22 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
         :dc_qfr       => Dict(tkeys[ii] => copy(prm.dc.init_qdc_fr)  for ii in 1:(sys.nT)),
         :dc_qto       => Dict(tkeys[ii] => copy(prm.dc.init_qdc_to)  for ii in 1:(sys.nT)),
         # shunts
-        :sh_p         => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nsh)) for ii in 1:(sys.nT)),
-        :sh_q         => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nsh)) for ii in 1:(sys.nT)),
-        :u_step_shunt => Dict(tkeys[ii] => zeros(sys.nsh)                   for ii in 1:(sys.nT)),
+        :sh_p         => Dict(tkeys[ii] => zeros(sys.nsh) for ii in 1:(sys.nT)),
+        :sh_q         => Dict(tkeys[ii] => zeros(sys.nsh) for ii in 1:(sys.nT)),
+        :u_step_shunt => Dict(tkeys[ii] => zeros(sys.nsh) for ii in 1:(sys.nT)),
         # producing and consuming devices
-        :u_on_dev   => Dict(tkeys[ii] => ones(sys.ndev)                   for ii in 1:(sys.nT)),
-        :dev_p      => Dict(tkeys[ii] => zeros(sys.ndev)                  for ii in 1:(sys.nT)), 
-        :dev_q      => Dict(tkeys[ii] => zeros(sys.ndev)                  for ii in 1:(sys.nT)),
+        :u_on_dev   => Dict(tkeys[ii] => ones(sys.ndev)  for ii in 1:(sys.nT)),
+        :dev_p      => Dict(tkeys[ii] => zeros(sys.ndev) for ii in 1:(sys.nT)), 
+        :dev_q      => Dict(tkeys[ii] => zeros(sys.ndev) for ii in 1:(sys.nT)),
+        # *** placeholder for the Gurobi projection solutions ***
+        :u_on_dev_GRB => Dict(tkeys[ii] => ones(sys.ndev)  for ii in 1:(sys.nT)),
         # devices variables
-        :u_su_dev  => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
-        :u_sd_dev  => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)),
-        :u_sum     => Dict(tkeys[ii] => zeros(sys.ndev)                   for ii in 1:(sys.nT)),
-        :p_on      => Dict(tkeys[ii] => zeros(sys.ndev)                   for ii in 1:(sys.nT)), 
-        :p_su      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)), 
-        :p_sd      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.ndev)) for ii in 1:(sys.nT)), 
+        :u_su_dev  => Dict(tkeys[ii] => zeros(sys.ndev) for ii in 1:(sys.nT)),
+        :u_sd_dev  => Dict(tkeys[ii] => zeros(sys.ndev) for ii in 1:(sys.nT)),
+        :u_sum     => Dict(tkeys[ii] => zeros(sys.ndev) for ii in 1:(sys.nT)),
+        :p_on      => Dict(tkeys[ii] => zeros(sys.ndev) for ii in 1:(sys.nT)), 
+        :p_su      => Dict(tkeys[ii] => zeros(sys.ndev) for ii in 1:(sys.nT)), 
+        :p_sd      => Dict(tkeys[ii] => zeros(sys.ndev) for ii in 1:(sys.nT)), 
         # device powers
         :p_rgu     => Dict(tkeys[ii] => zeros(sys.ndev) for ii in 1:(sys.nT)),
         :p_rgd     => Dict(tkeys[ii] => zeros(sys.ndev) for ii in 1:(sys.nT)),
@@ -1875,6 +1894,9 @@ end
 function initialize_lbfgs(mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
     # first, how many historical gradients do we keep? 
     # 2 < n < 21 according to Wright
+
+    @info "this is general lbfgs solver -- it does not work well"
+
     num_lbfgs_to_keep = 8
 
     # define the mapping indices which put gradient and state
@@ -1966,7 +1988,7 @@ function initialize_lbfgs(mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm:
     return lbfgs, lbfgs_diff, lbfgs_idx, lbfgs_map, lbfgs_step
 end
 
-function initialize_pf_lbfgs(mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
+function initialize_pf_lbfgs(mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
     # first, how many historical gradients do we keep? 
     # 2 < n < 21 according to Wright
     num_lbfgs_to_keep = 10
@@ -1975,58 +1997,105 @@ function initialize_pf_lbfgs(mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, p
     # information into aggregated forms -- to be populated!
     tkeys = prm.ts.time_keys
 
-    pf_lbfgs_map = Dict(
-        :vm            => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),       
-        :va            => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),           
-        :tau           => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),            
-        :phi           => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :dc_pfr        => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :dc_qfr        => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :dc_qto        => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),  
-        :u_step_shunt  => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),
-        :p_on          => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :dev_q         => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)))
+    # shall we define the mapping based on time?
+    if qG.lbfgs_map_over_all_time == true
+        # in this case, include all time indices -- not generally needed
+        @warn "you need to now update the type of pf_lbfgs_map"
+        pf_lbfgs_map = Dict(
+            :vm            => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),       
+            :va            => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),           
+            :tau           => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),            
+            :phi           => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
+            :dc_pfr        => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
+            :dc_qfr        => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
+            :dc_qto        => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),  
+            :u_step_shunt  => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),
+            :p_on          => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
+            :dev_q         => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)))
 
-    # next, how many pf_lbfgs states are there at each time? let's base this on "upd"
-    n_lbfgs = zeros(Int64, sys.nT)
-    for var_key in [:vm, :va, :tau, :phi, :dc_pfr, :dc_qfr, :dc_qto, :u_step_shunt, :p_on, :dev_q]
-        for (t_ind, tii) in enumerate(prm.ts.time_keys)
+        # next, how many pf_lbfgs states are there at each time? let's base this on "upd"
+        n_lbfgs = zeros(Int64, sys.nT)
+        for var_key in [:vm, :va, :tau, :phi, :dc_pfr, :dc_qfr, :dc_qto, :u_step_shunt, :p_on, :dev_q]
+            for (t_ind, tii) in enumerate(prm.ts.time_keys)
+                if var_key in keys(upd)
+                    n = length(upd[var_key][tii]) # number
+                    if n == 0
+                        pf_lbfgs_map[var_key][tii] = Int64[]
+                    else
+                        # this is fine, because we will grab "1:n" of the update variables,
+                        # i.e., all of them, later on
+                        pf_lbfgs_map[var_key][tii] = collect(1:n) .+ n_lbfgs[t_ind]
+                    end
+
+                    # update the total number
+                    n_lbfgs[t_ind] += n
+                else
+                    n = length(mgd[var_key][tii])
+                    if n == 0
+                        pf_lbfgs_map[var_key][tii] = Int64[]
+                    else
+                        pf_lbfgs_map[var_key][tii] = collect(1:n) .+ n_lbfgs[t_ind]
+                    end
+
+                    # update the total number
+                    n_lbfgs[t_ind] += n
+                end
+            end
+        end
+    else
+        # in this case, include all time indices -- not generally needed
+        pf_lbfgs_map = Dict(
+            :vm            => Int64[],       
+            :va            => Int64[],           
+            :tau           => Int64[],            
+            :phi           => Int64[], 
+            :dc_pfr        => Int64[], 
+            :dc_qfr        => Int64[], 
+            :dc_qto        => Int64[],  
+            :u_step_shunt  => Int64[],
+            :p_on          => Int64[], 
+            :dev_q         => Int64[])
+
+        # next, how many pf_lbfgs states are there at each time? let's base this on "upd"
+        n_lbfgs = 0
+        tii     = :t1
+        for var_key in [:vm, :va, :tau, :phi, :dc_pfr, :dc_qfr, :dc_qto, :u_step_shunt, :p_on, :dev_q]
             if var_key in keys(upd)
                 n = length(upd[var_key][tii]) # number
                 if n == 0
-                    pf_lbfgs_map[var_key][tii] = Int64[]
+                    pf_lbfgs_map[var_key] = Int64[]
                 else
-                    pf_lbfgs_map[var_key][tii] = collect(1:n) .+ n_lbfgs[t_ind]
+                    pf_lbfgs_map[var_key] = collect(1:n) .+ n_lbfgs
                 end
 
                 # update the total number
-                n_lbfgs[t_ind] += n
+                n_lbfgs += n
             else
                 n = length(mgd[var_key][tii])
                 if n == 0
-                    pf_lbfgs_map[var_key][tii] = Int64[]
+                    pf_lbfgs_map[var_key] = Int64[]
                 else
-                    pf_lbfgs_map[var_key][tii] = collect(1:n) .+ n_lbfgs[t_ind]
+                    pf_lbfgs_map[var_key] = collect(1:n) .+ n_lbfgs
                 end
 
                 # update the total number
-                n_lbfgs[t_ind] += n
+                n_lbfgs += n
             end
         end
     end
 
     # build the pf_lbfgs dict
-    pf_lbfgs = Dict(:x_now      => Dict(tkeys[ii] => zeros(n_lbfgs[ii])       for ii in 1:(sys.nT)),
-                    :x_new      => Dict(tkeys[ii] => zeros(n_lbfgs[ii])       for ii in 1:(sys.nT)),
-                    :x_prev     => Dict(tkeys[ii] => zeros(n_lbfgs[ii])       for ii in 1:(sys.nT)),
-                    :gradf_now  => Dict(tkeys[ii] => zeros(n_lbfgs[ii])       for ii in 1:(sys.nT)),
-                    :gradf_prev => Dict(tkeys[ii] => zeros(n_lbfgs[ii])       for ii in 1:(sys.nT)),
+    pf_lbfgs = Dict(:x_now      => Dict(tkeys[ii] => zeros(n_lbfgs)           for ii in 1:(sys.nT)),
+                    :x_new      => Dict(tkeys[ii] => zeros(n_lbfgs)           for ii in 1:(sys.nT)),
+                    :x_prev     => Dict(tkeys[ii] => zeros(n_lbfgs)           for ii in 1:(sys.nT)),
+                    :gradf_now  => Dict(tkeys[ii] => zeros(n_lbfgs)           for ii in 1:(sys.nT)),
+                    :gradf_prev => Dict(tkeys[ii] => zeros(n_lbfgs)           for ii in 1:(sys.nT)),
                     :alpha      => Dict(tkeys[ii] => zeros(num_lbfgs_to_keep) for ii in 1:(sys.nT)),
                     :rho        => Dict(tkeys[ii] => zeros(num_lbfgs_to_keep) for ii in 1:(sys.nT)))
 
     # build the pf_lbfgs difference dict
-    pf_lbfgs_diff = Dict(:s => Dict(tkeys[ii] => [zeros(n_lbfgs[ii]) for _ in 1:num_lbfgs_to_keep] for ii in 1:(sys.nT)),
-                         :y => Dict(tkeys[ii] => [zeros(n_lbfgs[ii]) for _ in 1:num_lbfgs_to_keep] for ii in 1:(sys.nT)))
+    pf_lbfgs_diff = Dict(:s => Dict(tkeys[ii] => [zeros(n_lbfgs) for _ in 1:num_lbfgs_to_keep] for ii in 1:(sys.nT)),
+                         :y => Dict(tkeys[ii] => [zeros(n_lbfgs) for _ in 1:num_lbfgs_to_keep] for ii in 1:(sys.nT)))
 
     # step size control -- for adam!
     pf_lbfgs_step = Dict(:zpf_prev    => Dict(tkeys[ii] => 0.0    for ii in 1:(sys.nT)),
@@ -2050,7 +2119,7 @@ function initialize_pf_lbfgs(mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, p
     
     # create the dict for regularizing the solution
     dpf0 = Dict(
-        :p_on => Dict(tkeys[ii] => deepcopy(stt[:p_on][tkeys[ii]]) for ii in 1:(sys.nT)))
+        :p_on => Dict(tkeys[ii] => copy(stt[:p_on][tkeys[ii]]) for ii in 1:(sys.nT)))
 
     return dpf0, pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, zpf
 end

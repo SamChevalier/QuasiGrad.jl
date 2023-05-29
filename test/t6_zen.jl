@@ -13,17 +13,14 @@ file_name = "scenario_002_zen_min_mod.json"
 jsn = quasiGrad.load_json(data_path*file_name);
 
 # %% initialize
-adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, 
-sys, upd, dz_dpinj_base, theta_k_base, worst_ctgs = 
-    quasiGrad.base_initialization(jsn, true, 0.25);
+adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
+stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # compute states
-quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
-                                        dz_dpinj_base, theta_k_base, worst_ctgs)
-quasiGrad.solve_Gurobi_projection!(GRB, idx, prm, qG, stt, sys, upd)
-quasiGrad.quasiGrad.apply_Gurobi_projection!(GRB, idx, prm, stt)
-quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
-                                        dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
+quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # print the solution zen_costs
 zenmax  = sum(values(scr[:z_enmax]), init=0.0)

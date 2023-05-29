@@ -14,9 +14,8 @@ path = "../GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
 print("jsn: ")
 json_data = quasiGrad.load_json(path);
 
-@btime adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, 
-sys, upd, dz_dpinj_base, theta_k_base, worst_ctgs = 
-    quasiGrad.base_initialization(json_data, true, 0.25);
+adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
+stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # %% build the system struct
 print("sys: ")
@@ -93,9 +92,8 @@ Ts_en_min, Ts_su_max = quasiGrad.build_time_sets(prm, sys);
 @btime ntk, flw = quasiGrad.initialize_ctg(sys, prm, qG, idx);
 
 # %% initialize
-adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, 
-sys, upd, dz_dpinj_base, theta_k_base, worst_ctgs = 
-    quasiGrad.base_initialization(json_data, true, 0.25);
+adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
+stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # %% note, the reference bus is always bus #1
 #
@@ -316,9 +314,9 @@ tkeys = [Symbol("t"*string(ii)) for ii in 1:(sys.nT)]
 # theta_k       = Dict(tkeys[ii] => [zeros(sys.nb-1) for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT))
 # pflow_k       = Dict(tkeys[ii] => [zeros(sys.nac)  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT))
 # this is the gradient solution assuming a base case admittance (it is then rank 1 corrected to dz_dpinj)
-# dz_dpinj_base = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT)) 
-# dz_dpinj_base = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT))   
-# this is the gradient solution, corrected from dz_dpinj_base
+# ctd = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT)) 
+# ctd = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT))   
+# this is the gradient solution, corrected from ctd
 # dz_dpinj      = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT)) 
 # dz_dpinj      = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT)) 
 

@@ -86,6 +86,8 @@ function run_adam_with_plotting!(
         adm::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}},
         ax::quasiGrad.Makie.Axis,
         cgd::quasiGrad.Cgd,
+        ctb::Vector{Vector{Float64}},
+        ctd::Vector{Vector{Float64}},
         fig::quasiGrad.Makie.Figure,
         flw::Dict{Symbol, Vector{Float64}},
         grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, 
@@ -95,14 +97,12 @@ function run_adam_with_plotting!(
         ntk::quasiGrad.Ntk,
         plt::Dict{Symbol, Integer},
         prm::quasiGrad.Param,
-        qG::quasiGrad.QG, 
+        qG::quasiGrad.QG,
         scr::Dict{Symbol, Float64},
         stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
         sys::quasiGrad.System,
         upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}},
-        dz_dpinj_base::Vector{Vector{Float64}},
-        theta_k_base::Vector{Vector{Float64}},   
-        worst_ctgs::Vector{Vector{Int64}},
+        wct::Vector{Vector{Int64}},
         z_plt::Dict{Symbol, Dict{Symbol, Float64}})
 
     # initialize
@@ -148,7 +148,7 @@ function run_adam_with_plotting!(
         beta2_decay = beta2_decay*beta2
 
         # compute all states and grads
-        quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+        quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
         # take an adam step
         quasiGrad.adam!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
@@ -173,7 +173,7 @@ function run_adam_with_plotting!(
 
     # one last clip + state computation -- no grad needed!
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
     # turn it back on
     qG.eval_grad = true
@@ -182,6 +182,8 @@ end
 function run_adam!(
         adm::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}},
         cgd::quasiGrad.Cgd,
+        ctb::Vector{Vector{Float64}},
+        ctd::Vector{Vector{Float64}},
         flw::Dict{Symbol, Vector{Float64}},
         grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, 
         idx::quasiGrad.Idx,
@@ -193,10 +195,8 @@ function run_adam!(
         scr::Dict{Symbol, Float64},
         stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
         sys::quasiGrad.System,
-        upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}},
-        dz_dpinj_base::Vector{Vector{Float64}},
-        theta_k_base::Vector{Vector{Float64}},   
-        worst_ctgs::Vector{Vector{Int64}})
+        upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, 
+        wct::Vector{Vector{Int64}})
 
     # initialize
     adm_step    = 0
@@ -232,7 +232,7 @@ function run_adam!(
         beta2_decay = beta2_decay*beta2
 
         # compute all states and grads
-        quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+        quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
         # take an adam step
         quasiGrad.adam!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
@@ -253,13 +253,28 @@ function run_adam!(
 
     # one last clip + state computation -- no grad needed!
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
     # turn it back on
     qG.eval_grad = true
 end
 
-function update_states_and_grads!(cgd::quasiGrad.Cgd, flw::Dict{Symbol, Vector{Float64}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, dz_dpinj_base::Vector{Vector{Float64}}, theta_k_base::Vector{Vector{Float64}}, worst_ctgs::Vector{Vector{Int64}})
+function update_states_and_grads!(
+    cgd::quasiGrad.Cgd, 
+    ctb::Vector{Vector{Float64}},
+    ctd::Vector{Vector{Float64}}, 
+    flw::Dict{Symbol, Vector{Float64}}, 
+    grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, 
+    idx::quasiGrad.Idx, 
+    mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
+    msc::Dict{Symbol, Vector{Float64}}, 
+    ntk::quasiGrad.Ntk, 
+    prm::quasiGrad.Param, 
+    qG::quasiGrad.QG, 
+    scr::Dict{Symbol, Float64}, 
+    stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
+    sys::quasiGrad.System, 
+    wct::Vector{Vector{Int64}})
     # if we are here, we want to make sure we are running su/sd updates
     qG.run_susd_updates = true
 
@@ -296,7 +311,7 @@ function update_states_and_grads!(cgd::quasiGrad.Cgd, flw::Dict{Symbol, Vector{F
 
     # score the contingencies and take the gradients
     if qG.bias_pf == false # in this case, don't evaluate the expensive ctg grads
-        quasiGrad.solve_ctgs!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+        quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
     end
 
     # score the market surplus function
@@ -377,13 +392,13 @@ function update_states_and_grads_for_solve_pf_lbfgs!(cgd::quasiGrad.Cgd, dpf0::D
     quasiGrad.master_grad_solve_pf!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 end
 
-function batch_fix!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, pct_round::Float64, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
+function batch_fix!(pct_round::Float64, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
     # loop and concatenate
     bin_vec_del = Vector{Float64}(undef,(sys.nT*sys.ndev))
 
     for tii in prm.ts.time_keys
         bin_inds              = (1:sys.ndev) .+ (prm.ts.time_key_ind[tii]-1)*sys.ndev
-        bin_vec_del[bin_inds] = stt[:u_on_dev][tii] - GRB[:u_on_dev][tii]
+        bin_vec_del[bin_inds] = stt[:u_on_dev][tii] - stt[:u_on_dev_GRB][tii]
     end
 
     # sort and find the binaries that are closest to Gurobi's solution
@@ -406,15 +421,32 @@ function batch_fix!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, pct_round:
         upd[:u_on_dev][tii] = setdiff(upd[:u_on_dev][tii], local_bins_to_fix)
 
         # now, for "bin_inds" which are to be fixed, delete them
-        # no => deleteat!(upd[:u_on_dev][tii],local_bins_to_fix)
+        # no!! => deleteat!(upd[:u_on_dev][tii],local_bins_to_fix)
     end
 end
 
 # initialize the plot
-function initialize_plot(cgd::quasiGrad.Cgd, flw::Dict{Symbol, Vector{Float64}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, plt::Dict{Symbol, Integer}, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, dz_dpinj_base::Vector{Vector{Float64}}, theta_k_base::Vector{Vector{Float64}}, worst_ctgs::Vector{Vector{Int64}})
+function initialize_plot(
+    cgd::quasiGrad.Cgd,
+    ctb::Vector{Vector{Float64}}, 
+    ctd::Vector{Vector{Float64}}, 
+    flw::Dict{Symbol, Vector{Float64}}, 
+    grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, 
+    idx::quasiGrad.Idx, 
+    mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
+    msc::Dict{Symbol, Vector{Float64}}, 
+    ntk::quasiGrad.Ntk, 
+    plt::Dict{Symbol, Integer}, 
+    prm::quasiGrad.Param, 
+    qG::quasiGrad.QG, 
+    scr::Dict{Symbol, Float64}, 
+    stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
+    sys::quasiGrad.System, 
+    wct::Vector{Vector{Int64}})
+    
     # first, make sure scores are updated!
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
     qG.eval_grad = true
 
     # now, initialize
@@ -755,21 +787,22 @@ function lbfgs!(lbfgs::Dict{Symbol, Vector{Float64}}, lbfgs_diff::Dict{Symbol, V
 end
 
 # lbfgs
-function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, pf_lbfgs_diff::Dict{Symbol, Dict{Symbol, Vector{Vector{Float64}}}}, pf_lbfgs_idx::Vector{Int64}, pf_lbfgs_map::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, pf_lbfgs_step::Dict{Symbol, Dict{Symbol, Float64}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, zpf::Dict{Symbol})
+function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, pf_lbfgs_diff::Dict{Symbol, Dict{Symbol, Vector{Vector{Float64}}}}, pf_lbfgs_idx::Vector{Int64}, pf_lbfgs_map::Dict{Symbol, Vector{Int64}}, pf_lbfgs_step::Dict{Symbol, Dict{Symbol, Float64}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, zpf::Dict{Symbol})
     # note: pf_lbfgs_idx is a set of ordered indices, where the first is the most
     #       recent step information, and the last is the oldest step information
     #       in the following order: (k-1), (k-2)
     #
     # prepare the lbfgs structures -- x and gradf
+    emergency_stop = false
     for var_key in [:vm, :va, :tau, :phi, :dc_pfr, :dc_qfr, :dc_qto, :u_step_shunt, :p_on, :dev_q]
         for tii in prm.ts.time_keys
             # states to update
             if var_key in keys(upd)
-                pf_lbfgs[:x_now][tii][pf_lbfgs_map[var_key][tii]]     = copy(stt[var_key][tii][upd[var_key][tii]]) # no update_subset needed on lbfgs side
-                pf_lbfgs[:gradf_now][tii][pf_lbfgs_map[var_key][tii]] = copy(mgd[var_key][tii][upd[var_key][tii]]) # no update_subset needed on lbfgs side
+                pf_lbfgs[:x_now][tii][pf_lbfgs_map[var_key]]     = copy(stt[var_key][tii][upd[var_key][tii]]) # no update_subset needed on lbfgs side
+                pf_lbfgs[:gradf_now][tii][pf_lbfgs_map[var_key]] = copy(mgd[var_key][tii][upd[var_key][tii]]) # no update_subset needed on lbfgs side
             else
-                pf_lbfgs[:x_now][tii][pf_lbfgs_map[var_key][tii]]     = copy(stt[var_key][tii])
-                pf_lbfgs[:gradf_now][tii][pf_lbfgs_map[var_key][tii]] = copy(mgd[var_key][tii])
+                pf_lbfgs[:x_now][tii][pf_lbfgs_map[var_key]]     = copy(stt[var_key][tii])
+                pf_lbfgs[:gradf_now][tii][pf_lbfgs_map[var_key]] = copy(mgd[var_key][tii])
             end
         end
     end
@@ -787,16 +820,18 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
             for tii in prm.ts.time_keys
                 # states to update
                 if var_key in keys(upd)
-                    stt[var_key][tii][upd[var_key][tii]] = pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key][tii]] # no update_subset needed
+                    stt[var_key][tii][upd[var_key][tii]] = pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key]] # no update_subset needed
                 else
-                    stt[var_key][tii]                    = pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key][tii]]
+                    stt[var_key][tii]                    = pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key]]
                 end
             end
         end
 
         # update the lbfgs states and grads
-        pf_lbfgs[:x_prev]     = deepcopy(pf_lbfgs[:x_now])
-        pf_lbfgs[:gradf_prev] = deepcopy(pf_lbfgs[:gradf_now])
+        for tii in prm.ts.time_keys
+            pf_lbfgs[:x_prev][tii]     = copy(pf_lbfgs[:x_now][tii])
+            pf_lbfgs[:gradf_prev][tii] = copy(pf_lbfgs[:gradf_now][tii])
+        end
 
         # now, let's initialize lbfgs_idx
         pf_lbfgs_idx[1] = 1
@@ -808,7 +843,15 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
             idx_km1 = pf_lbfgs_idx[1]
             pf_lbfgs_diff[:s][tii][idx_km1] = pf_lbfgs[:x_now][tii]     - pf_lbfgs[:x_prev][tii]
             pf_lbfgs_diff[:y][tii][idx_km1] = pf_lbfgs[:gradf_now][tii] - pf_lbfgs[:gradf_prev][tii]
-            pf_lbfgs[:rho][tii][idx_km1]    = 1.0/(quasiGrad.dot(pf_lbfgs_diff[:s][tii][idx_km1], pf_lbfgs_diff[:y][tii][idx_km1]))
+            rho                             = quasiGrad.dot(pf_lbfgs_diff[:s][tii][idx_km1], pf_lbfgs_diff[:y][tii][idx_km1])
+            if abs(rho) < 1e-6
+                # in this case, lbfgs is stalling out and might return a NaN if we're not careful
+                emergency_stop = true
+                @info "Breaking out of lbfgs loop! s'*y too small. NaN possible."
+                break # this breaks from everything 
+            end
+            
+            pf_lbfgs[:rho][tii][idx_km1] = 1.0/rho
 
             # now, double-loop and compute lbfgs values
             q = copy(pf_lbfgs[:gradf_now][tii])
@@ -853,16 +896,18 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
             for tii in prm.ts.time_keys
                 # states to update
                 if var_key in keys(upd)
-                    stt[var_key][tii][upd[var_key][tii]] = copy(pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key][tii]]) # no update_subset needed
+                    stt[var_key][tii][upd[var_key][tii]] = copy(pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key]]) # no update_subset needed
                 else
-                    stt[var_key][tii]                    = copy(pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key][tii]])
+                    stt[var_key][tii]                    = copy(pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key]])
                 end
             end
         end
 
         # update the lbfgs states and grads
-        pf_lbfgs[:x_prev]     = deepcopy(pf_lbfgs[:x_now])
-        pf_lbfgs[:gradf_prev] = deepcopy(pf_lbfgs[:gradf_now])
+        for tii in prm.ts.time_keys
+            pf_lbfgs[:x_prev][tii]     = copy(pf_lbfgs[:x_now][tii])
+            pf_lbfgs[:gradf_prev][tii] = copy(pf_lbfgs[:gradf_now][tii])
+        end
 
         # finally, update the lbfgs indices -- rule: lbfgs_idx[1] is where 
         # we write the newest data, and every next index is successively
@@ -888,6 +933,9 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
             circshift!(pf_lbfgs_idx, -1)
         end
     end
+
+    # output
+    return emergency_stop
 end
 
 function quadratic_distance!(dpf0::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
@@ -1048,17 +1096,17 @@ function power_flow_residual!(idx::quasiGrad.Idx, residual::Vector{Float64}, stt
     end
 end
 
-function solve_power_flow!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param,qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
+function solve_power_flow!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
     # 1. fire up lbfgs, as controlled by adam, WITH regularization + OPF
     # 2. after a short period, use Gurobi to solve successive power flows
     # 3. pass solution back to lbfgs to clean up, WITHOUT regularization + OPF -- not needed yet
     #
     # step 1: intialize lbfgs =======================================
-    dpf0, pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, zpf = quasiGrad.initialize_pf_lbfgs(mgd, prm, stt, sys, upd);
+    dpf0, pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, zpf = quasiGrad.initialize_pf_lbfgs(mgd, prm, qG, stt, sys, upd);
 
     # turn on extra influence
-    qG.include_energy_costs_lbfgs      = true
-    qG.include_lbfgs_p0_regularization = true
+    qG.include_energy_costs_lbfgs      = false #true
+    qG.include_lbfgs_p0_regularization = false #true
 
     # set the loss function to quadratic -- low gradient factor
     qG.pqbal_grad_mod_type = "quadratic_for_lbfgs"
@@ -1075,7 +1123,7 @@ function solve_power_flow!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Di
     # loop -- lbfgs
     while run_lbfgs == true
         # take an lbfgs step
-        quasiGrad.solve_pf_lbfgs!(pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, mgd, prm, qG, stt, upd, zpf)
+        emergency_stop = quasiGrad.solve_pf_lbfgs!(pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, mgd, prm, qG, stt, upd, zpf)
 
         # save zpf BEFORE updating with the new state -- don't track bias terms
         for tii in prm.ts.time_keys
@@ -1106,8 +1154,8 @@ function solve_power_flow!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Di
         # increment
         lbfgs_cnt += 1
 
-        # quit if the error gets too large relative to the first one
-        if (lbfgs_cnt > qG.num_lbfgs_steps) || (zt > 5.0*zt0)
+        # quit if the error gets too large relative to the first error
+        if (lbfgs_cnt > qG.num_lbfgs_steps) || (zt > 5.0*zt0) || (emergency_stop == true)
             run_lbfgs = false
         end
     end
@@ -1420,7 +1468,7 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
             optimize!(model)
 
             # test solution!
-            soln_valid = solution_status(model::quasiGrad.Model)
+            soln_valid = solution_status(model)
 
             # if we have reached our max number of tries, jjsut quit after this
             if total_pfs == qG.max_linear_pfs_total

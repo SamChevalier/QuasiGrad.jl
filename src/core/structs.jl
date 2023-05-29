@@ -43,9 +43,11 @@ mutable struct QG
     scale_c_sflow_testing::Float64
     bias_pf::Bool
     bias_pf_scale_pgrad::Float64
+    score_all_ctgs::Bool
     min_buses_for_krylov::Int64
     frac_ctg_keep::Float64
     pcg_tol::Float64
+    max_pcg_its::Int64
     grad_ctg_tol::Float64
     cutoff_level::Int64
     build_basecase_cholesky::Bool     
@@ -83,7 +85,8 @@ mutable struct QG
     include_energy_costs_lbfgs::Bool
     include_lbfgs_p0_regularization::Bool
     print_lbfgs_iterations::Bool
-    initial_pf_lbfgs_step::Float64 
+    initial_pf_lbfgs_step::Float64
+    lbfgs_map_over_all_time::Bool
     num_lbfgs_steps::Int64
 end
 

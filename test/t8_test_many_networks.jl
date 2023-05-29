@@ -64,20 +64,17 @@ path = "../GO3_testcases/"*set*dvn*case*nro
 jsn = quasiGrad.load_json(path)
 
 # %% init
-adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, 
-sys, upd, dz_dpinj_base, theta_k_base, worst_ctgs = 
-    quasiGrad.base_initialization(jsn, true, 1.0);
+adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
+stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # %% solve
-quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
-                                        dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # grb
 quasiGrad.snap_shunts!(true, prm, stt, upd)
-quasiGrad.solve_Gurobi_projection!(GRB, idx, prm, qG, stt, sys, upd)
-quasiGrad.quasiGrad.apply_Gurobi_projection!(GRB, idx, prm, stt)
-quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
-                                        dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
+quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # soln
 soln_dict = quasiGrad.prepare_solution(prm, stt, sys)
@@ -89,9 +86,8 @@ if action == "just write"
     jsn = quasiGrad.load_json(path)
         
     # initialize the system
-    adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, 
-    sys, upd, dz_dpinj_base, theta_k_base, worst_ctgs = 
-        quasiGrad.base_initialization(jsn, true, 0.5);
+    adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
+    stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 
     # set some qG params
     qG.pqbal_grad_mod_type   = "standard"
@@ -104,12 +100,10 @@ if action == "just write"
     # qG.pcg_tol = 1e-5
 
     # solve
-    quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
-                                        dz_dpinj_base, theta_k_base, worst_ctgs)
-    quasiGrad.solve_Gurobi_projection!(GRB, idx, prm, qG, stt, sys, upd)
-    quasiGrad.quasiGrad.apply_Gurobi_projection!(GRB, idx, prm, stt)
-    quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
-                                        dz_dpinj_base, theta_k_base, worst_ctgs)
+    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
+    quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
+    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
     # write
     soln_dict = quasiGrad.prepare_solution(prm, stt, sys)

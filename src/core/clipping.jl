@@ -129,3 +129,12 @@ function clip_pq!(bin_clip::Bool, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{S
         end
     end
 end
+
+function count_active_binaries!(prm::quasiGrad.Param, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
+    # how many binaries are still active?
+    num_bin = sum([upd[:u_on_dev][tii]     != Int64[] for tii in prm.ts.time_keys])
+    num_sh  = sum([upd[:u_step_shunt][tii] != Int64[] for tii in prm.ts.time_keys])
+
+    # the following will error out if upd has active binaries or discrete values left
+    @assert (num_bin+num_sh) == 0 "Some discrete or binary variables are still active!"
+end

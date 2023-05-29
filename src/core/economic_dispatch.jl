@@ -1,20 +1,18 @@
 # in this file, we design the function which solves economic dispatch
 #
 # note -- this is ALWAYS run after clipping and fixing various states
-function solve_economic_dispatch(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
+function solve_economic_dispatch!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
     # note: all binaries are LP relaxed (so there is not BaB-ing): 0 < b < 1
     #
     # NOTE -- we are not including start-up-state discounts -- not worth it :)
-    #
-    # initialize by just copying GRB to ED
-    ED = deepcopy(GRB)
 
     # build and empty the model!
-    model = Model(Gurobi.Optimizer)
-    empty!(model)
+    model = Model(Gurobi.Optimizer; add_bridges = false)
+    set_string_names_on_creation(model, false)
+    set_silent(model)
 
     # quiet down!!!
-    quasiGrad.set_optimizer_attribute(model, "OutputFlag", qG.GRB_output_flag)
+    # alternative: => quasiGrad.set_optimizer_attribute(model, "OutputFlag", qG.GRB_output_flag)
 
     # set model properties => let this run until it finishes
         # quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
@@ -131,11 +129,11 @@ function solve_economic_dispatch(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}
 
             # 1. Minimum downtime: zhat_mndn
             T_mndn = idx.Ts_mndn[dev][t_ind] # t_set = get_tmindn(tii, dev, prm)
-            @constraint(model, u_su_dev[tii][dev] + sum(u_sd_dev[tii_inst][dev] for tii_inst in T_mndn; init=0.0) - 1.0 <= 0)
+            @constraint(model, u_su_dev[tii][dev] + sum(u_sd_dev[tii_inst][dev] for tii_inst in T_mndn; init=0.0) - 1.0 <= 0.0)
 
             # 2. Minimum uptime: zhat_mnup
             T_mnup = idx.Ts_mnup[dev][t_ind] # t_set = get_tminup(tii, dev, prm)
-            @constraint(model, u_sd_dev[tii][dev] + sum(u_su_dev[tii_inst][dev] for tii_inst in T_mnup; init=0.0) - 1.0 <= 0)
+            @constraint(model, u_sd_dev[tii][dev] + sum(u_su_dev[tii_inst][dev] for tii_inst in T_mnup; init=0.0) - 1.0 <= 0.0)
 
             # define the previous power value (used by both up and down ramping!)
             if tii == :t1
@@ -150,47 +148,47 @@ function solve_economic_dispatch(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}
             # 3. Ramping limits (up): zhat_rup
             @constraint(model, dev_p[tii][dev] - dev_p_previous
                     - dt*(prm.dev.p_ramp_up_ub[dev]     *(u_on_dev[tii][dev] - u_su_dev[tii][dev])
-                    +     prm.dev.p_startup_ramp_ub[dev]*(u_su_dev[tii][dev] + 1.0 - u_on_dev[tii][dev])) <= 0)
+                    +     prm.dev.p_startup_ramp_ub[dev]*(u_su_dev[tii][dev] + 1.0 - u_on_dev[tii][dev])) <= 0.0)
 
             # 4. Ramping limits (down): zhat_rd
             @constraint(model,  dev_p_previous - dev_p[tii][dev]
                     - dt*(prm.dev.p_ramp_down_ub[dev]*u_on_dev[tii][dev]
-                    +     prm.dev.p_shutdown_ramp_ub[dev]*(1.0-u_on_dev[tii][dev])) <= 0)
+                    +     prm.dev.p_shutdown_ramp_ub[dev]*(1.0-u_on_dev[tii][dev])) <= 0.0)
 
             # 5. Regulation up: zhat_rgu
-            @constraint(model, p_rgu[tii][dev] - prm.dev.p_reg_res_up_ub[dev]*u_on_dev[tii][dev] <= 0)
+            @constraint(model, p_rgu[tii][dev] - prm.dev.p_reg_res_up_ub[dev]*u_on_dev[tii][dev] <= 0.0)
 
             # 6. Regulation down: zhat_rgd
-            @constraint(model, p_rgd[tii][dev] - prm.dev.p_reg_res_down_ub[dev]*u_on_dev[tii][dev] <= 0)
+            @constraint(model, p_rgd[tii][dev] - prm.dev.p_reg_res_down_ub[dev]*u_on_dev[tii][dev] <= 0.0)
 
             # 7. Synchronized reserve: zhat_scr
-            @constraint(model, p_rgu[tii][dev] + p_scr[tii][dev] - prm.dev.p_syn_res_ub[dev]*u_on_dev[tii][dev] <= 0)
+            @constraint(model, p_rgu[tii][dev] + p_scr[tii][dev] - prm.dev.p_syn_res_ub[dev]*u_on_dev[tii][dev] <= 0.0)
 
             # 8. Synchronized reserve: zhat_nsc
-            @constraint(model, p_nsc[tii][dev] - prm.dev.p_nsyn_res_ub[dev]*(1.0 - u_on_dev[tii][dev]) <= 0)
+            @constraint(model, p_nsc[tii][dev] - prm.dev.p_nsyn_res_ub[dev]*(1.0 - u_on_dev[tii][dev]) <= 0.0)
 
             # 9. Ramping reserve up (on): zhat_rruon
-            @constraint(model, p_rgu[tii][dev] + p_scr[tii][dev] + p_rru_on[tii][dev] - prm.dev.p_ramp_res_up_online_ub[dev]*u_on_dev[tii][dev] <= 0)
+            @constraint(model, p_rgu[tii][dev] + p_scr[tii][dev] + p_rru_on[tii][dev] - prm.dev.p_ramp_res_up_online_ub[dev]*u_on_dev[tii][dev] <= 0.0)
 
             # 10. Ramping reserve up (off): zhat_rruoff
-            @constraint(model, p_nsc[tii][dev] + p_rru_off[tii][dev] - prm.dev.p_ramp_res_up_offline_ub[dev]*(1.0-u_on_dev[tii][dev]) <= 0)
+            @constraint(model, p_nsc[tii][dev] + p_rru_off[tii][dev] - prm.dev.p_ramp_res_up_offline_ub[dev]*(1.0 - u_on_dev[tii][dev]) <= 0.0)
             
             # 11. Ramping reserve down (on): zhat_rrdon
-            @constraint(model, p_rgd[tii][dev] + p_rrd_on[tii][dev] - prm.dev.p_ramp_res_down_online_ub[dev]*u_on_dev[tii][dev] <= 0)
+            @constraint(model, p_rgd[tii][dev] + p_rrd_on[tii][dev] - prm.dev.p_ramp_res_down_online_ub[dev]*u_on_dev[tii][dev] <= 0.0)
 
             # 12. Ramping reserve down (off): zhat_rrdoff
-            @constraint(model, p_rrd_off[tii][dev] - prm.dev.p_ramp_res_down_offline_ub[dev]*(1-u_on_dev[tii][dev]) <= 0)
+            @constraint(model, p_rrd_off[tii][dev] - prm.dev.p_ramp_res_down_offline_ub[dev]*(1-u_on_dev[tii][dev]) <= 0.0)
             
             # Now, we must separate: producers vs consumers
             if dev in idx.pr_devs
                 # 13p. Maximum reserve limits (producers): zhat_pmax
-                @constraint(model, p_on[tii][dev] + p_rgu[tii][dev] + p_scr[tii][dev] + p_rru_on[tii][dev] - prm.dev.p_ub[dev][t_ind]*u_on_dev[tii][dev] <= 0)
+                @constraint(model, p_on[tii][dev] + p_rgu[tii][dev] + p_scr[tii][dev] + p_rru_on[tii][dev] - prm.dev.p_ub[dev][t_ind]*u_on_dev[tii][dev] <= 0.0)
             
                 # 14p. Minimum reserve limits (producers): zhat_pmin
-                @constraint(model, prm.dev.p_lb[dev][t_ind]*u_on_dev[tii][dev] + p_rrd_on[tii][dev] + p_rgd[tii][dev] - p_on[tii][dev] <= 0)
+                @constraint(model, prm.dev.p_lb[dev][t_ind]*u_on_dev[tii][dev] + p_rrd_on[tii][dev] + p_rgd[tii][dev] - p_on[tii][dev] <= 0.0)
                 
                 # 15p. Off reserve limits (producers): zhat_pmaxoff
-                @constraint(model, p_su[tii][dev] + p_sd[tii][dev] + p_nsc[tii][dev] + p_rru_off[tii][dev] - prm.dev.p_ub[dev][t_ind]*(1.0 - u_on_dev[tii][dev]) <= 0)
+                @constraint(model, p_su[tii][dev] + p_sd[tii][dev] + p_nsc[tii][dev] + p_rru_off[tii][dev] - prm.dev.p_ub[dev][t_ind]*(1.0 - u_on_dev[tii][dev]) <= 0.0)
 
                 # get common "u_sum" terms that will be used in the subsequent four equations 
                 T_supc = idx.Ts_supc[dev][t_ind] # T_supc, ~ = get_supc(tii, dev, prm) T_supc     = idx.Ts_supc[dev][t_ind] # T_supc, ~ = get_supc(tii, dev, prm)
@@ -198,34 +196,34 @@ function solve_economic_dispatch(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}
                 u_sum     = u_on_dev[tii][dev] + sum(u_su_dev[tii_inst][dev] for tii_inst in T_supc; init=0.0) + sum(u_sd_dev[tii_inst][dev] for tii_inst in T_sdpc; init=0.0)
 
                 # 16p. Maximum reactive power reserves (producers): zhat_qmax
-                @constraint(model, dev_q[tii][dev] + q_qru[tii][dev] - prm.dev.q_ub[dev][t_ind]*u_sum <= 0)
+                @constraint(model, dev_q[tii][dev] + q_qru[tii][dev] - prm.dev.q_ub[dev][t_ind]*u_sum <= 0.0)
 
                 # 17p. Minimum reactive power reserves (producers): zhat_qmin
-                @constraint(model, q_qrd[tii][dev] + prm.dev.q_lb[dev][t_ind]*u_sum - dev_q[tii][dev] <= 0)
+                @constraint(model, q_qrd[tii][dev] + prm.dev.q_lb[dev][t_ind]*u_sum - dev_q[tii][dev] <= 0.0)
 
                 # 18p. Linked maximum reactive power reserves (producers): zhat_qmax_beta
                 if dev in idx.J_pqmax
                     @constraint(model, dev_q[tii][dev] + q_qru[tii][dev] - prm.dev.q_0_ub[dev]*u_sum
-                    - prm.dev.beta_ub[dev]*dev_p[tii][dev] <= 0)
+                    - prm.dev.beta_ub[dev]*dev_p[tii][dev] <= 0.0)
                 end 
                 
                 # 19p. Linked minimum reactive power reserves (producers): zhat_qmin_beta
                 if dev in idx.J_pqmin
                     @constraint(model, prm.dev.q_0_lb[dev]*u_sum + 
                         prm.dev.beta_lb[dev]*dev_p[tii][dev] + 
-                        q_qrd[tii][dev] - dev_q[tii][dev] <= 0)
+                        q_qrd[tii][dev] - dev_q[tii][dev] <= 0.0)
                 end
 
             # consumers
             else  # => dev in idx.cs_devs
                 # 13c. Maximum reserve limits (consumers): zhat_pmax
-                @constraint(model, p_on[tii][dev] + p_rgd[tii][dev] + p_rrd_on[tii][dev] - prm.dev.p_ub[dev][t_ind]*u_on_dev[tii][dev] <= 0)
+                @constraint(model, p_on[tii][dev] + p_rgd[tii][dev] + p_rrd_on[tii][dev] - prm.dev.p_ub[dev][t_ind]*u_on_dev[tii][dev] <= 0.0)
 
                 # 14c. Minimum reserve limits (consumers): zhat_pmin
-                @constraint(model, prm.dev.p_lb[dev][t_ind]*u_on_dev[tii][dev] + p_rru_on[tii][dev] + p_scr[tii][dev] + p_rgu[tii][dev] - p_on[tii][dev] <= 0)
+                @constraint(model, prm.dev.p_lb[dev][t_ind]*u_on_dev[tii][dev] + p_rru_on[tii][dev] + p_scr[tii][dev] + p_rgu[tii][dev] - p_on[tii][dev] <= 0.0)
                 
                 # 15c. Off reserve limits (consumers): zhat_pmaxoff
-                @constraint(model, p_su[tii][dev] + p_sd[tii][dev] + p_rrd_off[tii][dev] - prm.dev.p_ub[dev][t_ind]*(1.0 - u_on_dev[tii][dev]) <= 0)
+                @constraint(model, p_su[tii][dev] + p_sd[tii][dev] + p_rrd_off[tii][dev] - prm.dev.p_ub[dev][t_ind]*(1.0 - u_on_dev[tii][dev]) <= 0.0)
 
                 # get common "u_sum" terms that will be used in the subsequent four equations 
                 T_supc = idx.Ts_supc[dev][t_ind] # T_supc, ~ = get_supc(tii, dev, prm) T_supc     = idx.Ts_supc[dev][t_ind] #T_supc, ~ = get_supc(tii, dev, prm)
@@ -233,22 +231,22 @@ function solve_economic_dispatch(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}
                 u_sum  = u_on_dev[tii][dev] + sum(u_su_dev[tii_inst][dev] for tii_inst in T_supc; init=0.0) + sum(u_sd_dev[tii_inst][dev] for tii_inst in T_sdpc; init=0.0)
 
                 # 16c. Maximum reactive power reserves (consumers): zhat_qmax
-                @constraint(model, dev_q[tii][dev] + q_qrd[tii][dev] - prm.dev.q_ub[dev][t_ind]*u_sum <= 0)
+                @constraint(model, dev_q[tii][dev] + q_qrd[tii][dev] - prm.dev.q_ub[dev][t_ind]*u_sum <= 0.0)
 
                 # 17c. Minimum reactive power reserves (consumers): zhat_qmin
-                @constraint(model, q_qru[tii][dev] + prm.dev.q_lb[dev][t_ind]*u_sum - dev_q[tii][dev] <= 0)
+                @constraint(model, q_qru[tii][dev] + prm.dev.q_lb[dev][t_ind]*u_sum - dev_q[tii][dev] <= 0.0)
                 
                 # 18c. Linked maximum reactive power reserves (consumers): zhat_qmax_beta
                 if dev in idx.J_pqmax
                     @constraint(model, dev_q[tii][dev] + q_qrd[tii][dev] - prm.dev.q_0_ub[dev]*u_sum
-                    - prm.dev.beta_ub[dev]*dev_p[tii][dev] <= 0)
+                    - prm.dev.beta_ub[dev]*dev_p[tii][dev] <= 0.0)
                 end 
 
                 # 19c. Linked minimum reactive power reserves (consumers): zhat_qmin_beta
                 if dev in idx.J_pqmin
                     @constraint(model, prm.dev.q_0_lb[dev]*u_sum
                     + prm.dev.beta_lb[dev]*dev_p[tii][dev]
-                    + q_qru[tii][dev] - dev_q[tii][dev] <= 0)
+                    + q_qru[tii][dev] - dev_q[tii][dev] <= 0.0)
                 end
             end
         end
@@ -270,7 +268,7 @@ function solve_economic_dispatch(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}
                 @constraint(model, u_on_dev[tii][dev] - u_on_dev[tii_m1][dev] == u_su_dev[tii][dev] - u_sd_dev[tii][dev])
             end
             # only one can be nonzero
-            @constraint(model, u_su_dev[tii][dev] + u_sd_dev[tii][dev] <= 1)
+            @constraint(model, u_su_dev[tii][dev] + u_sd_dev[tii][dev] <= 1.0)
         end
 
         # 2. constraints which hold constant variables from moving
@@ -425,40 +423,70 @@ function solve_economic_dispatch(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}
             end
 
             # balance equations -- compute the shortfall values
-            @constraint(model, p_rgu_zonal_REQ[tii][zone] - 
-                               sum(p_rgu[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) <= stt[:p_rgu_zonal_penalty][tii][zone])
-            
-            @constraint(model, p_rgd_zonal_REQ[tii][zone] - 
-                               sum(p_rgd[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) <= p_rgd_zonal_penalty[tii][zone])
+            #
+            # we want to safely avoid sum(...; init=0.0)
+            if isempty(idx.dev_pzone[zone])
+                # in this case, we assume all sums are 0!
+                @constraint(model, p_rgu_zonal_REQ[tii][zone] <= p_rgu_zonal_penalty[tii][zone])
+                
+                @constraint(model, p_rgd_zonal_REQ[tii][zone] <= p_rgd_zonal_penalty[tii][zone])
 
-            @constraint(model, p_rgu_zonal_REQ[tii][zone] + 
-                               p_scr_zonal_REQ[tii][zone] -
-                               sum(p_rgu[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) -
-                               sum(p_scr[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) <= p_scr_zonal_penalty[tii][zone])
+                @constraint(model, p_rgu_zonal_REQ[tii][zone] + 
+                                p_scr_zonal_REQ[tii][zone] <= p_scr_zonal_penalty[tii][zone])
 
-            @constraint(model, p_rgu_zonal_REQ[tii][zone] + 
-                               p_scr_zonal_REQ[tii][zone] +
-                               p_nsc_zonal_REQ[tii][zone] -
-                               sum(p_rgu[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) -
-                               sum(p_scr[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) - 
-                               sum(p_nsc[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) <= p_nsc_zonal_penalty[tii][zone])
+                @constraint(model, p_rgu_zonal_REQ[tii][zone] + 
+                                p_scr_zonal_REQ[tii][zone] +
+                                p_nsc_zonal_REQ[tii][zone] <= p_nsc_zonal_penalty[tii][zone])
 
-            @constraint(model, prm.reserve.rru_min[zone][t_ind] -
-                               sum(p_rru_on[tii][dev]  for dev in idx.dev_pzone[zone]; init=0.0) - 
-                               sum(p_rru_off[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) <= p_rru_zonal_penalty[tii][zone])
+                @constraint(model, prm.reserve.rru_min[zone][t_ind] <= p_rru_zonal_penalty[tii][zone])
 
-            @constraint(model, prm.reserve.rrd_min[zone][t_ind] -
-                               sum(p_rrd_on[tii][dev]  for dev in idx.dev_pzone[zone]; init=0.0) - 
-                               sum(p_rrd_off[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) <= p_rrd_zonal_penalty[tii][zone])
+                @constraint(model, prm.reserve.rrd_min[zone][t_ind] <= p_rrd_zonal_penalty[tii][zone])
+            else
+                # is this case, sums are what they are!!
+                @constraint(model, p_rgu_zonal_REQ[tii][zone] - 
+                                sum(p_rgu[tii][dev] for dev in idx.dev_pzone[zone]) <= p_rgu_zonal_penalty[tii][zone])
+
+                @constraint(model, p_rgd_zonal_REQ[tii][zone] - 
+                                sum(p_rgd[tii][dev] for dev in idx.dev_pzone[zone]) <= p_rgd_zonal_penalty[tii][zone])
+
+                @constraint(model, p_rgu_zonal_REQ[tii][zone] + 
+                                p_scr_zonal_REQ[tii][zone] -
+                                sum(p_rgu[tii][dev] for dev in idx.dev_pzone[zone]) -
+                                sum(p_scr[tii][dev] for dev in idx.dev_pzone[zone]) <= p_scr_zonal_penalty[tii][zone])
+
+                @constraint(model, p_rgu_zonal_REQ[tii][zone] + 
+                                p_scr_zonal_REQ[tii][zone] +
+                                p_nsc_zonal_REQ[tii][zone] -
+                                sum(p_rgu[tii][dev] for dev in idx.dev_pzone[zone]) -
+                                sum(p_scr[tii][dev] for dev in idx.dev_pzone[zone]) - 
+                                sum(p_nsc[tii][dev] for dev in idx.dev_pzone[zone]) <= p_nsc_zonal_penalty[tii][zone])
+
+                @constraint(model, prm.reserve.rru_min[zone][t_ind] -
+                                sum(p_rru_on[tii][dev]  for dev in idx.dev_pzone[zone]) - 
+                                sum(p_rru_off[tii][dev] for dev in idx.dev_pzone[zone]) <= p_rru_zonal_penalty[tii][zone])
+
+                @constraint(model, prm.reserve.rrd_min[zone][t_ind] -
+                                sum(p_rrd_on[tii][dev]  for dev in idx.dev_pzone[zone]) - 
+                                sum(p_rrd_off[tii][dev] for dev in idx.dev_pzone[zone]) <= p_rrd_zonal_penalty[tii][zone])
+            end
         end
 
         # loop over the zones (reactive power) -- gradients are computed in the master grad
         for zone in 1:sys.nzQ
-            @constraint(model, prm.reserve.qru_min[zone][t_ind] -
-                               sum(q_qru[tii][dev] for dev in idx.dev_qzone[zone]; init=0.0) <= q_qru_zonal_penalty[tii][zone])
+            # we want to safely avoid sum(...; init=0.0)
+            if isempty(idx.dev_qzone[zone])
+                # in this case, we assume all sums are 0!
+                @constraint(model, prm.reserve.qru_min[zone][t_ind] <= q_qru_zonal_penalty[tii][zone])
 
-            @constraint(model, prm.reserve.qrd_min[zone][t_ind] -
-                               sum(q_qrd[tii][dev] for dev in idx.dev_qzone[zone]; init=0.0) <= q_qrd_zonal_penalty[tii][zone])
+                @constraint(model, prm.reserve.qrd_min[zone][t_ind] <= q_qrd_zonal_penalty[tii][zone])
+            else
+                # is this case, sums are what they are!!
+                @constraint(model, prm.reserve.qru_min[zone][t_ind] -
+                                sum(q_qru[tii][dev] for dev in idx.dev_qzone[zone]) <= q_qru_zonal_penalty[tii][zone])
+
+                @constraint(model, prm.reserve.qrd_min[zone][t_ind] -
+                                sum(q_qrd[tii][dev] for dev in idx.dev_qzone[zone]) <= q_qrd_zonal_penalty[tii][zone])
+            end
         end
 
         # shortfall penalties -- NOT needed explicitly (see objective)
@@ -508,65 +536,49 @@ function solve_economic_dispatch(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}
         # update zt
         add_to_expression!(zt, zt_temp)
     end
-
-    # define the objective
-    zms_partial = zt + z_enmax + z_enmin
     
     # set the objective
-    @objective(model, Max, zms_partial)
+    @objective(model, Max, zt + z_enmax + z_enmin)
 
     # solve
     optimize!(model)
-    # println("========================================================")
-    println(termination_status(model),". ",primal_status(model),". objective value: ", objective_value(model))
-    # println("========================================================")
 
-    # solve, and then return the solution
-    for tii in prm.ts.time_keys
-        ED[:u_on_dev][tii]  = value.(u_on_dev[tii])
-        ED[:p_on][tii]      = value.(p_on[tii])
-        ED[:dev_q][tii]     = value.(dev_q[tii])
-        ED[:p_rgu][tii]     = value.(p_rgu[tii])
-        ED[:p_rgd][tii]     = value.(p_rgd[tii])
-        ED[:p_scr][tii]     = value.(p_scr[tii])
-        ED[:p_nsc][tii]     = value.(p_nsc[tii])
-        ED[:p_rru_on][tii]  = value.(p_rru_on[tii])
-        ED[:p_rru_off][tii] = value.(p_rru_off[tii])
-        ED[:p_rrd_on][tii]  = value.(p_rrd_on[tii])
-        ED[:p_rrd_off][tii] = value.(p_rrd_off[tii])
-        ED[:q_qru][tii]     = value.(q_qru[tii])
-        ED[:q_qrd][tii]     = value.(q_qrd[tii])
-    end
+    # test solution!
+    soln_valid = solution_status(model)
 
-    # update the objective value score
-    scr[:ed_obj] = objective_value(model)
+    # did Gurobi find something valid?
+    if soln_valid == true
+        println("========================================================")
+        println(termination_status(model),". ",primal_status(model),". objective value: ", objective_value(model))
+        println("========================================================")
 
-    # ouput
-    return ED
-end
+        # solve, and then return the solution
+        for tii in prm.ts.time_keys
+            stt[:u_on_dev][tii]  = copy(value.(u_on_dev[tii]))
+            stt[:p_on][tii]      = copy(value.(p_on[tii]))
+            stt[:dev_q][tii]     = copy(value.(dev_q[tii]))
+            stt[:p_rgu][tii]     = copy(value.(p_rgu[tii]))
+            stt[:p_rgd][tii]     = copy(value.(p_rgd[tii]))
+            stt[:p_scr][tii]     = copy(value.(p_scr[tii]))
+            stt[:p_nsc][tii]     = copy(value.(p_nsc[tii]))
+            stt[:p_rru_on][tii]  = copy(value.(p_rru_on[tii]))
+            stt[:p_rru_off][tii] = copy(value.(p_rru_off[tii]))
+            stt[:p_rrd_on][tii]  = copy(value.(p_rrd_on[tii]))
+            stt[:p_rrd_off][tii] = copy(value.(p_rrd_off[tii]))
+            stt[:q_qru][tii]     = copy(value.(q_qru[tii]))
+            stt[:q_qrd][tii]     = copy(value.(q_qrd[tii]))
+        end
 
-# note -- this is ALWAYS run after solve_economic_dispatch()
-function apply_economic_dispatch_projection!(ED::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
-    stt[:u_on_dev]  = deepcopy(ED[:u_on_dev])
-    stt[:p_on]      = deepcopy(ED[:p_on])
-    stt[:dev_q]     = deepcopy(ED[:dev_q])
-    stt[:p_rgu]     = deepcopy(ED[:p_rgu])
-    stt[:p_rgd]     = deepcopy(ED[:p_rgd])
-    stt[:p_scr]     = deepcopy(ED[:p_scr])
-    stt[:p_nsc]     = deepcopy(ED[:p_nsc])
-    stt[:p_rru_on]  = deepcopy(ED[:p_rru_on])
-    stt[:p_rru_off] = deepcopy(ED[:p_rru_off])
-    stt[:p_rrd_on]  = deepcopy(ED[:p_rrd_on])
-    stt[:p_rrd_off] = deepcopy(ED[:p_rrd_off])
-    stt[:q_qru]     = deepcopy(ED[:q_qru])
-    stt[:q_qrd]     = deepcopy(ED[:q_qrd])
+        # update the u_sum and powers (used in clipping, so must be correct!)
+        qG.run_susd_updates = true
+        quasiGrad.simple_device_statuses!(idx, prm, stt)
+        quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
 
-    # update the u_sum (used in clipping, so must be correct!)
-    quasiGrad.simple_device_statuses!(idx, prm, stt)
-
-    # apply power balance -- for dev_p, which is used in the DC solver
-    for tii in prm.ts.time_keys
-        stt[:dev_p][tii] = stt[:p_on][tii] + stt[:p_su][tii] + stt[:p_sd][tii]
+        # update the objective value score
+        scr[:ed_obj] = objective_value(model)
+    else
+        # warn!
+        @warn "Copper plate economic dispatch (LP) failed -- skip initialization!"
     end
 end
 
@@ -580,18 +592,17 @@ function dcpf_initialization!(flw::Dict{Symbol, Vector{Float64}}, idx::quasiGrad
     # => vmr    = zeros(sys.nb-1) # this will be overwritten
     for tii in prm.ts.time_keys
         # first, update the xfm phase shifters (whatever they may be..)
-        flw[:ac_phi][idx.ac_phi] = stt[:phi][tii]
+        flw[:ac_phi][idx.ac_phi] = copy(stt[:phi][tii])
 
         # loop over each bus
         for bus in 1:sys.nb
-            # active power balance
+            # active power balance -- just devices
+            # !! don't include shunt or dc constributions, 
+            #    since power might not balance !!
             msc[:pinj_dc][bus] = 
                 sum(stt[:dev_p][tii][idx.pr[bus]]; init=0.0) - 
                 sum(stt[:dev_p][tii][idx.cs[bus]]; init=0.0) # - 
-                # don't include shunt or dc constributions, since power might not balance!
-                #sum(stt[:sh_p][tii][idx.sh[bus]]; init=0.0) - 
-                #sum(stt[:dc_pfr][tii][idx.bus_is_dc_frs[bus]]; init=0.0) - 
-                #sum(stt[:dc_pto][tii][idx.bus_is_dc_tos[bus]]; init=0.0)
+
             # qinj[bus] = 
             #    sum(stt[:dev_q][tii][idx.pr[bus]]; init=0.0) - 
             #    sum(stt[:dev_q][tii][idx.cs[bus]]; init=0.0) - 
@@ -617,17 +628,17 @@ function dcpf_initialization!(flw::Dict{Symbol, Vector{Float64}}, idx::quasiGrad
             # stt[:vm][tii][1]     = 1.0 # make sure
         else
             # solve with pcg -- va
-            quasiGrad.cg!(thetar, ntk.Ybr, c, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr)
-            
-            # cg has failed in the past -- not sure why -- test for NaN
-            if isnan(sum(thetar)) || maximum(thetar) > 1e7  # => faster than any(isnan, t)
+            _, ch = quasiGrad.cg!(thetar, ntk.Ybr, c, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
+
+            # test the krylov solution
+            if ~(ch.isconverged)
                 # LU backup
                 @info "Krylov failed -- using LU backup (dcpf)!"
                 thetar = ntk.Ybr\c
             end
 
             # update
-            stt[:va][tii][2:end] = thetar
+            stt[:va][tii][2:end] = copy(thetar)
             stt[:va][tii][1]     = 0.0 # make sure
 
             # solve with pcg -- vm
@@ -675,7 +686,7 @@ function dcvm_initialization!(flw::Dict{Symbol, Vector{Float64}}, idx::quasiGrad
         else
 
             # solve with pcg -- vm
-            quasiGrad.cg!(vmr, ntk.Ybr, qinj[2:end], abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr)
+            quasiGrad.cg!(vmr, ntk.Ybr, qinj[2:end], abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its)
             
             # cg has failed in the past -- not sure why -- test for NaN
             if isnan(sum(vmr)) || maximum(vmr) > 1e7  # => faster than any(isnan, t)
@@ -690,18 +701,15 @@ function dcvm_initialization!(flw::Dict{Symbol, Vector{Float64}}, idx::quasiGrad
     end
 end
 
-function economic_dispatch_initialization!(cgd::quasiGrad.Cgd, flw::Dict{Symbol, Vector{Float64}}, GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, dz_dpinj_base::Vector{Vector{Float64}}, theta_k_base::Vector{Vector{Float64}}, worst_ctgs::Vector{Vector{Int64}})
+function economic_dispatch_initialization!(cgd::quasiGrad.Cgd, ctb::Vector{Vector{Float64}}, ctd::Vector{Vector{Float64}}, flw::Dict{Symbol, Vector{Float64}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, wct::Vector{Vector{Int64}})
     # 1. run ED (global upper bound)
-    ED = quasiGrad.solve_economic_dispatch(GRB, idx, prm, qG, scr, stt, sys, upd)
+    quasiGrad.solve_economic_dispatch!(idx, prm, qG, scr, stt, sys, upd)
 
-    # 2. apply solution
-    quasiGrad.apply_economic_dispatch_projection!(ED, idx, prm, stt)
-
-    # 3. solve a dc power flow
+    # 2. solve a dc power flow
     quasiGrad.dcpf_initialization!(flw, idx, msc, ntk, prm, qG, stt, sys)
 
-    # 4. update the states -- this is needed for power flow to converge
+    # 3. update the states -- this is needed for power flow to converge
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
     qG.eval_grad = true
 end

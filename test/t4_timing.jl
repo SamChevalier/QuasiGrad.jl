@@ -14,9 +14,8 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 jsn = quasiGrad.load_json(path)
 
 # %% initialize
-adm, cgd, flw, GRB, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, 
-sys, upd, dz_dpinj_base, theta_k_base, worst_ctgs = 
-    quasiGrad.base_initialization(jsn, false, 0.25);
+adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
+stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # %% Timing tests
 # 
@@ -74,7 +73,7 @@ print("t14: ")
 
 # score the contingencies and take the gradients
 print("t15: ")
-@time quasiGrad.solve_ctgs!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+@time quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 
 print("t16: ")
 @time quasiGrad.score_zt!(idx, prm, qG, scr, stt)
@@ -92,7 +91,7 @@ println("")
 
 # %%
 print("t20: ")
-@time quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs);
+@time quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct);
 
 # %% take an adam step
 adm_step    = 0
@@ -113,7 +112,7 @@ ProfileView.@profview quasiGrad.adam!(adm, alpha, beta1, beta2, beta1_decay, bet
 # %%
 qG.adam_max_time = 2.0
 
-ProfileView.@profview quasiGrad.run_adam!(adm, cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd, dz_dpinj_base, theta_k_base, worst_ctgs)
+ProfileView.@profview quasiGrad.run_adam!(adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
 
 # %% ------------------------------
 # @code_warntype quasiGrad.energy_penalties!(grd, prm, qG, scr, stt, sys)
@@ -121,12 +120,10 @@ ProfileView.@profview quasiGrad.run_adam!(adm, cgd, flw, grd, idx, mgd, ntk, prm
 
 
 # %% --- write
-quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
-                                        dz_dpinj_base, theta_k_base, worst_ctgs)
-quasiGrad.solve_Gurobi_projection!(GRB, idx, prm, qG, stt, sys, upd)
-quasiGrad.quasiGrad.apply_Gurobi_projection!(GRB, idx, prm, stt)
-quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
-                                        dz_dpinj_base, theta_k_base, worst_ctgs)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
+quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # %% write a solution :)
 soln_dict = quasiGrad.prepare_solution(prm, stt, sys)
@@ -135,26 +132,24 @@ quasiGrad.write_solution(data_dir*file_name, qG, soln_dict, scr)
 # %% ===================
 # using ProfileView
 # ProfileView.@profview quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
-ProfileView.@profview solve_ctgs!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys,     
-                                                dz_dpinj_base, theta_k_base, worst_ctgs)
+ProfileView.@profview quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 
 # %%
 include("../src/core/contingencies.jl")
 using InvertedIndices
 #ProfileView.@profview @code_warntype
 # %%
-@benchmark solve_ctgs!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys,     
-                        dz_dpinj_base, theta_k_base, worst_ctgs)
+@benchmark quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 # %% ====
 include("../src/core/contingencies.jl")
 
-@btime special_wmi_update(dz_dpinj_base[ctg_ii], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], rhs);
+@btime special_wmi_update(ctd[ctg_ii], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], rhs);
 
 # %%
 
 @btime y0 - u*g*quasiGrad.dot(u, x)
 # %%
-y0 = copy(dz_dpinj_base[ctg_ii])
+y0 = copy(ctd[ctg_ii])
 u  = copy(ntk.u_k[ctg_ii])
 g  = copy(ntk.g_k[ctg_ii])
 x  = copy(rhs)
@@ -175,17 +170,17 @@ end
 # %%
 rhs = randn(616)
 ctg_ii = 1
-@btime dz_dpinj_base[1] -  ntk.u_k[1]
+@btime ctd[1] -  ntk.u_k[1]
 
 uk = Vector(ntk.u_k[ctg_ii])
 uk = Vector(ntk.u_k[ctg_ii])
 uks = ntk.u_k[ctg_ii]
 # %%
 
-@btime dz_dpinj_base[1] - Vector(ntk.u_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii], rhs));
-@btime dz_dpinj_base[1] - uk*quasiGrad.dot(uk, rhs);
-@btime dz_dpinj_base[1] - uk*quasiGrad.dot(ntk.u_k[ctg_ii], rhs);
-#@btime dz_dpinj_base[1] - Vector(ntk.u_k[ctg_ii]*quasiGrad.dot(uk, rhs));
+@btime ctd[1] - Vector(ntk.u_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii], rhs));
+@btime ctd[1] - uk*quasiGrad.dot(uk, rhs);
+@btime ctd[1] - uk*quasiGrad.dot(ntk.u_k[ctg_ii], rhs);
+#@btime ctd[1] - Vector(ntk.u_k[ctg_ii]*quasiGrad.dot(uk, rhs));
 
 # %%
 uk = 0*Vector(ntk.u_k[ctg_ii])
@@ -223,9 +218,9 @@ bt = randn(853)
 
 tt = Matrix(ntk.Yfr)
 
-@btime theta_k_base[t_ind] - ntk.u_k[ctg_ii]*quasiGrad.dot(ntk.w_k[ctg_ii],c)
+@btime ctb[t_ind] - ntk.u_k[ctg_ii]*quasiGrad.dot(ntk.w_k[ctg_ii],c)
 
-theta_k = theta_k_base[t_ind] - ntk.u_k[ctg_ii]*quasiGrad.dot(ntk.w_k[ctg_ii],c)
+theta_k = ctb[t_ind] - ntk.u_k[ctg_ii]*quasiGrad.dot(ntk.w_k[ctg_ii],c)
 
 @btime pflow_k = ntk.Yfr*theta_k  + bt
 # %%

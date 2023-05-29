@@ -1,11 +1,15 @@
 # in this file, we prepare the hard device constraints, which we pass to Gurobi
 #
 # note -- this is ALWAYS run after clipping
-function solve_Gurobi_projection!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
+function solve_Gurobi_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}; final_projection::Bool=false)
     # loop over each device and solve individually -- not clear if this is faster
     # than solving one big optimization problem all at once. see legacy code for
-    # a (n unfinished) version where all devices are solved at once!
-    model = Model(Gurobi.Optimizer)
+    # a(n unfinished) version where all devices are solved at once!
+    model = Model(Gurobi.Optimizer; add_bridges = false)
+    set_string_names_on_creation(model, false)
+    set_silent(model)
+
+    # status update
     @info "Running MILP projection across $(sys.ndev) devices."
 
     # loop over all devices
@@ -15,8 +19,8 @@ function solve_Gurobi_projection!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}
         empty!(model)
 
         # quiet down!!!
-        set_silent(model)
-        quasiGrad.set_optimizer_attribute(model, "OutputFlag", qG.GRB_output_flag)
+        # set_silent(model)
+        # alternative => quasiGrad.set_optimizer_attribute(model, "OutputFlag", qG.GRB_output_flag)
         
         # set model properties
         quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
@@ -381,45 +385,66 @@ function solve_Gurobi_projection!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}
 
         # solve
         optimize!(model)
-        # println("========================================================")
-        println(termination_status(model),". ",primal_status(model),". objective value: ", objective_value(model))
-        # println("========================================================")
 
-        # solve, and then return the solution
-        for tii in prm.ts.time_keys
-            GRB[:u_on_dev][tii][dev]  = value(u_on_dev[tii])
-            GRB[:p_on][tii][dev]      = value(p_on[tii])
-            GRB[:dev_q][tii][dev]     = value(dev_q[tii])
-            GRB[:p_rgu][tii][dev]     = value(p_rgu[tii])
-            GRB[:p_rgd][tii][dev]     = value(p_rgd[tii])
-            GRB[:p_scr][tii][dev]     = value(p_scr[tii])
-            GRB[:p_nsc][tii][dev]     = value(p_nsc[tii])
-            GRB[:p_rru_on][tii][dev]  = value(p_rru_on[tii])
-            GRB[:p_rru_off][tii][dev] = value(p_rru_off[tii])
-            GRB[:p_rrd_on][tii][dev]  = value(p_rrd_on[tii])
-            GRB[:p_rrd_off][tii][dev] = value(p_rrd_off[tii])
-            GRB[:q_qru][tii][dev]     = value(q_qru[tii])
-            GRB[:q_qrd][tii][dev]     = value(q_qrd[tii])
+        # test solution!
+        soln_valid = solution_status(model)
+
+        # did Gurobi find something valid?
+        if soln_valid == true
+
+            # println("========================================================")
+            println(termination_status(model),". ",primal_status(model),". objective value: ", objective_value(model))
+            # println("========================================================")
+
+            # solve, and then return the solution
+            for tii in prm.ts.time_keys
+                if final_projection == true
+                    # no need to copy the binaries -- they are static
+                else
+                    # copy the binary solution to a temporary location
+                    stt[:u_on_dev_GRB][tii][dev]  = copy(value(u_on_dev[tii]))
+                end
+
+                # directly update the rest
+                stt[:p_on][tii][dev]      = copy(value(p_on[tii]))
+                stt[:dev_q][tii][dev]     = copy(value(dev_q[tii]))
+                stt[:p_rgu][tii][dev]     = copy(value(p_rgu[tii]))
+                stt[:p_rgd][tii][dev]     = copy(value(p_rgd[tii]))
+                stt[:p_scr][tii][dev]     = copy(value(p_scr[tii]))
+                stt[:p_nsc][tii][dev]     = copy(value(p_nsc[tii]))
+                stt[:p_rru_on][tii][dev]  = copy(value(p_rru_on[tii]))
+                stt[:p_rru_off][tii][dev] = copy(value(p_rru_off[tii]))
+                stt[:p_rrd_on][tii][dev]  = copy(value(p_rrd_on[tii]))
+                stt[:p_rrd_off][tii][dev] = copy(value(p_rrd_off[tii]))
+                stt[:q_qru][tii][dev]     = copy(value(q_qru[tii]))
+                stt[:q_qrd][tii][dev]     = copy(value(q_qrd[tii]))
+            end
+
+            # if this is the final projection, update the update 
+            # the u_sum and powers right here (used in clipping, so must be correct!)
+            if final_projection == true
+                qG.run_susd_updates = true
+                quasiGrad.simple_device_statuses!(idx, prm, stt)
+                quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
+            end
+        else
+            # warn!
+            @warn "Gurobi projection (MILP) failed -- skip and try again later!"
         end
     end
 end
 
 # note -- this is ALWAYS run after solve_Gurobi_projection!()
-function apply_Gurobi_projection!(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
-    stt[:u_on_dev]  = deepcopy(GRB[:u_on_dev])
-    stt[:p_on]      = deepcopy(GRB[:p_on])
-    stt[:dev_q]     = deepcopy(GRB[:dev_q])
-    stt[:p_rgu]     = deepcopy(GRB[:p_rgu])
-    stt[:p_rgd]     = deepcopy(GRB[:p_rgd])
-    stt[:p_scr]     = deepcopy(GRB[:p_scr])
-    stt[:p_nsc]     = deepcopy(GRB[:p_nsc])
-    stt[:p_rru_on]  = deepcopy(GRB[:p_rru_on])
-    stt[:p_rru_off] = deepcopy(GRB[:p_rru_off])
-    stt[:p_rrd_on]  = deepcopy(GRB[:p_rrd_on])
-    stt[:p_rrd_off] = deepcopy(GRB[:p_rrd_off])
-    stt[:q_qru]     = deepcopy(GRB[:q_qru])
-    stt[:q_qrd]     = deepcopy(GRB[:q_qrd])
+function apply_Gurobi_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+    # we only need to apply the updated binary variables (all of them)
+    # after running the batch_fix function
+    for tii in prm.ts.time_keys
+        # copy the binary solution to a temporary location
+        stt[:u_on_dev][tii]  = copy(stt[:u_on_dev_GRB][tii])
+    end
 
-    # update the u_sum (used in clipping, so must be correct!)
+    # update the u_sum and powers (used in clipping, so must be correct!)
+    qG.run_susd_updates = true
     quasiGrad.simple_device_statuses!(idx, prm, stt)
+    quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
 end

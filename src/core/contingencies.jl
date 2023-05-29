@@ -1,24 +1,30 @@
 function solve_ctgs!(
-    cgd::quasiGrad.Cgd, 
+    cgd::quasiGrad.Cgd,
+    ctb::Vector{Vector{Float64}},        
+    ctd::Vector{Vector{Float64}},   
     flw::Dict{Symbol, Vector{Float64}},
     grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, 
     idx::quasiGrad.Idx, 
     mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
     ntk::quasiGrad.Ntk, 
     prm::quasiGrad.Param, 
-    qG::quasiGrad.QG, 
-    scr::Dict{Symbol, Float64}, 
+    qG::quasiGrad.QG,
+    scr::Dict{Symbol, Float64},
     stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
-    sys::quasiGrad.System,                                         
-    dz_dpinj_base::Vector{Vector{Float64}},        
-    theta_k_base::Vector{Vector{Float64}},   
-    worst_ctgs::Vector{Vector{Int64}})
+    sys::quasiGrad.System,                                          
+    wct::Vector{Vector{Int64}})
     # this script solves AND scores 
     #
     # loop over each time period and compute the power injections
     #
     # This step is contingency invariant -- i.e., each ctg will use this information
 
+    # ===========================
+    # ctb = base theta solutions, across time (then rank-1 corrected)
+    # ctd = contingency gradient solutions (across gradients) solved
+    #       on the base case (then rank-1 corrected)
+    # ===========================
+    
     # reset 
     scr[:zctg_min] = 0.0
     scr[:zctg_avg] = 0.0
@@ -27,6 +33,12 @@ function solve_ctgs!(
     num_wrst = Int64(round(qG.frac_ctg_keep*sys.nctg/2))
     num_rnd  = Int64(round(qG.frac_ctg_keep*sys.nctg/2))
     num_ctg  = num_wrst + num_rnd
+
+    if qG.score_all_ctgs == true
+        ###########################################################
+        @info "Warning -- scoring all contingencies! No gradients."
+        ###########################################################
+    end
 
     # loop over time
     for (t_ind, tii) in enumerate(prm.ts.time_keys)
@@ -84,28 +96,27 @@ function solve_ctgs!(
 
         # solve the base case with pcg
         if qG.base_solver == "lu"
-            theta_k_base[t_ind]  = ntk.Ybr\c
+            ctb[t_ind]  = ntk.Ybr\c
 
         # error with this type !!!
         # elseif qG.base_solver == "cholesky"
-        #    theta_k_base[t_ind]  = ntk.Ybr_Ch\c
+        #    ctb[t_ind]  = ntk.Ybr_Ch\c
         
         elseif qG.base_solver == "pcg"
             if sys.nb <= qG.min_buses_for_krylov
                 # too few buses -- just use LU
-                theta_k_base[t_ind] = ntk.Ybr\c
+                ctb[t_ind] = ntk.Ybr\c
             else
                 # solve with a hot start!
                 #
-                # note: ctg[:theta_k_base][tii][end] is modified in place,
+                # note: ctg[:ctb][tii][end] is modified in place,
                 # and it represents the base case solution
-                quasiGrad.cg!(theta_k_base[t_ind], ntk.Ybr, c, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr)
+                _, ch = quasiGrad.cg!(ctb[t_ind], ntk.Ybr, c, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
                 
-                # cg has failed in the past -- not sure why -- test for NaN
-                if isnan(sum(theta_k_base[t_ind])) || maximum(theta_k_base[t_ind]) > 1e7  # => faster than any(isnan, t)
-                    # LU backup
+                # test the krylov solution
+                if ~(ch.isconverged)
                     @info "Krylov failed -- using LU backup (ctg flows)!"
-                    theta_k_base[t_ind] = ntk.Ybr\c
+                    ctb[t_ind] = ntk.Ybr\c
                 end
             end
         else
@@ -118,177 +129,202 @@ function solve_ctgs!(
         # zero out the gradients, which will be collected and applied all at once!
         flw[:dz_dpinj_all] .= 0.0
 
-        # loop over contingencies
-        for ctg_ii in worst_ctgs[t_ind][1:num_ctg] # first is worst!! sys.nctg
-            # Here, we must solve theta_k = Ybr_k\c -- assume qG.ctg_solver == "wmi"
-            #
-            # now, we need to solve the following:
-            # (Yb + v*b*v')x = c
-            #
-            # we already know x0 = Yb\c, so let's use it!
-            #
-            # wmi :)
-            # explicit version => theta_k = theta_k_base[t_ind] - Vector(ntk.u_k[ctg_ii]*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii],c)))
-            theta_k = special_wmi_update(theta_k_base[t_ind], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], c)
-            # compute flows
-            #
-            # NOTE: ctg[:pflow_k][tii][ctg_ii] contains the flow on the outaged line --
-            #       -- this will be dealt with when computing the flows and gradients
-            pflow_k = ntk.Yfr*theta_k  + bt
-            sfr     = sqrt.(qfr2 + pflow_k.^2)
-            sto     = sqrt.(qto2 + pflow_k.^2)
-            sfr_vio = sfr - ntk.s_max
-            sto_vio = sto - ntk.s_max
-
-            # make sure there are no penalties on lines that are out-aged!
-            sfr_vio[ntk.ctg_out_ind[ctg_ii]] .= 0.0
-            sto_vio[ntk.ctg_out_ind[ctg_ii]] .= 0.0
-            smax_vio = max.(sfr_vio, sto_vio, 0.0)
-
-            # compute the penalties: "stt[:zctg_s][tii][ctg_ii]" -- if want to keep
-            zctg_s = dt*prm.vio.s_flow*smax_vio * qG.scale_c_sflow_testing
-
-            # each contingency, at each time, gets a score:
-            stt[:zctg][tii][ctg_ii] = -sum(zctg_s, init=0.0)
-
-            # great -- now, do we take the gradient? look at the previous adam step
-            if qG.eval_grad
-                # game on :)
-                #
-                # in this code, we assume we take the gradient of all scored
-                # contingencies -- this can be updated!
-
-                # What are the gradients? build indicators with some tolerance
-                gamma_fr   = (sfr_vio .> qG.grad_ctg_tol) .&& (sfr_vio .> sto_vio)
-                gamma_to   = (sto_vio .> qG.grad_ctg_tol) .&& (sto_vio .> sfr_vio)
-
-                # build the grads
-                flw[:dsmax_dqfr_flow]          .= 0.0
-                flw[:dsmax_dqto_flow]          .= 0.0
-                flw[:dsmax_dp_flow]            .= 0.0
-                flw[:dsmax_dp_flow][gamma_fr]   = pflow_k[gamma_fr]./sfr[gamma_fr]
-                flw[:dsmax_dp_flow][gamma_to]   = pflow_k[gamma_to]./sto[gamma_to]
-                flw[:dsmax_dqfr_flow][gamma_fr] = flw[:ac_qfr][gamma_fr]./sfr[gamma_fr]
-                flw[:dsmax_dqto_flow][gamma_to] = flw[:ac_qto][gamma_to]./sto[gamma_to]
-
-                # "was" this the worst ctg of the lot? (most negative!)
-                if ctg_ii == worst_ctgs[t_ind][1]
-                    gc = copy(gc_avg) + copy(gc_min)
-                else
-                    gc = copy(gc_avg)
-                end
-
-                # first, deal with the reactive power flows -- these are functions
-                # of line variables (v, theta, phi, tau, u_on)
-                #
-                # acline
-                aclfr_inds  = findall(!iszero,gamma_fr[1:sys.nl])
-                aclto_inds  = findall(!iszero,gamma_to[1:sys.nl])
-                aclfr_alpha = gc*(flw[:dsmax_dqfr_flow][1:sys.nl][aclfr_inds])
-                aclto_alpha = gc*(flw[:dsmax_dqto_flow][1:sys.nl][aclto_inds])
-                zctgs_grad_q_acline!(tii, idx, grd, mgd, aclfr_inds, aclto_inds, aclfr_alpha, aclto_alpha)
-                # xfm
-                xfr_inds  = findall(!iszero,gamma_fr[(sys.nl+1):sys.nac])
-                xto_inds  = findall(!iszero,gamma_to[(sys.nl+1):sys.nac])
-                xfr_alpha = gc*(flw[:dsmax_dqfr_flow][(sys.nl+1):sys.nac][xfr_inds])
-                xto_alpha = gc*(flw[:dsmax_dqto_flow][(sys.nl+1):sys.nac][xto_inds])
-                zctgs_grad_q_xfm!(tii, idx, grd, mgd, xfr_inds, xto_inds, xfr_alpha, xto_alpha)
-
-                # now, the fun one: active power injection + xfm phase shift!!
-                alpha_p_flow_phi = gc*flw[:dsmax_dp_flow]
-                #
-                # 
-                # alpha_p_flow_phi is the derivative of znms with repsect to the
-                # active power flow vector in a given contingency at a given time
-
-                # get the derivative of znms wrt active power injection
-                # NOTE: ntk.Yfr = Ybs*Er, so ntk.Yfr^T = Er^T*Ybs
-                #   -> techincally, we need Yfr_k, where the admittance
-                #      at the outaged line has been drive to 0, but we
-                #      can safely use Yfr, since alpha_p_flow_phi["k"] = 0
-                #      (this was enforced ~50 or so lines above)
-                # NOTE #2 -- this does NOT include the reference bus!
-                #            we skip this gradient :)
-                rhs = ntk.Yfr'*alpha_p_flow_phi
-
-                # time to solve for dz_dpinj -- two options here:
-                #   1. solve with ntk.Ybr_k, but we didn't actually build this,
-                #      and we didn't build its preconditioner either..
-                #   2. solve with ntk.Ybr, and then use a rank 1 update! Let's do
-                #      this instead :) we'll do this in-loop for each ctg at each time.
-                dz_dpinj = lowrank_update_single_ctg_gradient(dz_dpinj_base, ctg_ii, ntk, qG, rhs, sys)
-                
-                # now, we have the gradient of znms wrt all nodal injections/xfm phase shifts!!!
-                # except the slack bus... time to apply these gradients into 
-                # the master grad at all buses except the slack bus.
-                #
-                # update the injection gradient to account for slack!
-                #   alternative direct solution: 
-                #       -> ctg[:dz_dpinj][tii][ctg_ii] = (quasiGrad.I-ones(sys.nb-1)*ones(sys.nb-1)'/(sys.nb))*(ntk.Ybr_k[ctg_ii]\(ntk.Yfr'*alpha_p_flow))
-                flw[:dz_dpinj_all] += dz_dpinj .- sum(dz_dpinj)/sys.nb
-
-                # legacy option: apply device gradients -- super slow!!
-                    # => zctgs_grad_pinj!(dz_dpinj, grd, idx, mgd, ntk, prm, sys, tii)
+        # do we want to score all ctgs? for testing/post processing
+        if qG.score_all_ctgs == true
+            ###########################################################
+            # => up above: @info "Warning -- scoring all contingencies! No gradients."
+            ###########################################################
+            for ctg_ii in 1:sys.nctg
+                # see the "else" case for comments and details
+                theta_k = special_wmi_update(ctb[t_ind], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], c)
+                pflow_k = ntk.Yfr*theta_k  + bt
+                sfr     = sqrt.(qfr2 + pflow_k.^2)
+                sto     = sqrt.(qto2 + pflow_k.^2)
+                sfr_vio = sfr - ntk.s_max
+                sto_vio = sto - ntk.s_max
+                sfr_vio[ntk.ctg_out_ind[ctg_ii]] .= 0.0
+                sto_vio[ntk.ctg_out_ind[ctg_ii]] .= 0.0
+                smax_vio = max.(sfr_vio, sto_vio, 0.0)
+                zctg_s = dt*prm.vio.s_flow*smax_vio * qG.scale_c_sflow_testing
+                stt[:zctg][tii][ctg_ii] = -sum(zctg_s, init=0.0)
             end
+
+            # score
+            scr[:zctg_min] += minimum(stt[:zctg][tii])
+            scr[:zctg_avg] += sum(stt[:zctg][tii])/sys.nctg
+        else
+            # loop over contingency subset
+            for ctg_ii in wct[t_ind][1:num_ctg] # first is worst!! sys.nctg
+                # Here, we must solve theta_k = Ybr_k\c -- assume qG.ctg_solver == "wmi"
+                #
+                # now, we need to solve the following:
+                # (Yb + v*b*v')x = c
+                #
+                # we already know x0 = Yb\c, so let's use it!
+                #
+                # wmi :)
+                # explicit version => theta_k = ctb[t_ind] - Vector(ntk.u_k[ctg_ii]*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii],c)))
+                theta_k = special_wmi_update(ctb[t_ind], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], c)
+                # compute flows
+                #
+                # NOTE: ctg[:pflow_k][tii][ctg_ii] contains the flow on the outaged line --
+                #       -- this will be dealt with when computing the flows and gradients
+                pflow_k = ntk.Yfr*theta_k  + bt
+                sfr     = sqrt.(qfr2 + pflow_k.^2)
+                sto     = sqrt.(qto2 + pflow_k.^2)
+                sfr_vio = sfr - ntk.s_max
+                sto_vio = sto - ntk.s_max
+
+                # make sure there are no penalties on lines that are out-aged!
+                sfr_vio[ntk.ctg_out_ind[ctg_ii]] .= 0.0
+                sto_vio[ntk.ctg_out_ind[ctg_ii]] .= 0.0
+                smax_vio = max.(sfr_vio, sto_vio, 0.0)
+
+                # compute the penalties: "stt[:zctg_s][tii][ctg_ii]" -- if want to keep
+                zctg_s = dt*prm.vio.s_flow*smax_vio * qG.scale_c_sflow_testing
+
+                # each contingency, at each time, gets a score:
+                stt[:zctg][tii][ctg_ii] = -sum(zctg_s, init=0.0)
+
+                # great -- now, do we take the gradient? look at the previous adam step
+                if qG.eval_grad
+                    # game on :)
+                    #
+                    # in this code, we assume we take the gradient of all scored
+                    # contingencies -- this can be updated!
+
+                    # What are the gradients? build indicators with some tolerance
+                    gamma_fr   = (sfr_vio .> qG.grad_ctg_tol) .&& (sfr_vio .> sto_vio)
+                    gamma_to   = (sto_vio .> qG.grad_ctg_tol) .&& (sto_vio .> sfr_vio)
+
+                    # build the grads
+                    flw[:dsmax_dqfr_flow]          .= 0.0
+                    flw[:dsmax_dqto_flow]          .= 0.0
+                    flw[:dsmax_dp_flow]            .= 0.0
+                    flw[:dsmax_dp_flow][gamma_fr]   = pflow_k[gamma_fr]./sfr[gamma_fr]
+                    flw[:dsmax_dp_flow][gamma_to]   = pflow_k[gamma_to]./sto[gamma_to]
+                    flw[:dsmax_dqfr_flow][gamma_fr] = flw[:ac_qfr][gamma_fr]./sfr[gamma_fr]
+                    flw[:dsmax_dqto_flow][gamma_to] = flw[:ac_qto][gamma_to]./sto[gamma_to]
+
+                    # "was" this the worst ctg of the lot? (most negative!)
+                    if ctg_ii == wct[t_ind][1]
+                        gc = copy(gc_avg) + copy(gc_min)
+                    else
+                        gc = copy(gc_avg)
+                    end
+
+                    # first, deal with the reactive power flows -- these are functions
+                    # of line variables (v, theta, phi, tau, u_on)
+                    #
+                    # acline
+                    aclfr_inds  = findall(!iszero,gamma_fr[1:sys.nl])
+                    aclto_inds  = findall(!iszero,gamma_to[1:sys.nl])
+                    aclfr_alpha = gc*(flw[:dsmax_dqfr_flow][1:sys.nl][aclfr_inds])
+                    aclto_alpha = gc*(flw[:dsmax_dqto_flow][1:sys.nl][aclto_inds])
+                    zctgs_grad_q_acline!(tii, idx, grd, mgd, aclfr_inds, aclto_inds, aclfr_alpha, aclto_alpha)
+                    # xfm
+                    xfr_inds  = findall(!iszero,gamma_fr[(sys.nl+1):sys.nac])
+                    xto_inds  = findall(!iszero,gamma_to[(sys.nl+1):sys.nac])
+                    xfr_alpha = gc*(flw[:dsmax_dqfr_flow][(sys.nl+1):sys.nac][xfr_inds])
+                    xto_alpha = gc*(flw[:dsmax_dqto_flow][(sys.nl+1):sys.nac][xto_inds])
+                    zctgs_grad_q_xfm!(tii, idx, grd, mgd, xfr_inds, xto_inds, xfr_alpha, xto_alpha)
+
+                    # now, the fun one: active power injection + xfm phase shift!!
+                    alpha_p_flow_phi = gc*flw[:dsmax_dp_flow]
+                    #
+                    # 
+                    # alpha_p_flow_phi is the derivative of znms with repsect to the
+                    # active power flow vector in a given contingency at a given time
+
+                    # get the derivative of znms wrt active power injection
+                    # NOTE: ntk.Yfr = Ybs*Er, so ntk.Yfr^T = Er^T*Ybs
+                    #   -> techincally, we need Yfr_k, where the admittance
+                    #      at the outaged line has been drive to 0, but we
+                    #      can safely use Yfr, since alpha_p_flow_phi["k"] = 0
+                    #      (this was enforced ~50 or so lines above)
+                    # NOTE #2 -- this does NOT include the reference bus!
+                    #            we skip this gradient :)
+                    rhs = ntk.Yfr'*alpha_p_flow_phi
+
+                    # time to solve for dz_dpinj -- two options here:
+                    #   1. solve with ntk.Ybr_k, but we didn't actually build this,
+                    #      and we didn't build its preconditioner either..
+                    #   2. solve with ntk.Ybr, and then use a rank 1 update! Let's do
+                    #      this instead :) we'll do this in-loop for each ctg at each time.
+                    dz_dpinj = lowrank_update_single_ctg_gradient(ctd, ctg_ii, ntk, qG, rhs, sys)
+                    
+                    # now, we have the gradient of znms wrt all nodal injections/xfm phase shifts!!!
+                    # except the slack bus... time to apply these gradients into 
+                    # the master grad at all buses except the slack bus.
+                    #
+                    # update the injection gradient to account for slack!
+                    #   alternative direct solution: 
+                    #       -> ctg[:dz_dpinj][tii][ctg_ii] = (quasiGrad.I-ones(sys.nb-1)*ones(sys.nb-1)'/(sys.nb))*(ntk.Ybr_k[ctg_ii]\(ntk.Yfr'*alpha_p_flow))
+                    flw[:dz_dpinj_all] += dz_dpinj .- sum(dz_dpinj)/Float64(sys.nb)
+
+                    # legacy option: apply device gradients -- super slow!!
+                        # => zctgs_grad_pinj!(dz_dpinj, grd, idx, mgd, ntk, prm, sys, tii)
+                end
+            end
+
+            # now, actually apply the gradients!
+            if qG.eval_grad
+                zctgs_grad_pinj!(flw[:dz_dpinj_all], grd, idx, mgd, ntk, prm, sys, tii)
+            end
+            # across each contingency, we get the average, and we get the min
+            scr[:zctg_min] += minimum(stt[:zctg][tii])
+            scr[:zctg_avg] += sum(stt[:zctg][tii])/sys.nctg
+
+            # now that we have scored all contingencies at this given time,
+            # rank them from most negative to least (worst is first)
+            wct[t_ind][1:num_ctg] = sortperm(stt[:zctg][tii][wct[t_ind][1:num_ctg]])
+
+            # however, only keep half!
+            wct[t_ind][1:num_ctg] = union(wct[t_ind][1:num_wrst],quasiGrad.shuffle(setdiff(1:sys.nctg, wct[t_ind][1:num_wrst]))[1:num_rnd])
         end
-
-        # now, actually apply the gradients!
-        if qG.eval_grad
-            zctgs_grad_pinj!(flw[:dz_dpinj_all], grd, idx, mgd, ntk, prm, sys, tii)
-        end
-        # across each contingency, we get the average, and we get the min
-        scr[:zctg_min] += minimum(stt[:zctg][tii])
-        scr[:zctg_avg] += sum(stt[:zctg][tii])/sys.nctg
-
-        # now that we have scored all contingencies at this given time,
-        # rank them from most negative to least (worst is first)
-        worst_ctgs[t_ind][1:num_ctg] = sortperm(stt[:zctg][tii][worst_ctgs[t_ind][1:num_ctg]])
-
-        # however, only keep half!
-        worst_ctgs[t_ind][1:num_ctg] = union(worst_ctgs[t_ind][1:num_wrst],quasiGrad.shuffle(setdiff(1:sys.nctg, worst_ctgs[t_ind][1:num_wrst]))[1:num_rnd])
     end
 end
 
 
-function lowrank_update_single_ctg_gradient(dz_dpinj_base::Vector{Vector{Float64}}, ctg_ii::Int64, ntk::quasiGrad.Ntk, qG::quasiGrad.QG, rhs::Vector{Float64}, sys::quasiGrad.System)
+function lowrank_update_single_ctg_gradient(ctd::Vector{Vector{Float64}}, ctg_ii::Int64, ntk::quasiGrad.Ntk, qG::quasiGrad.QG, rhs::Vector{Float64}, sys::quasiGrad.System)
     # step 1: solve the contingency on the base-case
     # step 2: low rank update the solution
     # 
     # step 1:
-    # solve with the previous base-case solution: ctg[:dz_dpinj_base][tii][ctg_ii::Int64ctg_ii]
+    # solve with the previous base-case solution: ctg[:ctd][tii][ctg_ii::Int64ctg_ii]
     # note: this keeps getting overwritten at each time!
     #
     # i.e., the previous time solutions implicitly hot-starts the solution
     # solve the base case with pcg
     if qG.base_solver == "lu"
-        dz_dpinj_base[ctg_ii] = ntk.Ybr\rhs
+        ctd[ctg_ii] = ntk.Ybr\rhs
 
         # error with this type !!!
     # elseif qG.base_solver == "cholesky"
-    #    dz_dpinj_base[ctg_ii] = ntk.Ybr_Ch\rhs
+    #    ctd[ctg_ii] = ntk.Ybr_Ch\rhs
 
     elseif qG.base_solver == "pcg"
         if sys.nb <= qG.min_buses_for_krylov
             # too few buses -- just use LU
-            dz_dpinj_base[ctg_ii] = ntk.Ybr\rhs
+            ctd[ctg_ii] = ntk.Ybr\rhs
             
         else
             # solve with a hot start!
-            quasiGrad.cg!(dz_dpinj_base[ctg_ii], ntk.Ybr, rhs, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr)
+            _, ch = quasiGrad.cg!(ctd[ctg_ii], ntk.Ybr, rhs, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
         
-            # cg has failed in the past -- not sure why -- test for NaN
-            if isnan(sum(dz_dpinj_base[ctg_ii])) || maximum(dz_dpinj_base[ctg_ii]) > 1e7  # => faster than any(isnan, t)
+            # test the krylov solution
+            if ~(ch.isconverged)
                 # LU backup
                 @info "Krylov failed -- using LU backup (ctg gradient)"
-                dz_dpinj_base[ctg_ii] = ntk.Ybr\rhs
+                ctd[ctg_ii] = ntk.Ybr\rhs
             end
         end
     end
 
     # step 2:
     # now, apply a low-rank update!
-    # explicit version => dz_dpinj = dz_dpinj_base[ctg_ii] - Vector(ntk.u_k[ctg_ii]*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii], rhs)))
-    dz_dpinj = special_wmi_update(dz_dpinj_base[ctg_ii], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], rhs)
+    # explicit version => dz_dpinj = ctd[ctg_ii] - Vector(ntk.u_k[ctg_ii]*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii], rhs)))
+    dz_dpinj = special_wmi_update(ctd[ctg_ii], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], rhs)
 
     # output
     return dz_dpinj

@@ -1,4 +1,7 @@
 function prepare_solution(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+    # clip once more, just to be safe
+    quasiGrad.clip_all!(true, prm, stt)
+
     # prepare the solution dictionary
     soln_dict = Dict("time_series_output" => Dict("bus"                        => Array{Dict}(undef,sys.nb),
                                                   "shunt"                      => Array{Dict}(undef,sys.nsh),
@@ -66,7 +69,11 @@ function prepare_solution(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, V
 end
 
 # write the JSON
-function write_solution(input_json_path::String, qG::quasiGrad.QG, soln_dict::Dict, scr::Dict{Symbol, Float64})
+function write_solution(input_json_path::String, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+
+    # prepare the solution dictionary
+    soln_dict = quasiGrad.prepare_solution(prm, stt, sys)
+
     # parse the input and then append
     if qG.write_location == "local"
         input_json       = replace(input_json_path, ".json" => "")
@@ -77,8 +84,44 @@ function write_solution(input_json_path::String, qG::quasiGrad.QG, soln_dict::Di
         output_json_path = "solution.json"
     end
 
+    # write to JSON
+    open(output_json_path, "w") do io
+        JSON.print(io, soln_dict)
+    end
+
+    # ...thank you, and goodnight. - Sam Chevalier
+end
+
+# post process
+function post_process_stats(    
+    cgd::quasiGrad.Cgd, 
+    ctb::Vector{Vector{Float64}},
+    ctd::Vector{Vector{Float64}}, 
+    flw::Dict{Symbol, Vector{Float64}}, 
+    grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, 
+    idx::quasiGrad.Idx, 
+    mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
+    msc::Dict{Symbol, Vector{Float64}}, 
+    ntk::quasiGrad.Ntk, 
+    prm::quasiGrad.Param, 
+    qG::quasiGrad.QG, 
+    scr::Dict{Symbol, Float64}, 
+    stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
+    sys::quasiGrad.System, 
+    wct::Vector{Vector{Int64}})
+
+    # update the state vector
+    qG.eval_grad      = false
+    qG.score_all_ctgs = true
+    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    
+    # flop, just in case
+    qG.eval_grad      = true
+    qG.score_all_ctgs = false
+
     # print some stats?
     if qG.print_final_stats
+        zms     = scr[:zms]
         zto     = scr[:zt_original]
         ztp     = scr[:zt_penalty]
         zb      = scr[:zbase]
@@ -88,7 +131,9 @@ function write_solution(input_json_path::String, qG::quasiGrad.QG, soln_dict::Di
         zctgmin = scr[:zctg_min]
         zctgavg = scr[:zctg_avg]
 
+        println()
         println("====== ====== final output stats ====== ======")
+        println(" • zms: $zms")
         println(" • zbase: $zb")
         println(" • zt (original): $zto")
         println(" • zt (penalty): $ztp")
@@ -98,11 +143,4 @@ function write_solution(input_json_path::String, qG::quasiGrad.QG, soln_dict::Di
         println(" • z (ctg -- min): $zctgmin")
         println(" • z (ctg -- average): $zctgavg")
     end
-
-    # write to JSON
-    open(output_json_path, "w") do io
-        JSON.print(io, soln_dict)
-    end
-
-    # ...thank you, and goodnight. - Sam Chevalier
 end

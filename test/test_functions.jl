@@ -633,8 +633,7 @@ end
 function calc_nzms_qG(grd, idx, mgd, prm, qG, stt, sys)
 
         # compute states and grads
-        quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
-                                        dz_dpinj_base, theta_k_base, worst_ctgs)
+        quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
     
         # output
         return scr[:nzms]
@@ -667,7 +666,7 @@ function calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     reserve_balance!(idx, prm, stt, sys)
 
     # score the contingencies and take the gradients
-    quasiGrad.solve_ctgs!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, dz_dpinj_base, theta_k_base, worst_ctgs)
+    quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 
     # score the market surplus function
     score_zt!(idx, prm, qG, scr, stt) 

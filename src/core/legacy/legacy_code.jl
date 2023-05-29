@@ -1844,7 +1844,7 @@ end
                         grd[:zctg_avg_t][:zctg][tii] = ones(sys.nctg)/sys.nctg
             
                         # find the biggest (smallest) violation
-                        (~,ind_small) = findmin(stt[:zctg][tii])
+                        (_,ind_small) = findmin(stt[:zctg][tii])
             
                         # add 1 to the correspoding element
                         grd[:zctg_min_t][:zctg][tii]             = zeros(sys.nctg)
@@ -2394,7 +2394,7 @@ end
         :sfr_vio         => sfr_vio, 
         :sto_vio         => sto_vio,  
         :dz_dpinj        => dz_dpinj,
-        :dz_dpinj_base   => dz_dpinj_base,
+        :ctd   => ctd,
         :ctg_to_score    => ctg_to_score,
         :alpha           => prm.ctg.alpha,
         :components      => prm.ctg.components,
@@ -2419,8 +2419,7 @@ for ii = 1:5
 
     for ii in 1:N_its
         # compute all states and grads
-        quasiGrad.update_states_and_grads!(cgd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, 
-                                        dz_dpinj_base, theta_k_base, worst_ctgs)
+        quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
         # take an adam step
         quasiGrad.adam!(adm_step, prm, stt, upd, adm, mgd, qG)
@@ -3266,3 +3265,36 @@ function solve_linear_pf_with_Gurobi_simple_bounds!(Jac::quasiGrad.SparseArrays.
     end
 end
 =#
+
+# note -- this is ALWAYS run after solve_economic_dispatch()
+#
+# no longer needed!
+function apply_economic_dispatch_projection!()
+    @warn "Deprecated."
+
+    stt[:u_on_dev]  = deepcopy(GRB[:u_on_dev])
+    stt[:p_on]      = deepcopy(GRB[:p_on])
+    stt[:dev_q]     = deepcopy(GRB[:dev_q])
+    stt[:p_rgu]     = deepcopy(GRB[:p_rgu])
+    stt[:p_rgd]     = deepcopy(GRB[:p_rgd])
+    stt[:p_scr]     = deepcopy(GRB[:p_scr])
+    stt[:p_nsc]     = deepcopy(GRB[:p_nsc])
+    stt[:p_rru_on]  = deepcopy(GRB[:p_rru_on])
+    stt[:p_rru_off] = deepcopy(GRB[:p_rru_off])
+    stt[:p_rrd_on]  = deepcopy(GRB[:p_rrd_on])
+    stt[:p_rrd_off] = deepcopy(GRB[:p_rrd_off])
+    stt[:q_qru]     = deepcopy(GRB[:q_qru])
+    stt[:q_qrd]     = deepcopy(GRB[:q_qrd])
+
+    # update the u_sum and powers (used in clipping, so must be correct!)
+    qG.run_susd_updates = true
+    quasiGrad.simple_device_statuses!(idx, prm, stt)
+    quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
+end
+
+                # cg has failed in the past -- not sure why -- test for NaN
+                if isnan(sum(ctb[t_ind])) || maximum(ctb[t_ind]) > 1e7  # => faster than any(isnan, t)
+                    # LU backup
+                    @info "Krylov failed -- using LU backup (ctg flows)!"
+                    ctb[t_ind] = ntk.Ybr\c
+                end
