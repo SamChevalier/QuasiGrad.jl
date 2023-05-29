@@ -1,4 +1,5 @@
 using quasiGrad
+using GLMakie
 using Revise
 using Plots
 using Makie

@@ -9,7 +9,6 @@ using JSON
 using JuMP
 using Gurobi
 using Random
-using GLMakie
 using Statistics
 using SparseArrays
 using LinearAlgebra
@@ -42,6 +41,7 @@ include("./core/economic_dispatch.jl")
 
 # use plotting?
 # => using Makie
+# => using GLMakie
 # => include("./core/shunts.jl")
 
 # define static data constants
