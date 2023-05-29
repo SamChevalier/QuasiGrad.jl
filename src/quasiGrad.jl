@@ -7,8 +7,6 @@ module quasiGrad
 
 using JSON
 using JuMP
-#using Plots
-using Makie
 using Gurobi
 using Random
 using GLMakie
@@ -19,8 +17,6 @@ using InvertedIndices
 using Preconditioners
 using IterativeSolvers
 # don't call => using LimitedLDLFactorizations
-
-# also used: BenchmarkTools, Plots
 
 # call this first
 include("./core/structs.jl")
@@ -43,6 +39,10 @@ include("./core/contingencies.jl")
 include("./core/power_balance.jl")
 include("./core/initializations.jl")
 include("./core/economic_dispatch.jl")
+
+# use plotting?
+# => using Makie
+# => include("./core/shunts.jl")
 
 # define static data constants
 const eps_int    = 1e-8::Float64
