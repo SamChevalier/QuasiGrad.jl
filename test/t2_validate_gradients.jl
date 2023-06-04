@@ -1,75 +1,42 @@
-include("../src/quasiGrad.jl")
-
-# ===============
-using Pkg
-Pkg.activate(".")
-
-using JSON
-using JuMP
-using Plots
-using Gurobi
-using Statistics
-using SparseArrays
-using InvertedIndices
-
-# call this first
-include("../src/core/structs.jl")
-include("../src/core/shunts.jl")
-include("../src/core/devices.jl")
-include("../src/io/read_data.jl")
-include("../src/core/ac_flow.jl")
-include("../src/core/scoring.jl")
-include("../src/core/clipping.jl")
-include("../src/io/write_data.jl")
-include("../src/core/reserves.jl")
-include("../src/core/opt_funcs.jl")
-include("../src/scripts/solver.jl")
-include("../src/core/master_grad.jl")
-include("../src/core/contingencies.jl")
-include("../src/core/power_balance.jl")
-include("../src/core/initializations.jl")
-include("../src/core/projection.jl")
+# test solver itself :)
+using quasiGrad
+using Revise
 
 # load things
-    #data_dir  = "./test/data/c3/C3S0_20221208/D1/C3S0N00003/"
-    #file_name = "scenario_003.json"
-data_dir  = "./test/data/c3/C3S0_20221208/D3/C3S0N00073/"
-file_name = "scenario_002.json"
-
-# %%
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D3/C3S0N00073/scenario_002.json"
-
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
 
 # load
 jsn = quasiGrad.load_json(path)
 
 # %% initialize the system
 adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
-stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
+stt, sys, upd, wct = quasiGrad.base_initialization(jsn, true, 2.0);
 
-# reset -- to help with numerical conditioning of the market surplus function 
+# %% reset -- to help with numerical conditioning of the market surplus function 
 # (so that we can take its derivative numerically)
 qG.scale_c_pbus_testing  = 0.00001
 qG.scale_c_qbus_testing  = 0.00001
 qG.scale_c_sflow_testing = 0.02
 
-# %% test
+# test
 #
 include("./test_functions.jl")
 # README: 1) make sure the ctg solver has a sufficiently high tolerance setting!
 #         2) make sure standard gradients are being used
-qG.pqbal_grad_mod_type = "standard"
+qG.pqbal_grad_type = "standard"
 qG.pcg_tol             = 1e-9
-epsilon                = 5e-5     # maybe set larger when dealing with ctgs + krylov solver..
+epsilon                = 1e-5     # maybe set larger when dealing with ctgs + krylov solver..
 
 # gradient modifications -- power balance
-pqbal_grad_mod_type     = "soft_abs"
-pqbal_grad_mod_eps2     = 1e-16
+#pqbal_grad_type     = "soft_abs"
+#pqbal_grad_eps2     = 1e-16
 
 #
 # %% 1. transformer phase shift (phi) =======================================================================
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nx)); (ind == 0 ? ind = 1 : ind = ind)
+epsilon = 1e-6
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx    = mgd[:phi][tii][ind]
 
@@ -96,6 +63,11 @@ println(dzdx_num)
 
 # %% 3. voltage magnitude =======================================================================
 include("./test_functions.jl")
+qG.delta                 = 0.0
+qG.scale_c_pbus_testing  = 1.0
+qG.scale_c_qbus_testing  = 1.0
+qG.scale_c_sflow_testing = 1.0  # for flow testing!!
+
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nb)); (ind == 0 ? ind = 1 : ind = ind)
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
@@ -212,7 +184,7 @@ println(dzdx_num)
 
 # %% 10. :u_step_shunt =======================================================================
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
-ind     = 8 #Int64(round(rand(1)[1]*sys.nsh)) -- most have a 0-bs/gs value, so choose wisely :)
+ind     = Int64(round(rand(1)[1]*sys.nsh)) # -- most have a 0-bs/gs value, so choose wisely :)
 
 # to ensure we're not tipping over into some new space
 stt[:u_step_shunt][tii][ind] = 0.4
@@ -228,17 +200,29 @@ println(dzdx_num)
 
 # %% 11. devices =======================================================================
 #
-# README: if you perturb over the max power, the device cost will error
+# loop over time
+for tii in prm.ts.time_keys
+    stt[:u_on_dev][tii] = rand(sys.ndev)
+end
+
+# %% README: if you perturb over the max power, the device cost will error
 #         out -- this happens a lot.
-quasiGrad.clip_all!(true, prm, stt)
+#quasiGrad.clip_all!(prm, qG, stt)
+qG.pg_tol = 0.0
+qG.delta                 = 0*1e6
+qG.scale_c_pbus_testing  = 1.0
+qG.scale_c_qbus_testing  = 1.0
+qG.scale_c_sflow_testing = 1.0
+
 #
 #              1         2      3       4       5       6      7        8          9          10           11        12      13
 var     = [:u_on_dev, :dev_q, :p_on, :p_rgu, :p_rgd, :p_scr, :p_nsc, :p_rru_on, :p_rrd_on, :p_rru_off, :p_rrd_off, :q_qru, :q_qrd]    
 vii     = 1
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.ndev)); (ind == 0 ? ind = 1 : ind = ind)
-# %%
 
+#ind = 10
+#tii = :t4
 epsilon = 1e-6
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx    = copy(mgd[var[vii]][tii][ind])
@@ -265,4 +249,9 @@ if true == false
     # write a solution :)
     soln_dict = quasiGrad.prepare_solution(prm, stt, sys)
     quasiGrad.write_solution(data_dir*file_name, qG, soln_dict, scr)
+end
+
+# %% loop over time
+for tii in prm.ts.time_keys
+    stt[:u_on_dev][tii] = rand(sys.ndev)
 end

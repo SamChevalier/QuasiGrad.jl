@@ -1202,3 +1202,209 @@ end
 for (t_ind, tii) in enumerate(prm.ts.time_keys)
     println(sum(stt[:zctg][tii]))
 end
+
+# %%
+using JuMP
+using Gurobi
+
+function f1(A::Matrix{Float64}, b::Vector{Float64})
+    model = Model(Gurobi.Optimizer)
+    set_silent(model)
+    @variable(model, x[1:50])
+    @constraint(model, -10.0 .<= x .<= 10.0)
+    @constraint(model, A*x <= b)
+    @objective(model, Min, sum(x))
+    optimize!(model)
+end
+
+function f2(A::Matrix{Float64}, b::Vector{Float64}, z::Vector{Float64})
+    model = Model(Gurobi.Optimizer)
+    set_silent(model)
+    @variable(model, x[1:50])
+    @constraint(model, -10.0 .<= x .<= 10.0)
+    @constraint(model, A*x - b <= z)
+    @objective(model, Min, sum(x))
+    optimize!(model)
+end
+
+# %% ===========
+A = randn(50,50)
+b = randn(50)
+z = zeros(50)
+# %%
+@btime f1(A,b);
+# %%
+@btime f2(A,b,z);
+
+# %%
+
+ff1(x,y) = x*y
+
+@btime ff1(1.2,-1.0)
+@btime ff1(1.2,-1)
+
+# %%
+tii   = :t14
+t_ind = 14
+dev   = 182
+dev   = 1
+dt    = prm.ts.duration[tii]
+
+cst = prm.dev.cum_cost_blocks[dev][t_ind][1]  # cost for each block (leading with 0)
+pbk = prm.dev.cum_cost_blocks[dev][t_ind][2]  # power in each block (leading with 0)
+pcm = prm.dev.cum_cost_blocks[dev][t_ind][3]  # accumulated power for each block!
+nbk = length(pbk)
+
+# %% get the cost!
+stt[:zen_dev][tii][dev] = dt*sum(cst[ii]*max(min(stt[:dev_p][tii][dev] - pcm[ii-1], pbk[ii]), 0.0)  for ii in 2:nbk; init=0.0)
+
+# evaluate the grd? 
+#
+# WARNING -- this will break if stt[:dev_p] > pcm[end]! It will
+#            mean the device power is out of bounds, and this will
+#            call a price curve which does not exist.
+#                  ~ clipping will fix ~
+if qG.eval_grad
+    # what is the index of the "active" block?
+    del = stt[:dev_p][tii][dev] .- pcm
+    active_block_ind = argmin(del[del .>= 0.0])
+    grd[:zen_dev][:dev_p][tii][dev] = dt*cst[active_block_ind + 1] # where + 1 is due to the leading 0
+end
+
+# %%
+scr[:zt_penalty] = 0.0
+tii = :t18
+scr[:zt_penalty] += -qG.delta*(
+            sum(stt[:zhat_mndn][tii]) +
+            sum(stt[:zhat_mnup][tii]) + 
+            sum(stt[:zhat_rup][tii]) + 
+            sum(stt[:zhat_rd][tii])  + 
+            sum(stt[:zhat_rgu][tii]) + 
+            sum(stt[:zhat_rgd][tii]) + 
+            sum(stt[:zhat_scr][tii]) + 
+            sum(stt[:zhat_nsc][tii]) + 
+            sum(stt[:zhat_rruon][tii])  + 
+            sum(stt[:zhat_rruoff][tii]) +
+            sum(stt[:zhat_rrdon][tii])  +
+            sum(stt[:zhat_rrdoff][tii]) +
+            # common set of pr and cs constraint variables (see below)
+            sum(stt[:zhat_pmax][tii])      + 
+            sum(stt[:zhat_pmin][tii])      + 
+            sum(stt[:zhat_pmaxoff][tii])   + 
+            sum(stt[:zhat_qmax][tii])      + 
+            sum(stt[:zhat_qmin][tii])      + 
+            sum(stt[:zhat_qmax_beta][tii]) + 
+            sum(stt[:zhat_qmin_beta][tii]))
+
+# %%
+
+println(sum(sum(stt[:zhat_mndn][tii] for tii in prm.ts.time_keys)))
+println(sum(sum(stt[:zhat_mndn][tii] for tii in prm.ts.time_keys)))
+println(sum(sum(stt[:zhat_mnup][tii] for tii in prm.ts.time_keys))) 
+println(sum(sum(stt[:zhat_rup][tii] for tii in prm.ts.time_keys))) 
+println(sum(sum(stt[:zhat_rd][tii] for tii in prm.ts.time_keys)))  
+println(sum(sum(stt[:zhat_rgu][tii] for tii in prm.ts.time_keys))) 
+println(sum(sum(stt[:zhat_rgd][tii] for tii in prm.ts.time_keys))) 
+println(sum(sum(stt[:zhat_scr][tii] for tii in prm.ts.time_keys))) 
+println(sum(sum(stt[:zhat_nsc][tii] for tii in prm.ts.time_keys))) 
+println(sum(sum(stt[:zhat_rruon][tii] for tii in prm.ts.time_keys)))  
+println(sum(sum(stt[:zhat_rruoff][tii] for tii in prm.ts.time_keys)))
+println(sum(sum(stt[:zhat_rrdon][tii] for tii in prm.ts.time_keys))) 
+println(sum(sum(stt[:zhat_rrdoff][tii] for tii in prm.ts.time_keys)))
+println(sum(sum(stt[:zhat_pmax][tii] for tii in prm.ts.time_keys)))       
+println(sum(sum(stt[:zhat_pmin][tii] for tii in prm.ts.time_keys)))       
+println(sum(sum(stt[:zhat_pmaxoff][tii] for tii in prm.ts.time_keys)))    
+println(sum(sum(stt[:zhat_qmax][tii] for tii in prm.ts.time_keys)))       
+println(sum(sum(stt[:zhat_qmin][tii] for tii in prm.ts.time_keys)))       
+println(sum(sum(stt[:zhat_qmax_beta][tii] for tii in prm.ts.time_keys)))  
+println(sum(sum(stt[:zhat_qmin_beta][tii] for tii in prm.ts.time_keys)))
+
+
+# %% ===========
+v = randn(10000)
+p = 1:1000
+ci = CartesianIndices(p)
+
+
+@btime view(v, p);
+@btime view(v, ci);
+# %%
+
+@btime v'*v;
+@btime (v[p])'*(v[p])
+@btime quasiGrad.dot(v[p],v[p])
+@btime (@view v[p])'*(@view v[p])
+@btime (@view v[ci])'*(@view v[ci])
+@btime view(v, ci)'*view(v, ci)
+
+# %%
+@btime v'*v;
+@btime (@view v[p])'*(@view v[p])
+@btime (@view v[ci])'*(@view v[ci])
+@btime view(v, ci)'*view(v, ci)
+
+# %%
+tii = :t1
+c1 = idx.acline_fr_bus
+c2 = CartesianIndices(idx.acline_fr_bus)
+c3 = eachindex(stt[:vm][tii])
+@btime stt[:vm][tii][c1];
+@btime stt[:vm][tii][c3];
+# %%
+@btime quasiGrad.dot(view(v, ci),view(v, ci))
+
+# %% clean-up the reserve values by solving a softly constrained LP
+@time quasiGrad.centralized_soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+
+# %% clean-up the reserve values by solving a softly constrained LP
+@time quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+
+# %%
+x = -10:0.01:10
+@btime sign.(x);
+@btime x./(sqrt.(x.^2 .+ eps2));s
+
+# %%
+
+function MyJulia1(InFile1::String, TimeLimitInSeconds::Any, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
+    println("running MyJulia1")
+    println("  $(InFile1)")
+    println("  $(TimeLimitInSeconds)")
+    println("  $(Division)")
+    println("  $(NetworkModel)")
+    println("  $(AllowSwitching)")
+
+    # how long did package loading take? Give it 20 sec for now..
+    NewTimeLimitInSeconds = Float64(TimeLimitInSeconds) - 20.0
+
+    # compute the solution
+    quasiGrad.compute_quasiGrad_solution(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
+end
+
+# %% =================
+path                  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
+InFile1               = path
+TimeLimitInSeconds    = 600.0
+NewTimeLimitInSeconds = TimeLimitInSeconds - 35.0
+Division              = 1
+NetworkModel          = "test"
+AllowSwitching        = 0
+
+MyJulia1(InFile1, TimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
+
+# %%
+vals = Float64[]
+for dev in 1:sys.ndev
+    for (t_ind, tii) in enumerate(prm.ts.time_keys)
+        #push!(vals, stt[:q_qru][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev])
+        push!(vals, prm.dev.q_lb[dev][t_ind])
+    end
+end
+# %%
+
+dev = 1
+t_ind = 6
+@btime idx.Ts_mndn[dev][t_ind]
+@btime @view idx.Ts_mndn[dev][t_ind]

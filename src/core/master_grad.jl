@@ -156,96 +156,131 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Sy
             master_grad_zq!(tii, prm, idx, stt, grd, mgd, sys)
 
             # reserve zones -- p
+            #
+            # note: clipping MUST be called before sign() returns a useful result!!!
             for zone in 1:sys.nzP
                 # g17 (zrgu_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrgu_zonal] * cgd.dzrgu_zonal_dp_rgu_zonal_penalty[tii][zone] #grd[:zrgu_zonal][:p_rgu_zonal_penalty][tii][zone]
-                mgd_com = cgd.dzrgu_zonal_dp_rgu_zonal_penalty[tii][zone]
-                mgd[:p_rgu][tii][idx.dev_pzone[zone]] .+= mgd_com*sign(stt[:p_rgu_zonal_penalty][tii][zone])*(-1)
+                if qG.reserve_grad_is_soft_abs
+                    mgd_com = cgd.dzrgu_zonal_dp_rgu_zonal_penalty[tii][zone]*soft_abs_grad(stt[:p_rgu_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
+                else
+                    mgd_com = cgd.dzrgu_zonal_dp_rgu_zonal_penalty[tii][zone]*sign(stt[:p_rgu_zonal_penalty][tii][zone])
+                end
+                mgd[:p_rgu][tii][idx.dev_pzone[zone]] .-= mgd_com
+                # ===> requirements -- depend on active power consumption
                 for dev in idx.cs_pzone[zone]
-                    alpha = mgd_com*sign(stt[:p_rgu_zonal_penalty][tii][zone])*prm.reserve.rgu_sigma[zone]
+                    alpha = mgd_com*prm.reserve.rgu_sigma[zone]
                     dp_alpha!(grd, dev, tii, alpha)
                 end
 
                 # g18 (zrgd_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrgd_zonal] * cgd.dzrgd_zonal_dp_rgd_zonal_penalty[tii][zone] #grd[:zrgd_zonal][:p_rgd_zonal_penalty][tii][zone]
-                mgd_com = cgd.dzrgd_zonal_dp_rgd_zonal_penalty[tii][zone]
-                mgd[:p_rgd][tii][idx.dev_pzone[zone]] .+= mgd_com*sign(stt[:p_rgd_zonal_penalty][tii][zone])*(-1)
-                # ===> requirements -- depend on active power production!
+                if qG.reserve_grad_is_soft_abs
+                    mgd_com = cgd.dzrgd_zonal_dp_rgd_zonal_penalty[tii][zone]*soft_abs_grad(sign(stt[:p_rgd_zonal_penalty][tii][zone]), qG.reserve_grad_eps2)
+                else
+                    mgd_com = cgd.dzrgd_zonal_dp_rgd_zonal_penalty[tii][zone]*sign(stt[:p_rgd_zonal_penalty][tii][zone])
+                end
+                mgd[:p_rgd][tii][idx.dev_pzone[zone]] .-= mgd_com
+                # ===> requirements -- depend on active power consumption
                 for dev in idx.cs_pzone[zone]
-                    alpha = mgd_com*sign(stt[:p_rgd_zonal_penalty][tii][zone])*prm.reserve.rgd_sigma[zone]
+                    alpha = mgd_com*prm.reserve.rgd_sigma[zone]
                     dp_alpha!(grd, dev, tii, alpha)
                 end
 
                 # g19 (zscr_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zscr_zonal] * cgd.dzscr_zonal_dp_scr_zonal_penalty[tii][zone] #grd[:zscr_zonal][:p_scr_zonal_penalty][tii][zone]
-                mgd_com = cgd.dzscr_zonal_dp_scr_zonal_penalty[tii][zone]
+                if qG.reserve_grad_is_soft_abs
+                    mgd_com = cgd.dzscr_zonal_dp_scr_zonal_penalty[tii][zone]*soft_abs_grad(sign(stt[:p_scr_zonal_penalty][tii][zone]), qG.reserve_grad_eps2)
+                else
+                    mgd_com = cgd.dzscr_zonal_dp_scr_zonal_penalty[tii][zone]*sign(stt[:p_scr_zonal_penalty][tii][zone])
+                end
+                mgd[:p_rgu][tii][idx.dev_pzone[zone]] .-= mgd_com
+                mgd[:p_scr][tii][idx.dev_pzone[zone]] .-= mgd_com
                 if ~isempty(idx.pr_pzone[zone])
                     # only do the following if there are producers here
                     i_pmax  = idx.pr_pzone[zone][argmax(stt[:dev_p][tii][idx.pr_pzone[zone]])]
-                    mgd[:p_rgu][tii][idx.dev_pzone[zone]] .+= mgd_com*sign(stt[:p_scr_zonal_penalty][tii][zone])*(-1)
-                    mgd[:p_scr][tii][idx.dev_pzone[zone]] .+= mgd_com*sign(stt[:p_scr_zonal_penalty][tii][zone])*(-1)
                     # ===> requirements -- depend on active power production/consumption!
                     for dev = i_pmax # we only take the derivative of the device which has the highest production
-                        alpha = mgd_com*sign(stt[:p_scr_zonal_penalty][tii][zone])*prm.reserve.scr_sigma[zone]
+                        alpha = mgd_com*prm.reserve.scr_sigma[zone]
                         dp_alpha!(grd, dev, tii, alpha)
                     end
                 end
                 if ~isempty(idx.cs_pzone[zone])
                     # only do the following if there are consumers here -- overly cautious
                     for dev in idx.cs_pzone[zone]
-                        alpha = mgd_com*sign(stt[:p_scr_zonal_penalty][tii][zone])*prm.reserve.rgu_sigma[zone]
+                        alpha = mgd_com*prm.reserve.rgu_sigma[zone]
                         dp_alpha!(grd, dev, tii, alpha)
                     end
                 end
 
                 # g20 (znsc_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:znsc_zonal] * cgd.dznsc_zonal_dp_nsc_zonal_penalty[tii][zone] #grd[:znsc_zonal][:p_nsc_zonal_penalty][tii][zone]
-                mgd_com = cgd.dznsc_zonal_dp_nsc_zonal_penalty[tii][zone]
+                if qG.reserve_grad_is_soft_abs
+                    mgd_com = cgd.dznsc_zonal_dp_nsc_zonal_penalty[tii][zone]*soft_abs_grad(stt[:p_nsc_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
+                else
+                    mgd_com = cgd.dznsc_zonal_dp_nsc_zonal_penalty[tii][zone]*sign(stt[:p_nsc_zonal_penalty][tii][zone])
+                end
+                mgd[:p_rgu][tii][idx.dev_pzone[zone]] .-= mgd_com
+                mgd[:p_scr][tii][idx.dev_pzone[zone]] .-= mgd_com
+                mgd[:p_nsc][tii][idx.dev_pzone[zone]] .-= mgd_com
                 if ~isempty(idx.pr_pzone[zone])
                     # only do the following if there are producers here
                     i_pmax  = idx.pr_pzone[zone][argmax(stt[:dev_p][tii][idx.pr_pzone[zone]])]
-                    mgd_com = cgd.dznsc_zonal_dp_nsc_zonal_penalty[tii][zone]
-                    mgd[:p_rgu][tii][idx.dev_pzone[zone]] .+= mgd_com*sign(stt[:p_nsc_zonal_penalty][tii][zone])*(-1)
-                    mgd[:p_scr][tii][idx.dev_pzone[zone]] .+= mgd_com*sign(stt[:p_nsc_zonal_penalty][tii][zone])*(-1)
-                    mgd[:p_nsc][tii][idx.dev_pzone[zone]] .+= mgd_com*sign(stt[:p_nsc_zonal_penalty][tii][zone])*(-1)
                     # ===> requirements -- depend on active power production/consumption!
                     for dev in i_pmax # we only take the derivative of the device which has the highest production
-                        alpha = mgd_com*sign(stt[:p_nsc_zonal_penalty][tii][zone])*prm.reserve.scr_sigma[zone]
+                        alpha = mgd_com*prm.reserve.scr_sigma[zone]
                         dp_alpha!(grd, dev, tii, alpha)
                     end
                     for dev in i_pmax # we only take the derivative of the device which has the highest production
-                        alpha = mgd_com*sign(stt[:p_nsc_zonal_penalty][tii][zone])*prm.reserve.nsc_sigma[zone]
+                        alpha = mgd_com*prm.reserve.nsc_sigma[zone]
                         dp_alpha!(grd, dev, tii, alpha)
                     end
                 end
                 if ~isempty(idx.cs_pzone[zone])
                     # only do the following if there are consumers here -- overly cautious
                     for dev in idx.cs_pzone[zone]
-                        alpha = mgd_com*sign(stt[:p_nsc_zonal_penalty][tii][zone])*prm.reserve.rgu_sigma[zone]
+                        alpha = mgd_com*prm.reserve.rgu_sigma[zone]
                         dp_alpha!(grd, dev, tii, alpha)
                     end
                 end
 
                 # g21 (zrru_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrru_zonal] * cgd.dzrru_zonal_dp_rru_zonal_penalty[tii][zone] #grd[:zrru_zonal][:p_rru_zonal_penalty][tii][zone]
-                mgd[:p_rru_on][tii][idx.dev_pzone[zone]]  .+= cgd.dzrru_zonal_dp_rru_zonal_penalty[tii][zone]*sign(stt[:p_rru_zonal_penalty][tii][zone])*(-1)
-                mgd[:p_rru_off][tii][idx.dev_pzone[zone]] .+= cgd.dzrru_zonal_dp_rru_zonal_penalty[tii][zone]*sign(stt[:p_rru_zonal_penalty][tii][zone])*(-1)
+                if qG.reserve_grad_is_soft_abs
+                    mgd[:p_rru_on][tii][idx.dev_pzone[zone]]  .-= cgd.dzrru_zonal_dp_rru_zonal_penalty[tii][zone]*soft_abs_grad(stt[:p_rru_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
+                    mgd[:p_rru_off][tii][idx.dev_pzone[zone]] .-= cgd.dzrru_zonal_dp_rru_zonal_penalty[tii][zone]*soft_abs_grad(stt[:p_rru_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
+                else
+                    mgd[:p_rru_on][tii][idx.dev_pzone[zone]]  .-= cgd.dzrru_zonal_dp_rru_zonal_penalty[tii][zone]*sign(stt[:p_rru_zonal_penalty][tii][zone])
+                    mgd[:p_rru_off][tii][idx.dev_pzone[zone]] .-= cgd.dzrru_zonal_dp_rru_zonal_penalty[tii][zone]*sign(stt[:p_rru_zonal_penalty][tii][zone])
+                end
 
                 # g22 (zrrd_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrrd_zonal] * cgd.dzrrd_zonal_dp_rrd_zonal_penalty[tii][zone] #grd[:zrrd_zonal][:p_rrd_zonal_penalty][tii][zone]
-                mgd[:p_rrd_on][tii][idx.dev_pzone[zone]]  .+= cgd.dzrrd_zonal_dp_rrd_zonal_penalty[tii][zone]*sign(stt[:p_rrd_zonal_penalty][tii][zone])*(-1)
-                mgd[:p_rrd_off][tii][idx.dev_pzone[zone]] .+= cgd.dzrrd_zonal_dp_rrd_zonal_penalty[tii][zone]*sign(stt[:p_rrd_zonal_penalty][tii][zone])*(-1)
+                if qG.reserve_grad_is_soft_abs
+                    mgd[:p_rrd_on][tii][idx.dev_pzone[zone]]  .-= cgd.dzrrd_zonal_dp_rrd_zonal_penalty[tii][zone]*soft_abs_grad(stt[:p_rrd_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
+                    mgd[:p_rrd_off][tii][idx.dev_pzone[zone]] .-= cgd.dzrrd_zonal_dp_rrd_zonal_penalty[tii][zone]*soft_abs_grad(stt[:p_rrd_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
+                else
+                    mgd[:p_rrd_on][tii][idx.dev_pzone[zone]]  .-= cgd.dzrrd_zonal_dp_rrd_zonal_penalty[tii][zone]*sign(stt[:p_rrd_zonal_penalty][tii][zone])
+                    mgd[:p_rrd_off][tii][idx.dev_pzone[zone]] .-= cgd.dzrrd_zonal_dp_rrd_zonal_penalty[tii][zone]*sign(stt[:p_rrd_zonal_penalty][tii][zone])
+                end
             end
 
             # reserve zones -- q
             for zone in 1:sys.nzQ
                 # g23 (zqru_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zqru_zonal] * cgd.dzqru_zonal_dq_qru_zonal_penalty[tii][zone] #grd[:zqru_zonal][:q_qru_zonal_penalty][tii][zone]
-                mgd[:q_qru][tii][idx.dev_qzone[zone]] .+= cgd.dzqru_zonal_dq_qru_zonal_penalty[tii][zone]*sign(stt[:q_qru_zonal_penalty][tii][zone])*(-1)
-
+                if qG.reserve_grad_is_soft_abs
+                    mgd[:q_qru][tii][idx.dev_qzone[zone]] .-= cgd.dzqru_zonal_dq_qru_zonal_penalty[tii][zone]*soft_abs_grad(stt[:q_qru_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
+                else
+                    mgd[:q_qru][tii][idx.dev_qzone[zone]] .-= cgd.dzqru_zonal_dq_qru_zonal_penalty[tii][zone]*sign(stt[:q_qru_zonal_penalty][tii][zone])
+                end
                 # g24 (zqrd_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zqrd_zonal] * cgd.dzqrd_zonal_dq_qrd_zonal_penalty[tii][zone] #grd[:zqrd_zonal][:q_qrd_zonal_penalty][tii][zone]
-                mgd[:q_qrd][tii][idx.dev_qzone[zone]] .+= cgd.dzqrd_zonal_dq_qrd_zonal_penalty[tii][zone]*sign(stt[:q_qrd_zonal_penalty][tii][zone])*(-1)
+                if qG.reserve_grad_is_soft_abs
+                    mgd[:q_qrd][tii][idx.dev_qzone[zone]] .-= cgd.dzqrd_zonal_dq_qrd_zonal_penalty[tii][zone]*soft_abs_grad(stt[:q_qrd_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
+                else
+                    mgd[:q_qrd][tii][idx.dev_qzone[zone]] .-= cgd.dzqrd_zonal_dq_qrd_zonal_penalty[tii][zone]*sign(stt[:q_qrd_zonal_penalty][tii][zone])
+                end
             end
         end
 
@@ -380,7 +415,7 @@ function master_grad_zs_acline!(tii::Symbol, idx::quasiGrad.Idx, stt::Dict{Symbo
         mgd[:va][tii][idx.acline_fr_bus[ln]] += vafrqto[ln]
         mgd[:va][tii][idx.acline_to_bus[ln]] += vatoqto[ln]
         mgd[:u_on_acline][tii][ln]           += uonqto[ln]
-        end
+    end
 end
 
 function master_grad_zs_xfm!(tii::Symbol, idx::quasiGrad.Idx, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)

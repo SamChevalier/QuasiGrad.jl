@@ -1,9 +1,9 @@
 # adam solver -- take steps for every element in the master_grad list
+#
+# only two states are tracked here (m and v)
 function adam!(adm::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, alpha::Float64, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
-    
     # loop over the keys in mgd
     for var_key in keys(mgd)
-
         # loop over all time
         for tii in prm.ts.time_keys
             # states to update                                            
@@ -12,44 +12,18 @@ function adam!(adm::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, a
                 #    the above caused weird type instability, so we just copy and paste
                 update_subset = upd[var_key][tii]
 
-                # downscale the p_on gradient? Do this when we are
-                # biasing the power flow solution towards a point
-                # which is as close as possible to the economic dispatach solution.
-                if (var_key == :p_on) && (qG.bias_pf == true)
-                    clipped_grad = qG.bias_pf_scale_pgrad*clamp.(mgd[var_key][tii][update_subset],-qG.grad_max,qG.grad_max)
-                else
-                    clipped_grad = clamp.(mgd[var_key][tii][update_subset],-qG.grad_max,qG.grad_max)
-                end
-
                 # update adam moments
-                clipped_grad                            = clamp.(mgd[var_key][tii][update_subset],-qG.grad_max,qG.grad_max)
-                adm[var_key][:m][tii][update_subset]    = beta1.*adm[var_key][:m][tii][update_subset] + (1.0-beta1).*clipped_grad
-                adm[var_key][:v][tii][update_subset]    = beta2.*adm[var_key][:v][tii][update_subset] + (1.0-beta2).*clipped_grad.^2.0
-                adm[var_key][:mhat][tii][update_subset] = adm[var_key][:m][tii][update_subset]/(1.0-beta1_decay)
-                adm[var_key][:vhat][tii][update_subset] = adm[var_key][:v][tii][update_subset]/(1.0-beta2_decay)
-
-                # update the states
-                stt[var_key][tii][update_subset] = stt[var_key][tii][update_subset] - alpha*adm[var_key][:mhat][tii][update_subset]./(sqrt.(adm[var_key][:vhat][tii][update_subset]) .+ qG.eps)
+                clipped_grad                         = clamp.(mgd[var_key][tii][update_subset], -qG.grad_max, qG.grad_max)
+                adm[var_key][:m][tii][update_subset] = beta1.*adm[var_key][:m][tii][update_subset] + (1.0-beta1).*clipped_grad
+                adm[var_key][:v][tii][update_subset] = beta2.*adm[var_key][:v][tii][update_subset] + (1.0-beta2).*clipped_grad.^2.0
+                stt[var_key][tii][update_subset]     = stt[var_key][tii][update_subset] - alpha*(adm[var_key][:m][tii][update_subset]/(1.0-beta1_decay))./(sqrt.(adm[var_key][:v][tii][update_subset]/(1.0-beta2_decay)) .+ qG.eps)
                 
             else 
-                # downscale the p_on gradient? Do this when we are
-                # biasing the power flow solution towards a point
-                # which is as close as possible to the economic dispatach solution.
-                if (var_key == :p_on) && (qG.bias_pf == true)
-                    clipped_grad = qG.bias_pf_scale_pgrad*clamp.(mgd[var_key][tii],-qG.grad_max,qG.grad_max)
-                else
-                    clipped_grad = clamp.(mgd[var_key][tii],-qG.grad_max,qG.grad_max)
-                end
-
                 # update adam moments
-                clipped_grad                     = clamp.(mgd[var_key][tii],-qG.grad_max,qG.grad_max)
-                adm[var_key][:m][tii]    = beta1.*adm[var_key][:m][tii] + (1.0-beta1).*clipped_grad
-                adm[var_key][:v][tii]    = beta2.*adm[var_key][:v][tii] + (1.0-beta2).*clipped_grad.^2.0
-                adm[var_key][:mhat][tii] = adm[var_key][:m][tii]/(1.0-beta1_decay)
-                adm[var_key][:vhat][tii] = adm[var_key][:v][tii]/(1.0-beta2_decay)
-
-                # update the states
-                stt[var_key][tii] = stt[var_key][tii] - alpha*adm[var_key][:mhat][tii]./(sqrt.(adm[var_key][:vhat][tii]) .+ qG.eps)
+                clipped_grad          = clamp.(mgd[var_key][tii], -qG.grad_max, qG.grad_max)
+                adm[var_key][:m][tii] = beta1.*adm[var_key][:m][tii] + (1.0-beta1).*clipped_grad
+                adm[var_key][:v][tii] = beta2.*adm[var_key][:v][tii] + (1.0-beta2).*clipped_grad.^2.0
+                stt[var_key][tii]     = stt[var_key][tii] - alpha*(adm[var_key][:m][tii]/(1.0-beta1_decay))./(sqrt.(adm[var_key][:v][tii]/(1.0-beta2_decay)) .+ qG.eps)
             end
         end
     end
@@ -109,8 +83,9 @@ function run_adam!(
     beta2_decay = 1.0
     run_adam    = true
     
-    # flush adam at each restart
-    quasiGrad.flush_adam!(adm, mgd, prm, upd)
+    # flush adam at each restart ?
+    println("adam NOT flushed")
+    # quasiGrad.flush_adam!(adm, mgd, prm, upd)
 
     # start the timer!
     adam_start = time()
@@ -134,11 +109,21 @@ function run_adam!(
         beta1_decay = beta1_decay*beta1
         beta2_decay = beta2_decay*beta2
 
+        # update weight parameters?
+        if qG.apply_grad_weight_homotopy == true
+            update_penalties!(prm, qG, time(), adam_start, qG.adam_max_time)
+        end
+
         # compute all states and grads
         quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
         # take an adam step
         quasiGrad.adam!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+
+        # experiments!
+            # => quasiGrad.adaGrad!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+            # => quasiGrad.the_quasiGrad!(adm, mgd, prm, qG, stt, upd)
+            # => quasiGrad.adam_with_ls!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd, cgd, ctb, ctd, flw, grd, idx, msc, ntk, scr, sys, wct)
 
         # stopping criteria
         if qG.adam_stopper == "time"
@@ -188,8 +173,8 @@ function update_states_and_grads!(
     # => 
     # println("clipping off!!!")
     # println("bin_clip is true!")
-    bin_clip = true
-    quasiGrad.clip_all!(bin_clip, prm, stt)
+    qG.clip_pq_based_on_bins = false
+    quasiGrad.clip_all!(prm, qG, stt)
     
     # compute network flows and injections
     quasiGrad.acline_flows!(grd, idx, prm, qG, stt)
@@ -213,10 +198,11 @@ function update_states_and_grads!(
     quasiGrad.reserve_balance!(idx, prm, stt, sys)
 
     # score the contingencies and take the gradients
-    if qG.bias_pf == false # in this case, don't evaluate the expensive ctg grads
+    if qG.skip_ctg_eval
+        println("Skipping ctg evaluation!")
+    else
         quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
     end
-
     # score the market surplus function
     quasiGrad.score_zt!(idx, prm, qG, scr, stt) 
     quasiGrad.score_zbase!(qG, scr)
@@ -263,8 +249,8 @@ function update_states_and_grads_for_solve_pf_lbfgs!(cgd::quasiGrad.Cgd, dpf0::D
     quasiGrad.flush_gradients!(grd, mgd, prm, sys)
 
     # clip all basic states (i.e., the states which are iterated on)
-    bin_clip = true
-    quasiGrad.clip_all!(bin_clip, prm, stt)
+    qG.clip_pq_based_on_bins = true
+    quasiGrad.clip_all!(prm, qG, stt)
     
     # compute network flows and injections
     quasiGrad.acline_flows!(grd, idx, prm, qG, stt)
@@ -783,11 +769,11 @@ function solve_power_flow!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Di
     dpf0, pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, zpf = quasiGrad.initialize_pf_lbfgs(mgd, prm, qG, stt, sys, upd);
 
     # turn on extra influence
-    qG.include_energy_costs_lbfgs      = false #true
-    qG.include_lbfgs_p0_regularization = false #true
+    qG.include_energy_costs_lbfgs      = false # true
+    qG.include_lbfgs_p0_regularization = true
 
     # set the loss function to quadratic -- low gradient factor
-    qG.pqbal_grad_mod_type = "quadratic_for_lbfgs"
+    qG.pqbal_grad_type = "quadratic_for_lbfgs"
 
     # loop -- lbfgs
     init_pf   = true
@@ -846,7 +832,7 @@ function solve_power_flow!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Di
     # => qG.include_lbfgs_p0_regularization = true
 
     # change the gradient type back
-    qG.pqbal_grad_mod_type = "soft_abs"
+    qG.pqbal_grad_type = "soft_abs"
 end
 
 # compute ideal dispatch
@@ -892,6 +878,9 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
 
     # build and empty the model!
     model = Model(Gurobi.Optimizer)
+    set_string_names_on_creation(model, false)
+    set_silent(model)
+
     @info "Running lineaized power flow across $(sys.nT) time periods."
 
     # loop over time
@@ -930,9 +919,8 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
             # base points: msc[:pinj0], msc[:qinj0]
             Jac = quasiGrad.build_acpf_Jac_and_pq0(msc, qG, stt, sys, tii, Ybus_real, Ybus_imag);
             
-            # quiet down!!!
+            # empty model
             empty!(model)
-            set_silent(model)
 
             # define the variables (single time index)
             @variable(model, x_in[1:(2*sys.nb - 1)])
@@ -1013,6 +1001,12 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
             dev_qlb = stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind)
             dev_qub = stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind)
 
+            # ignore binaries?
+            # => dev_plb = getindex.(prm.dev.p_lb,t_ind)
+            # => dev_pub = getindex.(prm.dev.p_ub,t_ind)
+            # => dev_qlb = getindex.(prm.dev.q_lb,t_ind)
+            # => dev_qub = getindex.(prm.dev.q_ub,t_ind)
+
             # first, define p_on at this time
             # => p_on = dev_p_vars - stt[:p_su][tii] - stt[:p_sd][tii]
 
@@ -1020,7 +1014,6 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
             @constraint(model, dev_plb + stt[:p_su][tii] + stt[:p_sd][tii] .<= dev_p_vars .<= dev_pub + stt[:p_su][tii] + stt[:p_sd][tii])
             # alternative: => @constraint(model, dev_plb .<= dev_p_vars - stt[:p_su][tii] - stt[:p_sd][tii] .<= dev_pub)
             @constraint(model, (dev_qlb .- q_margin) .<= dev_q_vars .<= (dev_qub .+ q_margin))
-
 
             # apply additional bounds: J_pqe (equality constraints)
             if ~isempty(idx.J_pqe)
@@ -1084,13 +1077,13 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
                 obj    = AffExpr(0.0)
                 tmp_vm = @variable(model)
                 tmp_va = @variable(model)
+                tmp_p  = @variable(model)
                 for bus in 1:sys.nb
-                    tmp = @variable(model)
                     # => @constraint(model, msc[:pinj_ideal][bus] - nodal_p[bus] <= tmp)
                     # => @constraint(model, nodal_p[bus] - msc[:pinj_ideal][bus] <= tmp)
                     #
-                    @constraint(model, msc[:pinj_ideal][bus] - nodal_p[bus] <= tmp)
-                    @constraint(model, nodal_p[bus] - msc[:pinj_ideal][bus] <= tmp)
+                    @constraint(model, msc[:pinj_ideal][bus] - nodal_p[bus] <= tmp_p)
+                    @constraint(model, nodal_p[bus] - msc[:pinj_ideal][bus] <= tmp_p)
                     # slightly faster:
                     #=
                     add_to_expression!(nodal_p[bus], -msc[:pinj_ideal][bus])
@@ -1113,6 +1106,7 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
                 # this adds light regularization and causes convergence
                 add_to_expression!(obj, tmp_vm)
                 add_to_expression!(obj, tmp_va)
+                add_to_expression!(obj, tmp_p, 10.0)
 
             elseif qG.Gurobi_pf_obj == "min_dispatch_perturbation"
                 # this finds a solution with minimum movement -- not really needed
@@ -1134,7 +1128,9 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
                     end
                     # for l1 norm: add_to_expression!(obj, tmp)
                 end
-                obj = tmp_p + tmp_vm + tmp_va
+                add_to_expression!(obj, tmp_vm)
+                add_to_expression!(obj, tmp_va)
+                add_to_expression!(obj, tmp_p, 100.0)
             else
                 @warn "pf solver objective not recognized!"
             end

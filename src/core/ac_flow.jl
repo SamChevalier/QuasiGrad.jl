@@ -131,7 +131,7 @@ function acline_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float6
             =#
 
             # indicators
-            max_sfst0  = [argmax([spfr, spto, 0.0]) for (spfr,spto) in zip(acline_sfr_plus,acline_sto_plus)]
+            max_sfst0  = [argmax([spfr, spto, 0.0]) for (spfr,spto) in zip(acline_sfr_plus, acline_sto_plus)]
             ind_fr = max_sfst0 .== 1
             ind_to = max_sfst0 .== 2
 
@@ -141,11 +141,21 @@ function acline_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float6
             grd[:zs_acline][:acline_pto][tii] .= 0.0
             grd[:zs_acline][:acline_qto][tii] .= 0.0
 
-            # gradients
-            grd[:zs_acline][:acline_pfr][tii][ind_fr] = (dt*cs)*stt[:acline_pfr][tii][ind_fr]./acline_sfr[ind_fr]
-            grd[:zs_acline][:acline_qfr][tii][ind_fr] = (dt*cs)*stt[:acline_qfr][tii][ind_fr]./acline_sfr[ind_fr]
-            grd[:zs_acline][:acline_pto][tii][ind_to] = (dt*cs)*stt[:acline_pto][tii][ind_to]./acline_sto[ind_to]
-            grd[:zs_acline][:acline_qto][tii][ind_to] = (dt*cs)*stt[:acline_qto][tii][ind_to]./acline_sto[ind_to]
+            if qG.acflow_grad_is_soft_abs
+                # the following grabs the largest elements (>0) and applies the softabs 
+                scale_fr = soft_abs_grad.(acline_sfr_plus[ind_fr], qG.acflow_grad_eps2)
+                scale_to = soft_abs_grad.(acline_sto_plus[ind_to], qG.acflow_grad_eps2)
+                grd[:zs_acline][:acline_pfr][tii][ind_fr] = scale_fr.*((dt*qG.acflow_grad_weight)*stt[:acline_pfr][tii][ind_fr]./acline_sfr[ind_fr])
+                grd[:zs_acline][:acline_qfr][tii][ind_fr] = scale_fr.*((dt*qG.acflow_grad_weight)*stt[:acline_qfr][tii][ind_fr]./acline_sfr[ind_fr])
+                grd[:zs_acline][:acline_pto][tii][ind_to] = scale_to.*((dt*qG.acflow_grad_weight)*stt[:acline_pto][tii][ind_to]./acline_sto[ind_to])
+                grd[:zs_acline][:acline_qto][tii][ind_to] = scale_to.*((dt*qG.acflow_grad_weight)*stt[:acline_qto][tii][ind_to]./acline_sto[ind_to])
+            end
+                # gradients
+                grd[:zs_acline][:acline_pfr][tii][ind_fr] = (dt*cs)*stt[:acline_pfr][tii][ind_fr]./acline_sfr[ind_fr]
+                grd[:zs_acline][:acline_qfr][tii][ind_fr] = (dt*cs)*stt[:acline_qfr][tii][ind_fr]./acline_sfr[ind_fr]
+                grd[:zs_acline][:acline_pto][tii][ind_to] = (dt*cs)*stt[:acline_pto][tii][ind_to]./acline_sto[ind_to]
+                grd[:zs_acline][:acline_qto][tii][ind_to] = (dt*cs)*stt[:acline_qto][tii][ind_to]./acline_sto[ind_to]
+            else
         end
     end
 end
@@ -317,12 +327,22 @@ function xfm_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}
             grd[:zs_xfm][:xfm_qfr][tii] .= 0.0
             grd[:zs_xfm][:xfm_pto][tii] .= 0.0
             grd[:zs_xfm][:xfm_qto][tii] .= 0.0
-    
-            # gradients
-            grd[:zs_xfm][:xfm_pfr][tii][ind_fr] = (dt*cs)*stt[:xfm_pfr][tii][ind_fr]./xfm_sfr[ind_fr]
-            grd[:zs_xfm][:xfm_qfr][tii][ind_fr] = (dt*cs)*stt[:xfm_qfr][tii][ind_fr]./xfm_sfr[ind_fr]
-            grd[:zs_xfm][:xfm_pto][tii][ind_to] = (dt*cs)*stt[:xfm_pto][tii][ind_to]./xfm_sto[ind_to]
-            grd[:zs_xfm][:xfm_qto][tii][ind_to] = (dt*cs)*stt[:xfm_qto][tii][ind_to]./xfm_sto[ind_to]
+
+            if qG.acflow_grad_is_soft_abs
+                # the following grabs the largest elements (>0) and applies the softabs 
+                scale_fr = soft_abs_grad.(xfm_sfr_plus[ind_fr], qG.acflow_grad_eps2)
+                scale_to = soft_abs_grad.(xfm_sto_plus[ind_to], qG.acflow_grad_eps2)
+                grd[:zs_xfm][:xfm_pfr][tii][ind_fr] = scale_fr.*((dt*qG.acflow_grad_weight)*stt[:xfm_pfr][tii][ind_fr]./xfm_sfr[ind_fr])
+                grd[:zs_xfm][:xfm_qfr][tii][ind_fr] = scale_fr.*((dt*qG.acflow_grad_weight)*stt[:xfm_qfr][tii][ind_fr]./xfm_sfr[ind_fr])
+                grd[:zs_xfm][:xfm_pto][tii][ind_to] = scale_to.*((dt*qG.acflow_grad_weight)*stt[:xfm_pto][tii][ind_to]./xfm_sto[ind_to])
+                grd[:zs_xfm][:xfm_qto][tii][ind_to] = scale_to.*((dt*qG.acflow_grad_weight)*stt[:xfm_qto][tii][ind_to]./xfm_sto[ind_to])
+            end
+                # gradients
+                grd[:zs_xfm][:xfm_pfr][tii][ind_fr] = (dt*cs)*stt[:xfm_pfr][tii][ind_fr]./xfm_sfr[ind_fr]
+                grd[:zs_xfm][:xfm_qfr][tii][ind_fr] = (dt*cs)*stt[:xfm_qfr][tii][ind_fr]./xfm_sfr[ind_fr]
+                grd[:zs_xfm][:xfm_pto][tii][ind_to] = (dt*cs)*stt[:xfm_pto][tii][ind_to]./xfm_sto[ind_to]
+                grd[:zs_xfm][:xfm_qto][tii][ind_to] = (dt*cs)*stt[:xfm_qto][tii][ind_to]./xfm_sto[ind_to]
+            else
         end
     end
 end

@@ -1,4 +1,4 @@
-function clip_all!(bin_clip::Bool, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+function clip_all!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
     # sequentially clip -- order does not matter
     #
     # note: "clamp" is much faster than the alternatives!
@@ -9,8 +9,8 @@ function clip_all!(bin_clip::Bool, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{
     clip_onoff_binaries!(prm, stt)
     clip_reserves!(prm, stt)
 
-    # clip dev_p and dev_q after binaries, since p_on clipping depends on u_on
-    clip_pq!(bin_clip, prm, stt)
+    # clip dev_p and dev_q after binaries, since p_on clipping MAY depend on u_on
+    clip_pq!(prm, qG, stt)
 end
 
 function clip_dc!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
@@ -101,30 +101,36 @@ function snap_shunts!(fix::Bool, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Sy
     end
 end
 
-function clip_pq!(bin_clip::Bool, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
-    # bin_clip: should we clip p and q based on the current values of the binaries?
-    #           there are pros and cons to both decisions, so it is probably best
-    #           to alternate..
+function clip_pq!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+    # qG.clip_pq_based_on_bins: should we clip p and q based on the current values of the binaries?
+    #                           there are pros and cons to both decisions, so it is probably best
+    #                           to alternate..
     for (t_ind, tii) in enumerate(prm.ts.time_keys)
         # we also clip p_on, even though its value isn't explicitly set \ge 0
             # for justification, see (254) and (110)
             # note: stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind) \ge 0, since p_lb \ge 0
             # we also clip p_on to its maximum value (see 109)
-        if bin_clip == true
+        if qG.clip_pq_based_on_bins == true
             stt[:p_on][tii] = max.(stt[:p_on][tii], stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind))
             stt[:p_on][tii] = min.(stt[:p_on][tii], stt[:u_on_dev][tii].*getindex.(prm.dev.p_ub,t_ind))
         else
-            stt[:p_on][tii] = max.(stt[:p_on][tii], getindex.(prm.dev.p_lb,t_ind))
+            # watch out!! 
+            # => the absolute bounds are given by 0 < p < p_ub, so this is how we clip!
+            stt[:p_on][tii] = max.(stt[:p_on][tii], 0.0)
             stt[:p_on][tii] = min.(stt[:p_on][tii], getindex.(prm.dev.p_ub,t_ind))
         end
 
         # clip q -- we clip very simply based on (112), (113), (122), (123), where q_qru is negelcted!
         #
-        if bin_clip == true
+        if qG.clip_pq_based_on_bins == true
             stt[:dev_q][tii] = max.(stt[:dev_q][tii], stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind))
             stt[:dev_q][tii] = min.(stt[:dev_q][tii], stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind))
         else
-            stt[:dev_q][tii] = max.(stt[:dev_q][tii], getindex.(prm.dev.q_lb,t_ind))
+            # watch out!! 
+            # => the absolute bounds are given by q_lb < q < q_ub, but
+            # we don't know if q_lb is positive or negative, so to include 0,
+            # we take min.(q_lb, 0.0). the upper bound is fine.
+            stt[:dev_q][tii] = max.(stt[:dev_q][tii], min.(getindex.(prm.dev.q_lb,t_ind), 0.0))
             stt[:dev_q][tii] = min.(stt[:dev_q][tii], getindex.(prm.dev.q_ub,t_ind))
         end
     end
@@ -137,4 +143,39 @@ function count_active_binaries!(prm::quasiGrad.Param, upd::Dict{Symbol, Dict{Sym
 
     # the following will error out if upd has active binaries or discrete values left
     @assert (num_bin+num_sh) == 0 "Some discrete or binary variables are still active!"
+end
+
+function clip_for_feasibility!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+    # sequentially clip -- order does not matter
+    #
+    # note: "clamp" is much faster than the alternatives!
+    clip_onoff_binaries!(prm, stt)
+    clip_reserves!(prm, stt)
+    clip_pq!(prm, qG, stt)
+
+    # target the problematic one
+    clip_17c!(idx, prm, qG, stt, sys)
+end
+
+function clip_17c!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+    # loop over time/devices and look for violations
+    for (t_ind, tii) in enumerate(prm.ts.time_keys)
+        for dev in 1:sys.ndev
+            if dev in idx.cs_devs
+                val = stt[:q_qru][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev]
+                if val > 0.0
+                    # is this case, q is below its lower bound!
+                    #
+                    # first, try to clip :q_qru, since this is safe
+                    stt[:q_qru][tii][dev] = max(prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev], 0.0)
+
+                    # did this work?
+                    if stt[:q_qru][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev] > 0
+                        # if not, clip stt[:dev_q] (generally, not safe, but desperate times..)
+                        stt[:dev_q][tii][dev] = stt[:q_qru][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev]
+                    end
+                end
+            end
+        end
+    end
 end

@@ -777,14 +777,14 @@ rQ2 = sum(stt[:dev_q][tii][idx.cs[bus]]; init=0.0) +
 -sum(stt[:dev_q][tii][idx.pr[bus]]; init=0.0)
 
 # %% test lbfgs gradient ===========
-qG.pqbal_grad_mod_type = "standard"
-#qG.pqbal_grad_mod_type = "standard"
+qG.pqbal_grad_type = "standard"
+#qG.pqbal_grad_type = "standard"
 epsilon                = 1e-6     # maybe set larger when dealing with ctgs + krylov solver..
 qG.cdist_psolve        = 0.0
 
 # %% gradient modifications -- power balance
-qG.pqbal_grad_mod_type     = "soft_abs"
-qG.pqbal_grad_mod_eps2     = 1e-8
+qG.pqbal_grad_type     = "soft_abs"
+qG.pqbal_grad_eps2     = 1e-8
 
 
 # %%

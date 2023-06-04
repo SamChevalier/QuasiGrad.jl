@@ -23,32 +23,42 @@ function solve_Gurobi_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
         # alternative => quasiGrad.set_optimizer_attribute(model, "OutputFlag", qG.GRB_output_flag)
         
         # set model properties
-        quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+        quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", 1e-9) #qG.FeasibilityTol)
         quasiGrad.set_optimizer_attribute(model, "IntFeasTol",     qG.IntFeasTol)
         quasiGrad.set_optimizer_attribute(model, "MIPGap",         qG.mip_gap)
         quasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
+
+
+        #quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), 1e-5)
+        #quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), 1e-5)
+
+        quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), 1e-10)
+        quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), 1e-10)
+
+        #MOI.set(model, MOI.RelativeGapTolerance(), 1e-5)
+        #MOI.set(model, MOI.RelativeGapTolerance(), 1e-5)
 
         # define local time keys
         tkeys = prm.ts.time_keys
 
         # define the minimum set of variables we will need to solve the constraints                                                       -- round() the int?
-        u_on_dev  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "u_on_dev_t$(ii)",  start=stt[:u_on_dev][tkeys[ii]][dev],  binary=true)       for ii in 1:(sys.nT))
-        p_on      = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_on_t$(ii)",      start=stt[:p_on][tkeys[ii]][dev])                         for ii in 1:(sys.nT))
-        dev_q     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "dev_q_t$(ii)",     start=stt[:dev_q][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_rgu     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rgu_t$(ii)",     start=stt[:p_rgu][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_rgd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rgd_t$(ii)",     start=stt[:p_rgd][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_scr     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_scr_t$(ii)",     start=stt[:p_scr][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_nsc     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_nsc_t$(ii)",     start=stt[:p_nsc][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_rru_on  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rru_on_t$(ii)",  start=stt[:p_rru_on][tkeys[ii]][dev],  lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_rru_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rru_off_t$(ii)", start=stt[:p_rru_off][tkeys[ii]][dev], lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_rrd_on  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rrd_on_t$(ii)",  start=stt[:p_rrd_on][tkeys[ii]][dev],  lower_bound = 0.0) for ii in 1:(sys.nT))
-        p_rrd_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rrd_off_t$(ii)", start=stt[:p_rrd_off][tkeys[ii]][dev], lower_bound = 0.0) for ii in 1:(sys.nT))
-        q_qru     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "q_qru_t$(ii)",     start=stt[:q_qru][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-        q_qrd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "q_qrd_t$(ii)",     start=stt[:q_qrd][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
+        u_on_dev  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:u_on_dev][tkeys[ii]][dev],  binary=true)       for ii in 1:(sys.nT)) # => base_name = "u_on_dev_t$(ii)",  
+        p_on      = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_on][tkeys[ii]][dev])                         for ii in 1:(sys.nT)) # => base_name = "p_on_t$(ii)",      
+        dev_q     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:dev_q][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "dev_q_t$(ii)",     
+        p_rgu     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_rgu][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rgu_t$(ii)",     
+        p_rgd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_rgd][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rgd_t$(ii)",     
+        p_scr     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_scr][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_scr_t$(ii)",     
+        p_nsc     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_nsc][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_nsc_t$(ii)",     
+        p_rru_on  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_rru_on][tkeys[ii]][dev],  lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rru_on_t$(ii)",  
+        p_rru_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_rru_off][tkeys[ii]][dev], lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rru_off_t$(ii)", 
+        p_rrd_on  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_rrd_on][tkeys[ii]][dev],  lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rrd_on_t$(ii)",  
+        p_rrd_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_rrd_off][tkeys[ii]][dev], lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rrd_off_t$(ii)", 
+        q_qru     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:q_qru][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "q_qru_t$(ii)",     
+        q_qrd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:q_qrd][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "q_qrd_t$(ii)",     
 
         # add a few more (implicit) variables which are necessary for solving this system
-        u_su_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "u_su_dev_t$(ii)", start=stt[:u_su_dev][tkeys[ii]][dev], binary=true) for ii in 1:(sys.nT))
-        u_sd_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "u_sd_dev_t$(ii)", start=stt[:u_sd_dev][tkeys[ii]][dev], binary=true) for ii in 1:(sys.nT))
+        u_su_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:u_su_dev][tkeys[ii]][dev], binary=true) for ii in 1:(sys.nT)) # => base_name = "u_su_dev_t$(ii)", 
+        u_sd_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:u_sd_dev][tkeys[ii]][dev], binary=true) for ii in 1:(sys.nT)) # => base_name = "u_sd_dev_t$(ii)", 
         
         # we have the affine "AffExpr" expressions (whose values are specified)
         dev_p = Dict(tkeys[ii] => AffExpr(0.0) for ii in 1:(sys.nT))
@@ -104,11 +114,11 @@ function solve_Gurobi_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
 
             # 1. Minimum downtime: zhat_mndn
             T_mndn = idx.Ts_mndn[dev][t_ind] # t_set = get_tmindn(tii, dev, prm)
-            @constraint(model, u_su_dev[tii] + sum(u_sd_dev[tii_inst] for tii_inst in T_mndn; init=0.0) - 1.0 <= 0)
+            @constraint(model, u_su_dev[tii] + sum(u_sd_dev[tii_inst] for tii_inst in T_mndn; init=0.0) - 1.0 <= 0.0)
 
             # 2. Minimum uptime: zhat_mnup
             T_mnup = idx.Ts_mnup[dev][t_ind] # t_set = get_tminup(tii, dev, prm)
-            @constraint(model, u_sd_dev[tii] + sum(u_su_dev[tii_inst] for tii_inst in T_mnup; init=0.0) - 1.0 <= 0)
+            @constraint(model, u_sd_dev[tii] + sum(u_su_dev[tii_inst] for tii_inst in T_mnup; init=0.0) - 1.0 <= 0.0)
 
             # define the previous power value (used by both up and down ramping!)
             if tii == :t1
@@ -123,47 +133,47 @@ function solve_Gurobi_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
             # 3. Ramping limits (up): zhat_rup
             @constraint(model, dev_p[tii] - dev_p_previous
                     - dt*(prm.dev.p_ramp_up_ub[dev]     *(u_on_dev[tii] - u_su_dev[tii])
-                    +     prm.dev.p_startup_ramp_ub[dev]*(u_su_dev[tii] + 1.0 - u_on_dev[tii])) <= 0)
+                    +     prm.dev.p_startup_ramp_ub[dev]*(u_su_dev[tii] + 1.0 - u_on_dev[tii])) <= 0.0)
 
             # 4. Ramping limits (down): zhat_rd
             @constraint(model,  dev_p_previous - dev_p[tii]
                     - dt*(prm.dev.p_ramp_down_ub[dev]*u_on_dev[tii]
-                    +     prm.dev.p_shutdown_ramp_ub[dev]*(1.0-u_on_dev[tii])) <= 0)
+                    +     prm.dev.p_shutdown_ramp_ub[dev]*(1.0-u_on_dev[tii])) <= 0.0)
 
             # 5. Regulation up: zhat_rgu
-            @constraint(model, p_rgu[tii] - prm.dev.p_reg_res_up_ub[dev]*u_on_dev[tii] <= 0)
+            @constraint(model, p_rgu[tii] - prm.dev.p_reg_res_up_ub[dev]*u_on_dev[tii] <= 0.0)
 
             # 6. Regulation down: zhat_rgd
-            @constraint(model, p_rgd[tii] - prm.dev.p_reg_res_down_ub[dev]*u_on_dev[tii] <= 0)
+            @constraint(model, p_rgd[tii] - prm.dev.p_reg_res_down_ub[dev]*u_on_dev[tii] <= 0.0)
 
             # 7. Synchronized reserve: zhat_scr
-            @constraint(model, p_rgu[tii] + p_scr[tii] - prm.dev.p_syn_res_ub[dev]*u_on_dev[tii] <= 0)
+            @constraint(model, p_rgu[tii] + p_scr[tii] - prm.dev.p_syn_res_ub[dev]*u_on_dev[tii] <= 0.0)
 
             # 8. Synchronized reserve: zhat_nsc
-            @constraint(model, p_nsc[tii] - prm.dev.p_nsyn_res_ub[dev]*(1.0 - u_on_dev[tii]) <= 0)
+            @constraint(model, p_nsc[tii] - prm.dev.p_nsyn_res_ub[dev]*(1.0 - u_on_dev[tii]) <= 0.0)
 
             # 9. Ramping reserve up (on): zhat_rruon
-            @constraint(model, p_rgu[tii] + p_scr[tii] + p_rru_on[tii] - prm.dev.p_ramp_res_up_online_ub[dev]*u_on_dev[tii] <= 0)
+            @constraint(model, p_rgu[tii] + p_scr[tii] + p_rru_on[tii] - prm.dev.p_ramp_res_up_online_ub[dev]*u_on_dev[tii] <= 0.0)
 
             # 10. Ramping reserve up (off): zhat_rruoff
-            @constraint(model, p_nsc[tii] + p_rru_off[tii] - prm.dev.p_ramp_res_up_offline_ub[dev]*(1.0-u_on_dev[tii]) <= 0)
+            @constraint(model, p_nsc[tii] + p_rru_off[tii] - prm.dev.p_ramp_res_up_offline_ub[dev]*(1.0-u_on_dev[tii]) <= 0.0)
             
             # 11. Ramping reserve down (on): zhat_rrdon
-            @constraint(model, p_rgd[tii] + p_rrd_on[tii] - prm.dev.p_ramp_res_down_online_ub[dev]*u_on_dev[tii] <= 0)
+            @constraint(model, p_rgd[tii] + p_rrd_on[tii] - prm.dev.p_ramp_res_down_online_ub[dev]*u_on_dev[tii] <= 0.0)
 
             # 12. Ramping reserve down (off): zhat_rrdoff
-            @constraint(model, p_rrd_off[tii] - prm.dev.p_ramp_res_down_offline_ub[dev]*(1-u_on_dev[tii]) <= 0)
+            @constraint(model, p_rrd_off[tii] - prm.dev.p_ramp_res_down_offline_ub[dev]*(1-u_on_dev[tii]) <= 0.0)
             
             # Now, we must separate: producers vs consumers
             if dev in idx.pr_devs
                 # 13p. Maximum reserve limits (producers): zhat_pmax
-                @constraint(model, p_on[tii] + p_rgu[tii] + p_scr[tii] + p_rru_on[tii] - prm.dev.p_ub[dev][t_ind]*u_on_dev[tii] <= 0)
+                @constraint(model, p_on[tii] + p_rgu[tii] + p_scr[tii] + p_rru_on[tii] - prm.dev.p_ub[dev][t_ind]*u_on_dev[tii] <= 0.0)
             
                 # 14p. Minimum reserve limits (producers): zhat_pmin
-                @constraint(model, prm.dev.p_lb[dev][t_ind]*u_on_dev[tii] + p_rrd_on[tii] + p_rgd[tii] - p_on[tii] <= 0)
+                @constraint(model, prm.dev.p_lb[dev][t_ind]*u_on_dev[tii] + p_rrd_on[tii] + p_rgd[tii] - p_on[tii] <= 0.0)
                 
                 # 15p. Off reserve limits (producers): zhat_pmaxoff
-                @constraint(model, p_su[tii] + p_sd[tii] + p_nsc[tii] + p_rru_off[tii] - prm.dev.p_ub[dev][t_ind]*(1.0 - u_on_dev[tii]) <= 0)
+                @constraint(model, p_su[tii] + p_sd[tii] + p_nsc[tii] + p_rru_off[tii] - prm.dev.p_ub[dev][t_ind]*(1.0 - u_on_dev[tii]) <= 0.0)
 
                 # get common "u_sum" terms that will be used in the subsequent four equations 
                 T_supc = idx.Ts_supc[dev][t_ind] # T_supc, ~ = get_supc(tii, dev, prm) T_supc     = idx.Ts_supc[dev][t_ind] # T_supc, ~ = get_supc(tii, dev, prm)
@@ -171,34 +181,34 @@ function solve_Gurobi_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
                 u_sum     = u_on_dev[tii] + sum(u_su_dev[tii_inst] for tii_inst in T_supc; init=0.0) + sum(u_sd_dev[tii_inst] for tii_inst in T_sdpc; init=0.0)
 
                 # 16p. Maximum reactive power reserves (producers): zhat_qmax
-                @constraint(model, dev_q[tii] + q_qru[tii] - prm.dev.q_ub[dev][t_ind]*u_sum <= 0)
+                @constraint(model, dev_q[tii] + q_qru[tii] - prm.dev.q_ub[dev][t_ind]*u_sum <= 0.0)
 
                 # 17p. Minimum reactive power reserves (producers): zhat_qmin
-                @constraint(model, q_qrd[tii] + prm.dev.q_lb[dev][t_ind]*u_sum - dev_q[tii] <= 0)
+                @constraint(model, q_qrd[tii] + prm.dev.q_lb[dev][t_ind]*u_sum - dev_q[tii] <= 0.0)
 
                 # 18p. Linked maximum reactive power reserves (producers): zhat_qmax_beta
                 if dev in idx.J_pqmax
                     @constraint(model, dev_q[tii] + q_qru[tii] - prm.dev.q_0_ub[dev]*u_sum
-                    - prm.dev.beta_ub[dev]*dev_p[tii] <= 0)
+                    - prm.dev.beta_ub[dev]*dev_p[tii] <= 0.0)
                 end 
                 
                 # 19p. Linked minimum reactive power reserves (producers): zhat_qmin_beta
                 if dev in idx.J_pqmin
                     @constraint(model, prm.dev.q_0_lb[dev]*u_sum
                     + prm.dev.beta_lb[dev]*dev_p[tii]
-                    + q_qrd[tii] - dev_q[tii] <= 0)
+                    + q_qrd[tii] - dev_q[tii] <= 0.0)
                 end
 
             # consumers
             else  # => dev in idx.cs_devs
                 # 13c. Maximum reserve limits (consumers): zhat_pmax
-                @constraint(model, p_on[tii] + p_rgd[tii] + p_rrd_on[tii] - prm.dev.p_ub[dev][t_ind]*u_on_dev[tii] <= 0)
+                @constraint(model, p_on[tii] + p_rgd[tii] + p_rrd_on[tii] - prm.dev.p_ub[dev][t_ind]*u_on_dev[tii] <= 0.0)
 
                 # 14c. Minimum reserve limits (consumers): zhat_pmin
-                @constraint(model, prm.dev.p_lb[dev][t_ind]*u_on_dev[tii] + p_rru_on[tii] + p_scr[tii] + p_rgu[tii] - p_on[tii] <= 0)
+                @constraint(model, prm.dev.p_lb[dev][t_ind]*u_on_dev[tii] + p_rru_on[tii] + p_scr[tii] + p_rgu[tii] - p_on[tii] <= 0.0)
                 
                 # 15c. Off reserve limits (consumers): zhat_pmaxoff
-                @constraint(model, p_su[tii] + p_sd[tii] + p_rrd_off[tii] - prm.dev.p_ub[dev][t_ind]*(1.0 - u_on_dev[tii]) <= 0)
+                @constraint(model, p_su[tii] + p_sd[tii] + p_rrd_off[tii] - prm.dev.p_ub[dev][t_ind]*(1.0 - u_on_dev[tii]) <= 0.0)
 
                 # get common "u_sum" terms that will be used in the subsequent four equations 
                 T_supc = idx.Ts_supc[dev][t_ind] # T_supc, ~ = get_supc(tii, dev, prm) T_supc     = idx.Ts_supc[dev][t_ind] #T_supc, ~ = get_supc(tii, dev, prm)
@@ -206,22 +216,22 @@ function solve_Gurobi_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
                 u_sum  = u_on_dev[tii] + sum(u_su_dev[tii_inst] for tii_inst in T_supc; init=0.0) + sum(u_sd_dev[tii_inst] for tii_inst in T_sdpc; init=0.0)
 
                 # 16c. Maximum reactive power reserves (consumers): zhat_qmax
-                @constraint(model, dev_q[tii] + q_qrd[tii] - prm.dev.q_ub[dev][t_ind]*u_sum <= 0)
+                @constraint(model, dev_q[tii] + q_qrd[tii] - prm.dev.q_ub[dev][t_ind]*u_sum <= 0.0)
 
                 # 17c. Minimum reactive power reserves (consumers): zhat_qmin
-                @constraint(model, q_qru[tii] + prm.dev.q_lb[dev][t_ind]*u_sum - dev_q[tii] <= 0)
+                @constraint(model, q_qru[tii] + prm.dev.q_lb[dev][t_ind]*u_sum - dev_q[tii] <= 0.0)
                 
                 # 18c. Linked maximum reactive power reserves (consumers): zhat_qmax_beta
                 if dev in idx.J_pqmax
                     @constraint(model, dev_q[tii] + q_qrd[tii] - prm.dev.q_0_ub[dev]*u_sum
-                    - prm.dev.beta_ub[dev]*dev_p[tii] <= 0)
+                    - prm.dev.beta_ub[dev]*dev_p[tii] <= 0.0)
                 end 
 
                 # 19c. Linked minimum reactive power reserves (consumers): zhat_qmin_beta
                 if dev in idx.J_pqmin
                     @constraint(model, prm.dev.q_0_lb[dev]*u_sum
                     + prm.dev.beta_lb[dev]*dev_p[tii]
-                    + q_qru[tii] - dev_q[tii] <= 0)
+                    + q_qru[tii] - dev_q[tii] <= 0.0)
                 end
             end
         end
@@ -396,10 +406,15 @@ function solve_Gurobi_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
             println(termination_status(model),". ",primal_status(model),". objective value: ", objective_value(model))
             # println("========================================================")
 
+            # clip, to help ensure feasibility -- (17c) sometimes causes "epsilon" infeasibility
+            clip_for_feasibility!(idx, prm, qG, stt, sys)
+
             # solve, and then return the solution
             for tii in prm.ts.time_keys
                 if final_projection == true
                     # no need to copy the binaries -- they are static
+                    #   ...but just in case:
+                    stt[:u_on_dev][tii][dev]  = copy(value(u_on_dev[tii]))
                 else
                     # copy the binary solution to a temporary location
                     stt[:u_on_dev_GRB][tii][dev]  = copy(value(u_on_dev[tii]))
@@ -424,8 +439,8 @@ function solve_Gurobi_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
             # the u_sum and powers right here (used in clipping, so must be correct!)
             if final_projection == true
                 qG.run_susd_updates = true
-                quasiGrad.simple_device_statuses!(idx, prm, stt)
-                quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
+                #quasiGrad.simple_device_statuses!(idx, prm, stt)
+                #quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
             end
         else
             # warn!

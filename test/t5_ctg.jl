@@ -39,7 +39,7 @@ perturb!(stt, prm, idx, grd, sys, qG, 1.0)
 
 # initialize static gradients
 quasiGrad.initialize_static_grads!(prm, idx, grd, sys, qG)
-quasiGrad.clip_all!(true, prm, stt)
+quasiGrad.clip_all!(prm, qG, stt)
 
 # %% initialize the states which adam will update -- the rest are fixed + ctg
 adm = quasiGrad.initialize_adam_states(sys)

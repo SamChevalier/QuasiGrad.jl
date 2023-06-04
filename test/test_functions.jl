@@ -641,43 +641,48 @@ end
 
 # define a function which perturbs -- don't clip!
 function calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    # if we are here, we want to make sure we are running su/sd updates
+    qG.run_susd_updates = true
+
     # flush the gradient -- both master grad and some of the gradient terms
-    flush_gradients!(grd, mgd, prm, sys)
+    quasiGrad.flush_gradients!(grd, mgd, prm, sys)
+
+    # don't clip!!
     
     # compute network flows and injections
-    acline_flows!(grd, idx, prm, qG, stt)
-    xfm_flows!(grd, idx, prm, qG, stt)
-    shunts!(grd, idx, prm, qG, stt)
+    quasiGrad.acline_flows!(grd, idx, prm, qG, stt)
+    quasiGrad.xfm_flows!(grd, idx, prm, qG, stt)
+    quasiGrad.shunts!(grd, idx, prm, qG, stt)
 
     # device powers
-    all_device_statuses_and_costs!(grd, prm, qG, stt)
-    device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
-    device_active_powers!(idx, prm, stt, sys)
-    device_reactive_powers!(idx, prm, stt, sys)
-    energy_costs!(grd, prm, qG, stt, sys)
-    energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
-    penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
-    device_reserve_costs!(prm, stt)
+    quasiGrad.all_device_statuses_and_costs!(grd, prm, qG, stt)
+    quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
+    quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
+    quasiGrad.device_reactive_powers!(idx, prm, stt, sys)
+    quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
+    quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
+    quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
+    quasiGrad.device_reserve_costs!(prm, stt)
 
     # now, we can compute the power balances
-    power_balance!(grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
 
-    # compute reserve margins and penalties
-    reserve_balance!(idx, prm, stt, sys)
+    # compute reserve margins and penalties (no grads here)
+    quasiGrad.reserve_balance!(idx, prm, stt, sys)
 
     # score the contingencies and take the gradients
     quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 
     # score the market surplus function
-    score_zt!(idx, prm, qG, scr, stt) 
-    score_zbase!(qG, scr)
-    score_zms!(scr)
+    quasiGrad.score_zt!(idx, prm, qG, scr, stt) 
+    quasiGrad.score_zbase!(qG, scr)
+    quasiGrad.score_zms!(scr)
 
     # compute the master grad
-    master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
-        
+    quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
     # output
-    return scr[:nzms]
+
+    return -scr[:zms_penalized] # previously => scr[:nzms]
 end
 
 # solve, and then return the solution

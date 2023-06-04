@@ -15,8 +15,9 @@ function print_zms(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
     # print score ======
     scr[:cnt] += 1.0
     if (qG.print_zms == true) && mod(scr[:cnt],qG.print_freq) == 0
-        zms = scr[:zms]
-        println("The (non-penalized) market surplus is $(zms)!")
+        zms   = round(scr[:zms];           sigdigits = 5)
+        zms_p = round(scr[:zms_penalized]; sigdigits = 5)
+        println("Penalized zms: $(zms_p)! Standard zms: $(zms)!")
     end
 end
 
@@ -25,7 +26,7 @@ function score_zbase!(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
     # compute the market surplus function
     scr[:emnx]            = scr[:z_enmax]     + scr[:z_enmin]
     scr[:zbase]           = scr[:zt_original] + scr[:emnx]
-    scr[:zbase_penalized] = scr[:zbase]       + scr[:zt_penalty] - qG.delta*scr[:zhat_mxst]
+    scr[:zbase_penalized] = scr[:zbase]       + scr[:zt_penalty] - qG.constraint_grad_weight*scr[:zhat_mxst]
 end
 
 function score_zt!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
@@ -126,7 +127,7 @@ function score_zt!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, s
             sum(stt[:zqru_zonal][tii]) -
             sum(stt[:zqrd_zonal][tii])"
         # penalized constraints
-        scr[:zt_penalty] += -qG.delta*(
+        scr[:zt_penalty] += -qG.constraint_grad_weight*(
             sum(stt[:zhat_mndn][tii]) + 
             sum(stt[:zhat_mnup][tii]) + 
             sum(stt[:zhat_rup][tii]) + 
@@ -158,4 +159,24 @@ function score_solve_pf!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Ve
         zpf[:zp][tii]   = sum(stt[:zp][tii])
         zpf[:zq][tii]   = sum(stt[:zq][tii])
     end
+end
+
+# soft abs derviative
+function soft_abs(x::Float64, eps2::Float64)
+    # soft_abs(x)      = sqrt(x^2 + eps^2)
+    # soft_abs_grad(x) = x/sqrt(x^2 + eps^2)
+    #
+    # usage: instead of c*sign(max(x,0)), use c*soft_abs_grad(max(x,0))
+    # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
+    sqrt(x^2 + eps2)
+end
+# soft abs derviative
+function soft_abs_grad(x::Float64, eps2::Float64)
+    # soft_abs(x)      = sqrt(x^2 + eps^2)
+    # soft_abs_grad(x) = x/sqrt(x^2 + eps^2)
+    #
+    # usage: instead of c*sign(max(x,0)), use c*soft_abs_grad(max(x,0))
+    # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
+    grad = sign(x)
+    grad = x/(sqrt(x^2 .+ eps2))
 end

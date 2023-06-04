@@ -41,8 +41,6 @@ mutable struct QG
     scale_c_pbus_testing::Float64
     scale_c_qbus_testing::Float64
     scale_c_sflow_testing::Float64
-    bias_pf::Bool
-    bias_pf_scale_pgrad::Float64
     score_all_ctgs::Bool
     min_buses_for_krylov::Int64
     frac_ctg_keep::Float64
@@ -70,10 +68,23 @@ mutable struct QG
     adam_max_time::Float64 
     adam_max_its::Int64 
     adam_stopper::String  
-    pqbal_grad_mod_type::String
-    pqbal_grad_mod_weight_p::Float64
-    pqbal_grad_mod_weight_q::Float64
-    pqbal_grad_mod_eps2::Float64
+
+    apply_grad_weight_homotopy::Bool
+    pqbal_grad_type::String
+    pqbal_grad_weight_p::Float64
+    pqbal_grad_weight_q::Float64
+    pqbal_grad_eps2::Float64
+    constraint_grad_is_soft_abs::Bool 
+    constraint_grad_weight::Float64
+    constraint_grad_eps2::Float64
+    acflow_grad_is_soft_abs::Bool
+    acflow_grad_weight::Float64
+    acflow_grad_eps2::Float64
+    ctg_grad_is_soft_abs::Bool
+    ctg_grad_weight::Float64
+    ctg_grad_eps2::Float64
+    reserve_grad_is_soft_abs::Bool
+    reserve_grad_eps2::Float64
     compute_pf_injs_with_Jac::Bool
     max_pf_dx::Float64   
     max_linear_pfs::Int64
@@ -88,6 +99,10 @@ mutable struct QG
     initial_pf_lbfgs_step::Float64
     lbfgs_map_over_all_time::Bool
     num_lbfgs_steps::Int64
+    clip_pq_based_on_bins::Bool
+    first_qG_step::Bool
+    first_qG_step_size::Float64
+    skip_ctg_eval::Bool
 end
 
 struct Shunt

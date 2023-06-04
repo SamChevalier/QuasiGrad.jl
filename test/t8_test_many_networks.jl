@@ -90,7 +90,7 @@ if action == "just write"
     stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 
     # set some qG params
-    qG.pqbal_grad_mod_type   = "standard"
+    qG.pqbal_grad_type   = "standard"
     qG.pcg_tol               = 1e-5
     qG.print_final_stats     = true
     qG.delta                 = 1e-9

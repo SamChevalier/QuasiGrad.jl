@@ -30,6 +30,7 @@ include("./core/scoring.jl")
 include("./core/clipping.jl")
 include("./io/write_data.jl")
 include("./core/reserves.jl")
+include("./core/homotopy.jl")
 include("./scripts/solver.jl")
 include("./core/projection.jl")
 include("./core/master_grad.jl")
@@ -42,7 +43,7 @@ include("./core/economic_dispatch.jl")
 # use plotting?
 # => using Makie
 # => using GLMakie
-# => include("./core/shunts.jl")
+# => include("./core/plotting.jl")
 
 # define static data constants
 const eps_int    = 1e-8::Float64

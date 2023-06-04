@@ -56,13 +56,13 @@ function power_balance!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float
 
         # evaluate the grad?
         if qG.eval_grad
-            if qG.pqbal_grad_mod_type == "standard"
+            if qG.pqbal_grad_type == "standard"
                 grd[:zp][:pb_slack][tii] = cp*dt*sign.(msc[:pb_slack])
                 grd[:zq][:qb_slack][tii] = cq*dt*sign.(msc[:qb_slack])
-            elseif qG.pqbal_grad_mod_type == "soft_abs"
-                grd[:zp][:pb_slack][tii] = qG.pqbal_grad_mod_weight_p*dt*msc[:pb_slack]./(sqrt.(msc[:pb_slack].^2 .+ qG.pqbal_grad_mod_eps2))
-                grd[:zq][:qb_slack][tii] = qG.pqbal_grad_mod_weight_q*dt*msc[:qb_slack]./(sqrt.(msc[:qb_slack].^2 .+ qG.pqbal_grad_mod_eps2))
-            elseif qG.pqbal_grad_mod_type == "quadratic_for_lbfgs"
+            elseif qG.pqbal_grad_type == "soft_abs"
+                grd[:zp][:pb_slack][tii] = qG.pqbal_grad_weight_p*dt*soft_abs_grad.(msc[:pb_slack], qG.pqbal_grad_eps2) # alt =>  msc[:pb_slack]./(sqrt.(msc[:pb_slack].^2 .+ qG.pqbal_grad_eps2))
+                grd[:zq][:qb_slack][tii] = qG.pqbal_grad_weight_q*dt*soft_abs_grad.(msc[:qb_slack], qG.pqbal_grad_eps2) # alt =>  msc[:qb_slack]./(sqrt.(msc[:qb_slack].^2 .+ qG.pqbal_grad_eps2))
+            elseif qG.pqbal_grad_type == "quadratic_for_lbfgs"
                 grd[:zp][:pb_slack][tii] = cp*dt*msc[:pb_slack]
                 grd[:zq][:qb_slack][tii] = cp*dt*msc[:qb_slack]
             else

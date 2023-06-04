@@ -1,7 +1,7 @@
 function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # loop over each time period
     #
-    # Note -- delta penalty (qG.delta) applied later in the scoring
+    # Note -- delta penalty (qG.constraint_grad_weight) applied later in the scoring
     #         function, but it is applied to the gradient here!
     for (t_ind, tii) in enumerate(prm.ts.time_keys)
         # duration
@@ -26,14 +26,14 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
             # 1. Minimum downtime
             T_mndn                    = idx.Ts_mndn[dev][t_ind] # => get_tmindn(tii, dev, prm)
             cvio                      = max(stt[:u_su_dev][tii][dev] + sum(stt[:u_sd_dev][tii_inst][dev] for tii_inst in T_mndn; init=0.0) - 1.0, 0.0)
-            stt[:zhat_mndn][tii][dev] = dt*cvio^2
+            stt[:zhat_mndn][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # first, su
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_mndn] * dt * 2.0 * cvio # sign(stt[:zhat_mndn][tii][dev])
-                    gc = qG.delta * dt * 2.0 * cvio # sign(stt[:zhat_mndn][tii][dev])
+                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2) # sign(stt[:zhat_mndn][tii][dev])
                     mgd[:u_on_dev][tii][dev] += gc .* grd[:u_su_dev][:u_on_dev][tii][dev]
                     if tii != :t1
                         mgd[:u_on_dev][prm.ts.tmin1[tii]][dev] += gc .* grd[:u_su_dev][:u_on_dev_prev][tii][dev]
@@ -52,14 +52,14 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
             # 2. Minimum uptime
             T_mnup                    = idx.Ts_mnup[dev][t_ind] # => get_tminup(tii, dev, prm)
             cvio                      = max(stt[:u_sd_dev][tii][dev] + sum(stt[:u_su_dev][tii_inst][dev] for tii_inst in T_mnup; init=0.0) - 1.0 , 0.0)
-            stt[:zhat_mnup][tii][dev] = dt*cvio^2
+            stt[:zhat_mnup][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # first, sd
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_mnup] * dt * 2.0 * cvio # * sign(stt[:zhat_mnup][tii][dev])
-                    gc = qG.delta * dt * 2.0 * cvio # * sign(stt[:zhat_mnup][tii][dev])
+                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2) # * sign(stt[:zhat_mnup][tii][dev])
                     mgd[:u_on_dev][tii][dev] += gc .* grd[:u_sd_dev][:u_on_dev][tii][dev]
                     if tii != :t1
                         mgd[:u_on_dev][prm.ts.tmin1[tii]][dev] += gc .* grd[:u_sd_dev][:u_on_dev_prev][tii][dev]
@@ -88,12 +88,12 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
             cvio = max(stt[:dev_p][tii][dev] - dev_p_previous
                     - dt*(prm.dev.p_ramp_up_ub[dev]     *(stt[:u_on_dev][tii][dev] - stt[:u_su_dev][tii][dev])
                     +     prm.dev.p_startup_ramp_ub[dev]*(stt[:u_su_dev][tii][dev] + 1.0 - stt[:u_on_dev][tii][dev])),0.0)
-            stt[:zhat_rup][tii][dev] = dt*cvio^2
+            stt[:zhat_rup][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rup] * dt * 2.0 * cvio # *sign(stt[:zhat_rup][tii][dev])
-                    gc = qG.delta * dt * 2.0 * cvio # *sign(stt[:zhat_rup][tii][dev])
+                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2) # *sign(stt[:zhat_rup][tii][dev])
                     # gradients
                     dp_alpha!(grd, dev, tii, gc) # pjt
                     if tii != :t1
@@ -115,13 +115,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
             cvio = stt[:zhat_rd][tii][dev]  = max(dev_p_previous - stt[:dev_p][tii][dev]
                     - dt*(prm.dev.p_ramp_down_ub[dev]*stt[:u_on_dev][tii][dev]
                     +     prm.dev.p_shutdown_ramp_ub[dev]*(1.0-stt[:u_on_dev][tii][dev])),0.0)
-            stt[:zhat_rd][tii][dev] = dt*cvio^2
+            stt[:zhat_rd][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
             
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rd] * dt * 2.0 * cvio #* sign(stt[:zhat_rd][tii][dev])
-                    gc = qG.delta * dt * 2.0 * cvio #* sign(stt[:zhat_rd][tii][dev])
+                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2) #* sign(stt[:zhat_rd][tii][dev])
                     # gradients
                     dp_alpha!(grd, dev, tii, -gc) # pjt
                     if tii != :t1
@@ -134,12 +134,12 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 5. Regulation up
             cvio                     = max(stt[:p_rgu][tii][dev] - prm.dev.p_reg_res_up_ub[dev]*stt[:u_on_dev][tii][dev], 0.0)
-            stt[:zhat_rgu][tii][dev] = dt*cvio^2
+            stt[:zhat_rgu][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rgu] * dt * 2.0 * cvio # * sign(stt[:zhat_rgu][tii][dev])
-                    gc = qG.delta * dt * 2.0 * cvio # * sign(stt[:zhat_rgu][tii][dev])
+                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2) # * sign(stt[:zhat_rgu][tii][dev])
                     mgd[:p_rgu][tii][dev]    += gc                                       # prgu
                     mgd[:u_on_dev][tii][dev] += -gc*prm.dev.p_reg_res_up_ub[dev]     # uon
                 end
@@ -147,13 +147,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 6. Regulation down
             cvio                     = max(stt[:p_rgd][tii][dev] - prm.dev.p_reg_res_down_ub[dev]*stt[:u_on_dev][tii][dev], 0.0)
-            stt[:zhat_rgd][tii][dev] = dt*cvio^2
+            stt[:zhat_rgd][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
             # evaluate gradient?
             if qG.eval_grad
                 if stt[:zhat_rgd][tii][dev] > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rgd] * dt * 2.0 * cvio # * sign(stt[:zhat_rgd][tii][dev])
-                    gc = qG.delta * dt * 2.0 * cvio # * sign(stt[:zhat_rgd][tii][dev])
+                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2) # * sign(stt[:zhat_rgd][tii][dev])
                     mgd[:p_rgd][tii][dev]    += gc                                       # prgu
                     mgd[:u_on_dev][tii][dev] += -gc*prm.dev.p_reg_res_down_ub[dev]   # uon
                 end
@@ -161,13 +161,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 7. Synchronized reserve
             cvio                     = max(stt[:p_rgu][tii][dev] + stt[:p_scr][tii][dev] - prm.dev.p_syn_res_ub[dev]*stt[:u_on_dev][tii][dev], 0.0)
-            stt[:zhat_scr][tii][dev] = dt*cvio^2
+            stt[:zhat_scr][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
             
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_scr] * dt * 2.0 * cvio
-                    gc = qG.delta * dt * 2.0 * cvio
+                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                     mgd[:p_rgu][tii][dev] += gc
                     mgd[:p_scr][tii][dev] += gc
                     mgd[:u_on_dev][tii][dev] += -gc*prm.dev.p_syn_res_ub[dev]
@@ -176,13 +176,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 8. Synchronized reserve
             cvio                     = max(stt[:p_nsc][tii][dev] - prm.dev.p_nsyn_res_ub[dev]*(1.0 - stt[:u_on_dev][tii][dev]), 0.0)
-            stt[:zhat_nsc][tii][dev] = dt*cvio^2
+            stt[:zhat_nsc][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_nsc] * dt * 2.0 * cvio
-                    gc = qG.delta * dt * 2.0 * cvio
+                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                     mgd[:p_nsc][tii][dev]    += gc
                     mgd[:u_on_dev][tii][dev] += gc*prm.dev.p_nsyn_res_ub[dev]
                 end
@@ -190,13 +190,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 9. Ramping reserve up (on)
             cvio                       = max(stt[:p_rgu][tii][dev] + stt[:p_scr][tii][dev] + stt[:p_rru_on][tii][dev] - prm.dev.p_ramp_res_up_online_ub[dev]*stt[:u_on_dev][tii][dev], 0.0)
-            stt[:zhat_rruon][tii][dev] = dt*cvio^2
+            stt[:zhat_rruon][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rruon] * dt * 2.0 * cvio
-                    gc = qG.delta * dt * 2.0 * cvio
+                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                     mgd[:p_rgu][tii][dev]    += gc
                     mgd[:p_scr][tii][dev]    += gc
                     mgd[:p_rru_on][tii][dev] += gc
@@ -206,13 +206,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 10. Ramping reserve up (off)
             cvio                        = max(stt[:p_nsc][tii][dev] + stt[:p_rru_off][tii][dev] - prm.dev.p_ramp_res_up_offline_ub[dev]*(1.0-stt[:u_on_dev][tii][dev]), 0.0)
-            stt[:zhat_rruoff][tii][dev] = dt*cvio^2
+            stt[:zhat_rruoff][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rruoff] * dt * 2.0 * cvio
-                    gc = qG.delta * dt * 2.0 * cvio
+                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                     mgd[:p_nsc][tii][dev]     += gc
                     mgd[:p_rru_off][tii][dev] += gc
                     mgd[:u_on_dev][tii][dev]  += gc*prm.dev.p_ramp_res_up_offline_ub[dev]
@@ -221,13 +221,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 11. Ramping reserve down (on)
             cvio                       = max(stt[:p_rgd][tii][dev] + stt[:p_rrd_on][tii][dev] - prm.dev.p_ramp_res_down_online_ub[dev]*stt[:u_on_dev][tii][dev], 0.0)
-            stt[:zhat_rrdon][tii][dev] = dt*cvio^2
+            stt[:zhat_rrdon][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rrdon] * dt * 2.0 * cvio
-                    gc = qG.delta * dt * 2.0 * cvio
+                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                     mgd[:p_rgd][tii][dev]    += gc
                     mgd[:p_rrd_on][tii][dev] += gc
                     mgd[:u_on_dev][tii][dev] += -gc*prm.dev.p_ramp_res_down_online_ub[dev]
@@ -236,13 +236,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 12. Ramping reserve down (off)
             cvio                        = max(stt[:p_rrd_off][tii][dev] - prm.dev.p_ramp_res_down_offline_ub[dev]*(1-stt[:u_on_dev][tii][dev]), 0.0)
-            stt[:zhat_rrdoff][tii][dev] = dt*cvio^2
+            stt[:zhat_rrdoff][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
              # evaluate gradient?
              if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rrdoff] * dt * 2.0 * cvio
-                    gc = qG.delta * dt * 2.0 * cvio
+                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                     mgd[:p_rrd_off][tii][dev] += gc
                     mgd[:u_on_dev][tii][dev]  += gc*prm.dev.p_ramp_res_down_offline_ub[dev]
                 end
@@ -252,13 +252,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
             if dev in idx.pr_devs
                 # 13p. Maximum reserve limits (producers)
                 cvio                      = max(stt[:p_on][tii][dev] + stt[:p_rgu][tii][dev] + stt[:p_scr][tii][dev] + stt[:p_rru_on][tii][dev] - prm.dev.p_ub[dev][t_ind]*stt[:u_on_dev][tii][dev], 0.0)
-                stt[:zhat_pmax][tii][dev] = dt*cvio^2
+                stt[:zhat_pmax][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
                 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_pmax] * dt * 2.0 * cvio
-                        gc = qG.delta * dt * 2.0 * cvio
+                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                         mgd[:p_on][tii][dev]     += gc
                         mgd[:p_rgu][tii][dev]    += gc
                         mgd[:p_scr][tii][dev]    += gc
@@ -269,13 +269,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
                 # 14p. Minimum reserve limits (producers)
                 cvio                      = max(prm.dev.p_lb[dev][t_ind]*stt[:u_on_dev][tii][dev] + stt[:p_rrd_on][tii][dev] + stt[:p_rgd][tii][dev] - stt[:p_on][tii][dev], 0.0)
-                stt[:zhat_pmin][tii][dev] = dt*cvio^2
+                stt[:zhat_pmin][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_pmin] * dt * 2.0 * cvio
-                        gc = qG.delta * dt * 2.0 * cvio
+                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                         mgd[:p_on][tii][dev]     += -gc
                         mgd[:p_rgd][tii][dev]    += gc
                         mgd[:p_rrd_on][tii][dev] += gc
@@ -285,13 +285,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
                 
                 # 15p. Off reserve limits (producers)
                 cvio                         = max(stt[:p_su][tii][dev] + stt[:p_sd][tii][dev] + stt[:p_nsc][tii][dev] + stt[:p_rru_off][tii][dev] - prm.dev.p_ub[dev][t_ind]*(1.0 - stt[:u_on_dev][tii][dev]), 0.0)
-                stt[:zhat_pmaxoff][tii][dev] = dt*cvio^2
+                stt[:zhat_pmaxoff][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_pmaxoff] * dt * 2.0 * cvio
-                        gc = qG.delta * dt * 2.0 * cvio
+                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                         mgd[:p_nsc][tii][dev]     += gc
                         mgd[:p_rru_off][tii][dev] += gc
                         mgd[:u_on_dev][tii][dev]  += gc*prm.dev.p_ub[dev][t_ind]
@@ -307,13 +307,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
                 # 16p. Maximum reactive power reserves (producers)
                 cvio                      = max(stt[:dev_q][tii][dev] + stt[:q_qru][tii][dev] - prm.dev.q_ub[dev][t_ind]*stt[:u_sum][tii][dev], 0.0)
-                stt[:zhat_qmax][tii][dev] = dt*cvio^2
+                stt[:zhat_qmax][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmax] * dt * 2.0 * cvio
-                        gc = qG.delta * dt * 2.0 * cvio
+                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                         # 1. reactive power derivative
                         dq_alpha!(grd, dev, tii, gc)
                         # 2. qru
@@ -325,13 +325,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
                 # 17p. Minimum reactive power reserves (producers)
                 cvio                      = max(stt[:q_qrd][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev], 0.0)
-                stt[:zhat_qmin][tii][dev] = dt*cvio^2
+                stt[:zhat_qmin][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmin] * dt * 2.0 * cvio
-                        gc = qG.delta * dt * 2.0 * cvio
+                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                         # 1. qrd
                         mgd[:q_qrd][tii][dev] += gc
                         # 2. u_sum derivative
@@ -344,12 +344,12 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
                 # 18p. Linked maximum reactive power reserves (producers)
                 if dev in idx.J_pqmax
                     cvio                           = max(stt[:dev_q][tii][dev] + stt[:q_qru][tii][dev] - prm.dev.q_0_ub[dev]*stt[:u_sum][tii][dev] - prm.dev.beta_ub[dev]*stt[:dev_p][tii][dev], 0.0)
-                    stt[:zhat_qmax_beta][tii][dev] = dt*cvio^2
+                    stt[:zhat_qmax_beta][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
                     # evaluate gradient?
                     if qG.eval_grad
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmax_beta] * dt * 2.0 * cvio
-                        gc = qG.delta * dt * 2.0 * cvio
+                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                         if cvio > qG.pg_tol
                             # 1. reactive power derivative
                             dq_alpha!(grd, dev, tii, gc)
@@ -366,13 +366,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
                 # 19p. Linked minimum reactive power reserves (producers)
                 if dev in idx.J_pqmin
                     cvio                           = max(prm.dev.q_0_lb[dev]*stt[:u_sum][tii][dev] + prm.dev.beta_lb[dev]*stt[:dev_p][tii][dev] + stt[:q_qrd][tii][dev] - stt[:dev_q][tii][dev], 0.0)
-                    stt[:zhat_qmin_beta][tii][dev] = dt*cvio^2
+                    stt[:zhat_qmin_beta][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
                     # evaluate gradient?
                     if qG.eval_grad
                         if cvio > qG.pg_tol
                             # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmin_beta] * dt * 2.0 * cvio
-                            gc = qG.delta * dt * 2.0 * cvio
+                            gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                             # 1. u_sum derivative
                             du_sum!(tii, prm, stt, mgd, dev, gc*prm.dev.q_0_lb[dev], T_supc, T_sdpc)
                             # 2. active power derivative
@@ -389,13 +389,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
             else  # => dev in idx.cs_devs
                 # 13c. Maximum reserve limits (consumers)
                 cvio                      = max(stt[:p_on][tii][dev] + stt[:p_rgd][tii][dev] + stt[:p_rrd_on][tii][dev] - prm.dev.p_ub[dev][t_ind]*stt[:u_on_dev][tii][dev], 0.0)
-                stt[:zhat_pmax][tii][dev] = dt*cvio^2
+                stt[:zhat_pmax][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_pmax] * dt * 2.0 * cvio
-                        gc = qG.delta * dt * 2.0 * cvio
+                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                         mgd[:p_on][tii][dev]     += gc
                         mgd[:p_rgd][tii][dev]    += gc
                         mgd[:p_rrd_on][tii][dev] += gc
@@ -405,15 +405,16 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
                 # 14c. Minimum reserve limits (consumers)
                 cvio                      = max(prm.dev.p_lb[dev][t_ind]*stt[:u_on_dev][tii][dev] + stt[:p_rru_on][tii][dev] + stt[:p_scr][tii][dev] + stt[:p_rgu][tii][dev] - stt[:p_on][tii][dev], 0.0)
-                stt[:zhat_pmin][tii][dev] = dt*cvio^2
+                stt[:zhat_pmin][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_pmin] * dt * 2 * cvio
-                        gc = qG.delta * dt * 2.0 * cvio
+                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                         mgd[:p_on][tii][dev]     += -gc
                         mgd[:p_rgu][tii][dev]    += gc
+                        mgd[:p_scr][tii][dev]    += gc
                         mgd[:p_rru_on][tii][dev] += gc
                         mgd[:u_on_dev][tii][dev] += gc*prm.dev.p_lb[dev][t_ind]
                     end
@@ -421,13 +422,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
                 # 15c. Off reserve limits (consumers)
                 cvio                         = max(stt[:p_su][tii][dev] + stt[:p_sd][tii][dev] + stt[:p_rrd_off][tii][dev] - prm.dev.p_ub[dev][t_ind]*(1.0 - stt[:u_on_dev][tii][dev]), 0.0)
-                stt[:zhat_pmaxoff][tii][dev] = dt*cvio^2
+                stt[:zhat_pmaxoff][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_pmaxoff] * dt * 2.0 * cvio
-                        gc = qG.delta * dt * 2.0 * cvio
+                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                         mgd[:p_rrd_off][tii][dev] += gc
                         mgd[:u_on_dev][tii][dev]  += gc*prm.dev.p_ub[dev][t_ind]
                         apply_p_su_grad!(idx, t_ind, dev, gc, prm, grd, mgd)
@@ -442,13 +443,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
                 # 16c. Maximum reactive power reserves (consumers)
                 cvio                      = max(stt[:dev_q][tii][dev] + stt[:q_qrd][tii][dev] - prm.dev.q_ub[dev][t_ind]*stt[:u_sum][tii][dev], 0.0)
-                stt[:zhat_qmax][tii][dev] = dt*cvio^2
+                stt[:zhat_qmax][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmax] * dt * 2.0 * cvio
-                        gc = qG.delta * dt * 2.0 * cvio
+                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                         # 1. reactive power derivative
                         dq_alpha!(grd, dev, tii, gc)
                         # 2. qrd
@@ -460,13 +461,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
                 # 17c. Minimum reactive power reserves (consumers)
                 cvio                      = max(stt[:q_qru][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev], 0.0)
-                stt[:zhat_qmin][tii][dev] = dt*cvio^2
+                stt[:zhat_qmin][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
                 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmin] * dt * 2.0 * cvio
-                        gc = qG.delta * dt * 2.0 * cvio
+                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                         # 1. qru
                         mgd[:q_qru][tii][dev] += gc
                         # 2. u_sum derivative
@@ -479,13 +480,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
                 # 18c. Linked maximum reactive power reserves (consumers)
                 if dev in idx.J_pqmax
                     cvio                           = max(stt[:dev_q][tii][dev] + stt[:q_qrd][tii][dev] - prm.dev.q_0_ub[dev]*stt[:u_sum][tii][dev] - prm.dev.beta_ub[dev]*stt[:dev_p][tii][dev], 0.0)
-                    stt[:zhat_qmax_beta][tii][dev] = dt*cvio^2
+                    stt[:zhat_qmax_beta][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
                     # evaluate gradient?
                     if qG.eval_grad
                         if cvio > qG.pg_tol
                             # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmax_beta] * dt * 2.0 * cvio
-                            gc = qG.delta * dt * 2.0 * cvio
+                            gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                             # 1. reactive power derivative
                             dq_alpha!(grd, dev, tii, gc)
                             # 2. qrd
@@ -501,13 +502,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
                 # 19c. Linked minimum reactive power reserves (consumers)
                 if dev in idx.J_pqmin
                     cvio                           = max(prm.dev.q_0_lb[dev]*stt[:u_sum][tii][dev] + prm.dev.beta_lb[dev]*stt[:dev_p][tii][dev] + stt[:q_qru][tii][dev] - stt[:dev_q][tii][dev], 0.0)
-                    stt[:zhat_qmin_beta][tii][dev] = dt*cvio^2
+                    stt[:zhat_qmin_beta][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
 
                     # evaluate gradient?
                     if qG.eval_grad
                         if cvio > qG.pg_tol
                             # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmin_beta] * dt * 2.0 * cvio
-                            gc = qG.delta * dt * 2.0 * cvio
+                            gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
                             # 1. u_sum derivative
                             du_sum!(tii, prm, stt, mgd, dev, gc*prm.dev.q_0_lb[dev], T_supc, T_sdpc)
                             # 2. active power derivative
@@ -536,12 +537,12 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
             if qG.eval_grad
                 for tii in T_su_max
                     # OG => mgd[:u_on_dev][tii][dev] += grd[:nzms][:zbase] * grd[:zbase][:zhat_mxst] * sign(zhat_mxst_ii) * grd[:u_su_dev][:u_on_dev][tii][dev]
-                    mgd[:u_on_dev][tii][dev] += qG.delta * sign(zhat_mxst_ii) * grd[:u_su_dev][:u_on_dev][tii][dev]
+                    mgd[:u_on_dev][tii][dev] += qG.constraint_grad_weight * sign(zhat_mxst_ii) * grd[:u_su_dev][:u_on_dev][tii][dev]
 
                     if tii != :t1
                         # also update the previous time
                         # OG => mgd[:u_on_dev][prm.ts.tmin1[tii]][dev] += grd[:nzms][:zbase] * grd[:zbase][:zhat_mxst] * sign(zhat_mxst_ii) * grd[:u_su_dev][:u_on_dev_prev][tii][dev]
-                        mgd[:u_on_dev][prm.ts.tmin1[tii]][dev] += qG.delta * sign(zhat_mxst_ii) * grd[:u_su_dev][:u_on_dev_prev][tii][dev]
+                        mgd[:u_on_dev][prm.ts.tmin1[tii]][dev] += qG.constraint_grad_weight * sign(zhat_mxst_ii) * grd[:u_su_dev][:u_on_dev_prev][tii][dev]
                     end
                 end
             end
@@ -595,12 +596,14 @@ function energy_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float6
             if qG.eval_grad
                 # what is the index of the "active" block?
                 del = stt[:dev_p][tii][dev] .- pcm
-                if minimum(del) > 0
-                    active_block_ind = argmin(del[del .>= 0.0])
-                else
-                # note: del must be greater than 0! to account for the last edge case..
-                    active_block_ind = 1
-                end
+                active_block_ind = argmin(del[del .>= 0.0])
+                # The following doesn't work:
+                    #   if minimum(del) > 0
+                    #       active_block_ind = argmin(del[del .>= 0.0])
+                    #   else
+                    #    note: del must be greater than 0! to account for the last edge case..
+                    #       active_block_ind = 1
+                    #   end
                 grd[:zen_dev][:dev_p][tii][dev] = dt*cst[active_block_ind + 1] # where + 1 is due to the leading 0
             end
         end

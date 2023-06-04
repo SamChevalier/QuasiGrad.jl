@@ -1,5 +1,6 @@
 # test solver itself :)
 using quasiGrad
+using Revise
 
 # include("../src/quasiGrad_dual.jl")
 include("./test_functions.jl")
@@ -7,9 +8,8 @@ include("./test_functions.jl")
 # files
 path = "../GO3_testcases/C3S0_20221208/D1/C3S0N00073/scenario_002.json"
 path = "../GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
-
-path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D2/C3S0N00073/scenario_002.json"
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
 # load
 jsn = quasiGrad.load_json(path)
 
@@ -25,7 +25,7 @@ print("t1: ")
 
 # clip all basic states (i.e., the states which are iterated on)
 print("t2: ")
-@time quasiGrad.clip_all!(true, prm, stt)
+@time quasiGrad.clip_all!(prm, qG, stt)
 
 # compute network flows and injections
 print("t3: ")

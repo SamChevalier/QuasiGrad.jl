@@ -96,7 +96,6 @@ plt = Dict(:plot            => true,
            :global_adm_step => 0,
            :disp_freq       => 1)
 qG.alpha_0 = 0.0001
-qG.bias_pf = false
 qG.delta   = 1e6
 
 if plt[:first_plot]

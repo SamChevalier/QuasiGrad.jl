@@ -1,6 +1,7 @@
-function prepare_solution(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+function prepare_solution(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, qG::quasiGrad.QG)
     # clip once more, just to be safe
-    quasiGrad.clip_all!(true, prm, stt)
+    qG.clip_pq_based_on_bins = true
+    quasiGrad.clip_all!(prm, qG, stt)
 
     # prepare the solution dictionary
     soln_dict = Dict("time_series_output" => Dict("bus"                        => Array{Dict}(undef,sys.nb),
@@ -72,7 +73,7 @@ end
 function write_solution(input_json_path::String, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
 
     # prepare the solution dictionary
-    soln_dict = quasiGrad.prepare_solution(prm, stt, sys)
+    soln_dict = quasiGrad.prepare_solution(prm, stt, sys, qG)
 
     # parse the input and then append
     if qG.write_location == "local"
