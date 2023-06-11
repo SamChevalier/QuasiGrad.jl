@@ -77,13 +77,11 @@ function initialize_qG(prm::quasiGrad.Param)
                                      # i.e., 100*frac_ctg_keep% of them. half are random, and half are
                                      # the worst case performers from the previous adam iteration.
     # adaptively choose:
-    if length(prm.ctg.id) < 10
+    if length(prm.ctg.id) < 50
         # just keep all!
         frac_ctg_keep = 1.0
-    elseif length(prm.ctg.id) < 50
-        frac_ctg_keep = 0.5
     elseif length(prm.ctg.id) < 250
-        frac_ctg_keep = 0.25
+        frac_ctg_keep = 0.5
     elseif length(prm.ctg.id) < 1000
         frac_ctg_keep = 0.25
     elseif length(prm.ctg.id) < 5000
@@ -119,13 +117,48 @@ function initialize_qG(prm::quasiGrad.Param)
 
     # initialize adam parameters
     eps        = 1e-9         # for numerical stability -- keep at 1e-8 (?)
-    beta1      = 0.9
-    beta2      = 0.95
-    alpha_0    = 2e-6         # initial step size
+    beta1      = 0.75
+    beta2      = 0.9
     alpha_min  = 0.001/10.0   # for cos decay
     alpha_max  = 0.001/0.5    # for cos decay
     Ti         = 100          # for cos decay -- at Tcurr == Ti, cos() => -1
     step_decay = 0.999        # for exp decay
+
+    # choose step sizes
+    vmva_scale    = 2.5e-6
+    xfm_scale     = 1e-5
+    dc_scale      = 1e-5
+    power_scale   = 1e-4
+    reserve_scale = 1e-4
+    bin_scale     = 1e-2
+    alpha_0 = Dict(:vm     => vmva_scale,
+                   :va     => vmva_scale,
+                   # xfm
+                   :phi    => xfm_scale,
+                   :tau    => xfm_scale,
+                   # dc
+                   :dc_pfr => dc_scale,
+                   :dc_qto => dc_scale,
+                   :dc_qfr => dc_scale,
+                   # powers -- decay this!!
+                   :dev_q  => power_scale,
+                   :p_on   => power_scale,
+                   # reserves
+                   :p_rgu     => reserve_scale,
+                   :p_rgd     => reserve_scale,
+                   :p_scr     => reserve_scale,
+                   :p_nsc     => reserve_scale,
+                   :p_rrd_on  => reserve_scale,
+                   :p_rrd_off => reserve_scale,
+                   :p_rru_on  => reserve_scale,
+                   :p_rru_off => reserve_scale,
+                   :q_qrd     => reserve_scale,
+                   :q_qru     => reserve_scale,
+                   # bins
+                   :u_on_xfm     => bin_scale,
+                   :u_on_dev     => bin_scale,
+                   :u_step_shunt => bin_scale,
+                   :u_on_acline  => bin_scale)
 
     # specify step size decay approach: "cos", "none", or "exponential"
     decay_type = "none" #"cos"
@@ -144,7 +177,7 @@ function initialize_qG(prm::quasiGrad.Param)
     pqbal_grad_type     = "quadratic_for_lbfgs" #"soft_abs", "standard"
     pqbal_grad_weight_p = prm.vio.p_bus # standard: prm.vio.p_bus
     pqbal_grad_weight_q = prm.vio.q_bus # standard: prm.vio.q_bus
-    pqbal_grad_eps2     = 1e-7
+    pqbal_grad_eps2     = 1e-6
 
     # gradient modification for constraints
     constraint_grad_is_soft_abs = true # "standard"
@@ -170,9 +203,9 @@ function initialize_qG(prm::quasiGrad.Param)
 
     # shall we compute injections when we build the Jacobian?
     compute_pf_injs_with_Jac = true
-    max_pf_dx                = 5e-4  # stop when max delta < 5e-4
-    max_linear_pfs           = 4     # stop when number of pfs > max_linear_pfs
-    max_linear_pfs_total     = 10    # this includes failures
+    max_pf_dx                = 2.5e-4  # stop when max delta < 5e-4
+    max_linear_pfs           = 5       # stop when number of pfs > max_linear_pfs
+    max_linear_pfs_total     = 10      # this includes failures
     Gurobi_pf_obj            = "min_dispatch_distance" # or, "min_dispatch_perturbation"
 
     # don't use given initializations
@@ -192,7 +225,7 @@ function initialize_qG(prm::quasiGrad.Param)
     include_lbfgs_p0_regularization = false
     print_lbfgs_iterations          = true
     print_linear_pf_iterations      = true
-    initial_pf_lbfgs_step           = 0.025
+    initial_pf_lbfgs_step           = 0.05
     lbfgs_map_over_all_time         = false # assume the same set of variables
                                             # are optimized at each time step
     # set the number of lbfgs steps
@@ -215,6 +248,11 @@ function initialize_qG(prm::quasiGrad.Param)
 
     # skip ctg eval?
     skip_ctg_eval = false
+
+    # adam solving pf
+    take_adam_pf_steps = true
+    num_adam_pf_step   = 3
+    adam_pf_variables  = [:dc_pfr, :dc_qto, :dc_qfr, :vm, :va, :phi, :tau, :u_step_shunt]
 
     # build the mutable struct
     qG = QG(
@@ -301,7 +339,10 @@ function initialize_qG(prm::quasiGrad.Param)
         clip_pq_based_on_bins,
         first_qG_step,
         first_qG_step_size,
-        skip_ctg_eval)
+        skip_ctg_eval,
+        take_adam_pf_steps,
+        num_adam_pf_step,  
+        adam_pf_variables)
     
     # output
     return qG
@@ -317,7 +358,7 @@ function base_initialization(jsn::Dict{String, Any}, perturb_states::Bool, pert_
     qG = initialize_qG(prm)
 
     # intialize (empty) states
-    cgd, grd, mgd, scr, stt, msc = initialize_states(idx, prm, sys, qG)
+    bit, cgd, grd, mgd, scr, stt, msc = initialize_states(idx, prm, sys, qG)
 
     # initialize the states which adam will update -- the rest are fixed
     adm = initialize_adam_states(qG, sys)
@@ -352,7 +393,7 @@ function base_initialization(jsn::Dict{String, Any}, perturb_states::Bool, pert_
         # alt: => wct  = [collect(1:sys.nctg) for _ in 1:sys.nT]
 
     # output
-    return adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct
+    return adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct
 end
 
 function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
@@ -640,6 +681,7 @@ function initialize_states(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiG
     # vector of miscellaneous vectors (so I don't have to initialize a new one each time)
     msc = Dict(
         :pinj_ideal => zeros(sys.nb),
+        :qinj_ideal => zeros(sys.nb),
         :pb_slack   => zeros(sys.nb),
         :qb_slack   => zeros(sys.nb),
         :pub        => zeros(sys.nb),
@@ -648,16 +690,90 @@ function initialize_states(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiG
         :qlb        => zeros(sys.nb),
         :pinj0      => zeros(sys.nb), # bias point
         :qinj0      => zeros(sys.nb), # bias point
-        :pinj_dc    => zeros(sys.nb)
+        :pinj_dc    => zeros(sys.nb),
+        :cos_ftp    => zeros(sys.nl),
+        :sin_ftp    => zeros(sys.nl),
+        :vff        => zeros(sys.nl),
+        :vtt        => zeros(sys.nl),
+        :vft        => zeros(sys.nl),
+        :pfr        => zeros(sys.nl),
+        :pto        => zeros(sys.nl),
+        :qfr        => zeros(sys.nl),
+        :qto        => zeros(sys.nl),
+        :acline_pfr => zeros(sys.nl),
+        :acline_pto => zeros(sys.nl),
+        :acline_qfr => zeros(sys.nl),
+        :acline_qto => zeros(sys.nl),
+        :acline_sfr => zeros(sys.nl),
+        :acline_sto => zeros(sys.nl),
+        :acline_sfr_plus => zeros(sys.nl),
+        :acline_sto_plus => zeros(sys.nl),
+        :cos_ftp_x    => zeros(sys.nx),
+        :sin_ftp_x    => zeros(sys.nx),
+        :vff_x        => zeros(sys.nx),
+        :vtt_x        => zeros(sys.nx),
+        :vft_x        => zeros(sys.nx),
+        :vt_tau_x     => zeros(sys.nx),
+        :vf_tau_x     => zeros(sys.nx),
+        :vf_tau2_x    => zeros(sys.nx),
+        :vff_tau2_x   => zeros(sys.nx),
+        :vft_tau_x    => zeros(sys.nx),
+        :vft_tau2_x   => zeros(sys.nx),
+        :vff_tau3_x   => zeros(sys.nx),
+        :pfr_x        => zeros(sys.nx),
+        :pto_x        => zeros(sys.nx),
+        :qfr_x        => zeros(sys.nx),
+        :qto_x        => zeros(sys.nx),
+        :xfm_pfr_x    => zeros(sys.nx),
+        :xfm_pto_x    => zeros(sys.nx),
+        :xfm_qfr_x    => zeros(sys.nx),
+        :xfm_qto_x    => zeros(sys.nx),
+        :xfm_sfr_x    => zeros(sys.nx),
+        :xfm_sto_x    => zeros(sys.nx),
+        :xfm_sfr_plus_x  => zeros(sys.nx),
+        :xfm_sto_plus_x  => zeros(sys.nx),
+        :acline_scale_fr => zeros(sys.nl),
+        :acline_scale_to => zeros(sys.nl),
+        :scale_fr_x      => zeros(sys.nx),
+        :scale_to_x      => zeros(sys.nx),
+        :vm2_sh          => zeros(sys.nsh),
+        :g_tv_shunt      => zeros(sys.nsh),
+        :b_tv_shunt      => zeros(sys.nsh),
+        :vmfrpfr         => zeros(sys.nl),
+        :vmtopfr         => zeros(sys.nl),
+        :vafrpfr         => zeros(sys.nl),
+        :vatopfr         => zeros(sys.nl),
+        :uonpfr          => zeros(sys.nl),
+        :vmfrqfr         => zeros(sys.nl),
+        :vmtoqfr         => zeros(sys.nl),
+        :vafrqfr         => zeros(sys.nl),
+        :vatoqfr         => zeros(sys.nl),
+        :uonqfr          => zeros(sys.nl),
+        :vmfrpto         => zeros(sys.nl),
+        :vmtopto         => zeros(sys.nl),
+        :vafrpto         => zeros(sys.nl),
+        :vatopto         => zeros(sys.nl),
+        :uonpto          => zeros(sys.nl),
+        :vmfrqto         => zeros(sys.nl),
+        :vmtoqto         => zeros(sys.nl),
+        :vafrqto         => zeros(sys.nl),
+        :vatoqto         => zeros(sys.nl),
+        :uonqto          => zeros(sys.nl))
+
+    bit = Dict(
+        :acline_sfr_plus => BitArray(zeros(Int, sys.nl)), # indices assocaited with acline_sfr_plus_x > acline_sto_plus_x && 0
+        :acline_sto_plus => BitArray(zeros(Int, sys.nl)), # indices assocaited with acline_sto_plus_x > acline_sfr_plus_x && 0
+        :xfm_sfr_plus_x  => BitArray(zeros(Int, sys.nx)), # indices assocaited with xfm_sfr_plus_x > xfm_sto_plus_x && 0
+        :xfm_sto_plus_x  => BitArray(zeros(Int, sys.nx)), # indices assocaited with xfm_sto_plus_x > xfm_sfr_plus_x && 0
         )
-    
+        
     # mgd = master grad -- this is the gradient which relates the negative market surplus function 
     # with all "basis" variables -- i.e., the variables for which all others are computed.
     # These are *exactly* (I think..) the variables which are reported in the solution file
     mgd = build_master_grad(prm, sys)
 
     # output
-    return cgd, grd, mgd, scr, stt, msc
+    return bit, cgd, grd, mgd, scr, stt, msc
 end
 
 function identify_update_states(prm::quasiGrad.Param, idx::quasiGrad.Idx, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
@@ -842,7 +958,8 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
         if sys.nb <= qG.min_buses_for_krylov
             # too few buses -- use LU
             @warn "Not enough buses for Krylov! using LU."
-            Ybr_ChPr = quasiGrad.I
+            # => Ybr_ChPr = quasiGrad.I
+            Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
         else
             # test for negative reactances -- @info "Preconditioning is disabled."
             if minimum(ac_b_params) < 0.0
@@ -856,7 +973,8 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
             end
         end
     else
-        Ybr_ChPr = quasiGrad.I
+        # => Ybr_ChPr = quasiGrad.I
+        Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
     end
     
     # should we build the cholesky decomposition of the base case
@@ -1059,11 +1177,15 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
         :ac_phi          => zeros(sys.nac),
         :ac_qfr          => zeros(sys.nac),
         :ac_qto          => zeros(sys.nac),
+        :qfr2            => zeros(sys.nac),
+        :qto2            => zeros(sys.nac),
+        :bt              => zeros(sys.nac),
         :dsmax_dp_flow   => zeros(sys.nac),
         :dsmax_dqfr_flow => zeros(sys.nac),
         :dsmax_dqto_flow => zeros(sys.nac),
         :p_inj           => zeros(sys.nb),
-        :dz_dpinj_all    => zeros(sys.nb-1))
+        :dz_dpinj_all    => zeros(sys.nb-1),
+        :c               => zeros(sys.nb-1))
 
     return ntk, flw
 end
@@ -1790,28 +1912,28 @@ function build_grad(prm::quasiGrad.Param, sys::quasiGrad.System)
                            :acline_pto => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
                            :acline_qto => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT))),
         # xfms
-        :xfm_pfr =>  Dict(:vmfr => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :xfm_pfr =>  Dict(  :vmfr => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :vmto => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :vafr => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :vato => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :phi  => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :tau  => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :uon  => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT))),
-        :xfm_qfr =>  Dict(:vmfr => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :xfm_qfr =>  Dict(  :vmfr => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :vmto => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :vafr => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :vato => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :phi  => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :tau  => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :uon  => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT))),
-        :xfm_pto =>  Dict(:vmfr => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :xfm_pto =>  Dict(  :vmfr => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :vmto => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :vafr => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :vato => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :phi  => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :tau  => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :uon  => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT))),
-        :xfm_qto =>  Dict(:vmfr => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :xfm_qto =>  Dict(  :vmfr => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :vmto => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :vafr => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
                             :vato => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
@@ -2257,6 +2379,8 @@ function initialize_pf_lbfgs(mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, p
                     :x_prev     => Dict(tkeys[ii] => zeros(n_lbfgs)           for ii in 1:(sys.nT)),
                     :gradf_now  => Dict(tkeys[ii] => zeros(n_lbfgs)           for ii in 1:(sys.nT)),
                     :gradf_prev => Dict(tkeys[ii] => zeros(n_lbfgs)           for ii in 1:(sys.nT)),
+                    :q          => Dict(tkeys[ii] => zeros(n_lbfgs)           for ii in 1:(sys.nT)),
+                    :r          => Dict(tkeys[ii] => zeros(n_lbfgs)           for ii in 1:(sys.nT)),
                     :alpha      => Dict(tkeys[ii] => zeros(num_lbfgs_to_keep) for ii in 1:(sys.nT)),
                     :rho        => Dict(tkeys[ii] => zeros(num_lbfgs_to_keep) for ii in 1:(sys.nT)))
 

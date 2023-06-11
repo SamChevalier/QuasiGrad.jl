@@ -3448,7 +3448,7 @@ f(x,y) = quasiGrad.dot(x,y)
 
 
 # %%
-quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # %%
 
@@ -3564,10 +3564,10 @@ while run_pf == true
     set_start_value.(dev_q_vars, stt[:dev_q][tii])
 
     # call the bounds
-    dev_plb = stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind)
-    dev_pub = stt[:u_on_dev][tii].*getindex.(prm.dev.p_ub,t_ind)
-    dev_qlb = stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind)
-    dev_qub = stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind)
+    dev_plb = stt[:u_on_dev][tii].*prm.dev.p_lb_tmdv[t_ind]
+    dev_pub = stt[:u_on_dev][tii].*prm.dev.p_ub_tmdv[t_ind]
+    dev_qlb = stt[:u_sum][tii].*prm.dev.q_lb_tmdv[t_ind]
+    dev_qub = stt[:u_sum][tii].*prm.dev.q_ub_tmdv[t_ind]
 
     # first, define p_on at this time
     # => p_on = dev_p_vars - stt[:p_su][tii] - stt[:p_sd][tii]

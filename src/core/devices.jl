@@ -26,14 +26,14 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
             # 1. Minimum downtime
             T_mndn                    = idx.Ts_mndn[dev][t_ind] # => get_tmindn(tii, dev, prm)
             cvio                      = max(stt[:u_su_dev][tii][dev] + sum(stt[:u_sd_dev][tii_inst][dev] for tii_inst in T_mndn; init=0.0) - 1.0, 0.0)
-            stt[:zhat_mndn][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+            stt[:zhat_mndn][tii][dev] = dt* cvio
 
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # first, su
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_mndn] * dt * 2.0 * cvio # sign(stt[:zhat_mndn][tii][dev])
-                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2) # sign(stt[:zhat_mndn][tii][dev])
+                    gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG) # sign(stt[:zhat_mndn][tii][dev])
                     mgd[:u_on_dev][tii][dev] += gc .* grd[:u_su_dev][:u_on_dev][tii][dev]
                     if tii != :t1
                         mgd[:u_on_dev][prm.ts.tmin1[tii]][dev] += gc .* grd[:u_su_dev][:u_on_dev_prev][tii][dev]
@@ -52,14 +52,14 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
             # 2. Minimum uptime
             T_mnup                    = idx.Ts_mnup[dev][t_ind] # => get_tminup(tii, dev, prm)
             cvio                      = max(stt[:u_sd_dev][tii][dev] + sum(stt[:u_su_dev][tii_inst][dev] for tii_inst in T_mnup; init=0.0) - 1.0 , 0.0)
-            stt[:zhat_mnup][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+            stt[:zhat_mnup][tii][dev] = dt* cvio
 
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # first, sd
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_mnup] * dt * 2.0 * cvio # * sign(stt[:zhat_mnup][tii][dev])
-                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2) # * sign(stt[:zhat_mnup][tii][dev])
+                    gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG) # * sign(stt[:zhat_mnup][tii][dev])
                     mgd[:u_on_dev][tii][dev] += gc .* grd[:u_sd_dev][:u_on_dev][tii][dev]
                     if tii != :t1
                         mgd[:u_on_dev][prm.ts.tmin1[tii]][dev] += gc .* grd[:u_sd_dev][:u_on_dev_prev][tii][dev]
@@ -88,12 +88,12 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
             cvio = max(stt[:dev_p][tii][dev] - dev_p_previous
                     - dt*(prm.dev.p_ramp_up_ub[dev]     *(stt[:u_on_dev][tii][dev] - stt[:u_su_dev][tii][dev])
                     +     prm.dev.p_startup_ramp_ub[dev]*(stt[:u_su_dev][tii][dev] + 1.0 - stt[:u_on_dev][tii][dev])),0.0)
-            stt[:zhat_rup][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+            stt[:zhat_rup][tii][dev] = dt* cvio
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rup] * dt * 2.0 * cvio # *sign(stt[:zhat_rup][tii][dev])
-                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2) # *sign(stt[:zhat_rup][tii][dev])
+                    gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG) # *sign(stt[:zhat_rup][tii][dev])
                     # gradients
                     dp_alpha!(grd, dev, tii, gc) # pjt
                     if tii != :t1
@@ -112,16 +112,16 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
             end
 
             # 4. Ramping limits (down)
-            cvio = stt[:zhat_rd][tii][dev]  = max(dev_p_previous - stt[:dev_p][tii][dev]
+            cvio = max(dev_p_previous - stt[:dev_p][tii][dev]
                     - dt*(prm.dev.p_ramp_down_ub[dev]*stt[:u_on_dev][tii][dev]
                     +     prm.dev.p_shutdown_ramp_ub[dev]*(1.0-stt[:u_on_dev][tii][dev])),0.0)
-            stt[:zhat_rd][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+            stt[:zhat_rd][tii][dev] = dt* cvio
             
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rd] * dt * 2.0 * cvio #* sign(stt[:zhat_rd][tii][dev])
-                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2) #* sign(stt[:zhat_rd][tii][dev])
+                    gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG) #* sign(stt[:zhat_rd][tii][dev])
                     # gradients
                     dp_alpha!(grd, dev, tii, -gc) # pjt
                     if tii != :t1
@@ -134,12 +134,12 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 5. Regulation up
             cvio                     = max(stt[:p_rgu][tii][dev] - prm.dev.p_reg_res_up_ub[dev]*stt[:u_on_dev][tii][dev], 0.0)
-            stt[:zhat_rgu][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+            stt[:zhat_rgu][tii][dev] = dt* cvio
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rgu] * dt * 2.0 * cvio # * sign(stt[:zhat_rgu][tii][dev])
-                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2) # * sign(stt[:zhat_rgu][tii][dev])
+                    gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG) # * sign(stt[:zhat_rgu][tii][dev])
                     mgd[:p_rgu][tii][dev]    += gc                                       # prgu
                     mgd[:u_on_dev][tii][dev] += -gc*prm.dev.p_reg_res_up_ub[dev]     # uon
                 end
@@ -147,13 +147,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 6. Regulation down
             cvio                     = max(stt[:p_rgd][tii][dev] - prm.dev.p_reg_res_down_ub[dev]*stt[:u_on_dev][tii][dev], 0.0)
-            stt[:zhat_rgd][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+            stt[:zhat_rgd][tii][dev] = dt* cvio
 
             # evaluate gradient?
             if qG.eval_grad
                 if stt[:zhat_rgd][tii][dev] > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rgd] * dt * 2.0 * cvio # * sign(stt[:zhat_rgd][tii][dev])
-                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2) # * sign(stt[:zhat_rgd][tii][dev])
+                    gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG) # * sign(stt[:zhat_rgd][tii][dev])
                     mgd[:p_rgd][tii][dev]    += gc                                       # prgu
                     mgd[:u_on_dev][tii][dev] += -gc*prm.dev.p_reg_res_down_ub[dev]   # uon
                 end
@@ -161,13 +161,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 7. Synchronized reserve
             cvio                     = max(stt[:p_rgu][tii][dev] + stt[:p_scr][tii][dev] - prm.dev.p_syn_res_ub[dev]*stt[:u_on_dev][tii][dev], 0.0)
-            stt[:zhat_scr][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+            stt[:zhat_scr][tii][dev] = dt* cvio
             
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_scr] * dt * 2.0 * cvio
-                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                    gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                     mgd[:p_rgu][tii][dev] += gc
                     mgd[:p_scr][tii][dev] += gc
                     mgd[:u_on_dev][tii][dev] += -gc*prm.dev.p_syn_res_ub[dev]
@@ -176,13 +176,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 8. Synchronized reserve
             cvio                     = max(stt[:p_nsc][tii][dev] - prm.dev.p_nsyn_res_ub[dev]*(1.0 - stt[:u_on_dev][tii][dev]), 0.0)
-            stt[:zhat_nsc][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+            stt[:zhat_nsc][tii][dev] = dt* cvio
 
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_nsc] * dt * 2.0 * cvio
-                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                    gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                     mgd[:p_nsc][tii][dev]    += gc
                     mgd[:u_on_dev][tii][dev] += gc*prm.dev.p_nsyn_res_ub[dev]
                 end
@@ -190,13 +190,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 9. Ramping reserve up (on)
             cvio                       = max(stt[:p_rgu][tii][dev] + stt[:p_scr][tii][dev] + stt[:p_rru_on][tii][dev] - prm.dev.p_ramp_res_up_online_ub[dev]*stt[:u_on_dev][tii][dev], 0.0)
-            stt[:zhat_rruon][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+            stt[:zhat_rruon][tii][dev] = dt* cvio
 
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rruon] * dt * 2.0 * cvio
-                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                    gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                     mgd[:p_rgu][tii][dev]    += gc
                     mgd[:p_scr][tii][dev]    += gc
                     mgd[:p_rru_on][tii][dev] += gc
@@ -206,13 +206,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 10. Ramping reserve up (off)
             cvio                        = max(stt[:p_nsc][tii][dev] + stt[:p_rru_off][tii][dev] - prm.dev.p_ramp_res_up_offline_ub[dev]*(1.0-stt[:u_on_dev][tii][dev]), 0.0)
-            stt[:zhat_rruoff][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+            stt[:zhat_rruoff][tii][dev] = dt* cvio
 
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rruoff] * dt * 2.0 * cvio
-                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                    gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                     mgd[:p_nsc][tii][dev]     += gc
                     mgd[:p_rru_off][tii][dev] += gc
                     mgd[:u_on_dev][tii][dev]  += gc*prm.dev.p_ramp_res_up_offline_ub[dev]
@@ -221,13 +221,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 11. Ramping reserve down (on)
             cvio                       = max(stt[:p_rgd][tii][dev] + stt[:p_rrd_on][tii][dev] - prm.dev.p_ramp_res_down_online_ub[dev]*stt[:u_on_dev][tii][dev], 0.0)
-            stt[:zhat_rrdon][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+            stt[:zhat_rrdon][tii][dev] = dt* cvio
 
             # evaluate gradient?
             if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rrdon] * dt * 2.0 * cvio
-                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                    gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                     mgd[:p_rgd][tii][dev]    += gc
                     mgd[:p_rrd_on][tii][dev] += gc
                     mgd[:u_on_dev][tii][dev] += -gc*prm.dev.p_ramp_res_down_online_ub[dev]
@@ -236,13 +236,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
             # 12. Ramping reserve down (off)
             cvio                        = max(stt[:p_rrd_off][tii][dev] - prm.dev.p_ramp_res_down_offline_ub[dev]*(1-stt[:u_on_dev][tii][dev]), 0.0)
-            stt[:zhat_rrdoff][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+            stt[:zhat_rrdoff][tii][dev] = dt* cvio
 
              # evaluate gradient?
              if qG.eval_grad
                 if cvio > qG.pg_tol
                     # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_rrdoff] * dt * 2.0 * cvio
-                    gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                    gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                     mgd[:p_rrd_off][tii][dev] += gc
                     mgd[:u_on_dev][tii][dev]  += gc*prm.dev.p_ramp_res_down_offline_ub[dev]
                 end
@@ -252,13 +252,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
             if dev in idx.pr_devs
                 # 13p. Maximum reserve limits (producers)
                 cvio                      = max(stt[:p_on][tii][dev] + stt[:p_rgu][tii][dev] + stt[:p_scr][tii][dev] + stt[:p_rru_on][tii][dev] - prm.dev.p_ub[dev][t_ind]*stt[:u_on_dev][tii][dev], 0.0)
-                stt[:zhat_pmax][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+                stt[:zhat_pmax][tii][dev] = dt* cvio
                 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_pmax] * dt * 2.0 * cvio
-                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                        gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                         mgd[:p_on][tii][dev]     += gc
                         mgd[:p_rgu][tii][dev]    += gc
                         mgd[:p_scr][tii][dev]    += gc
@@ -269,13 +269,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
                 # 14p. Minimum reserve limits (producers)
                 cvio                      = max(prm.dev.p_lb[dev][t_ind]*stt[:u_on_dev][tii][dev] + stt[:p_rrd_on][tii][dev] + stt[:p_rgd][tii][dev] - stt[:p_on][tii][dev], 0.0)
-                stt[:zhat_pmin][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+                stt[:zhat_pmin][tii][dev] = dt* cvio
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_pmin] * dt * 2.0 * cvio
-                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                        gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                         mgd[:p_on][tii][dev]     += -gc
                         mgd[:p_rgd][tii][dev]    += gc
                         mgd[:p_rrd_on][tii][dev] += gc
@@ -285,13 +285,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
                 
                 # 15p. Off reserve limits (producers)
                 cvio                         = max(stt[:p_su][tii][dev] + stt[:p_sd][tii][dev] + stt[:p_nsc][tii][dev] + stt[:p_rru_off][tii][dev] - prm.dev.p_ub[dev][t_ind]*(1.0 - stt[:u_on_dev][tii][dev]), 0.0)
-                stt[:zhat_pmaxoff][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+                stt[:zhat_pmaxoff][tii][dev] = dt* cvio
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_pmaxoff] * dt * 2.0 * cvio
-                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                        gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                         mgd[:p_nsc][tii][dev]     += gc
                         mgd[:p_rru_off][tii][dev] += gc
                         mgd[:u_on_dev][tii][dev]  += gc*prm.dev.p_ub[dev][t_ind]
@@ -307,13 +307,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
                 # 16p. Maximum reactive power reserves (producers)
                 cvio                      = max(stt[:dev_q][tii][dev] + stt[:q_qru][tii][dev] - prm.dev.q_ub[dev][t_ind]*stt[:u_sum][tii][dev], 0.0)
-                stt[:zhat_qmax][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+                stt[:zhat_qmax][tii][dev] = dt* cvio
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmax] * dt * 2.0 * cvio
-                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                        gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                         # 1. reactive power derivative
                         dq_alpha!(grd, dev, tii, gc)
                         # 2. qru
@@ -325,13 +325,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
                 # 17p. Minimum reactive power reserves (producers)
                 cvio                      = max(stt[:q_qrd][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev], 0.0)
-                stt[:zhat_qmin][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+                stt[:zhat_qmin][tii][dev] = dt* cvio
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmin] * dt * 2.0 * cvio
-                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                        gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                         # 1. qrd
                         mgd[:q_qrd][tii][dev] += gc
                         # 2. u_sum derivative
@@ -344,12 +344,12 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
                 # 18p. Linked maximum reactive power reserves (producers)
                 if dev in idx.J_pqmax
                     cvio                           = max(stt[:dev_q][tii][dev] + stt[:q_qru][tii][dev] - prm.dev.q_0_ub[dev]*stt[:u_sum][tii][dev] - prm.dev.beta_ub[dev]*stt[:dev_p][tii][dev], 0.0)
-                    stt[:zhat_qmax_beta][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+                    stt[:zhat_qmax_beta][tii][dev] = dt* cvio
 
                     # evaluate gradient?
                     if qG.eval_grad
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmax_beta] * dt * 2.0 * cvio
-                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                        gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                         if cvio > qG.pg_tol
                             # 1. reactive power derivative
                             dq_alpha!(grd, dev, tii, gc)
@@ -366,13 +366,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
                 # 19p. Linked minimum reactive power reserves (producers)
                 if dev in idx.J_pqmin
                     cvio                           = max(prm.dev.q_0_lb[dev]*stt[:u_sum][tii][dev] + prm.dev.beta_lb[dev]*stt[:dev_p][tii][dev] + stt[:q_qrd][tii][dev] - stt[:dev_q][tii][dev], 0.0)
-                    stt[:zhat_qmin_beta][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+                    stt[:zhat_qmin_beta][tii][dev] = dt* cvio
 
                     # evaluate gradient?
                     if qG.eval_grad
                         if cvio > qG.pg_tol
                             # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmin_beta] * dt * 2.0 * cvio
-                            gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                            gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                             # 1. u_sum derivative
                             du_sum!(tii, prm, stt, mgd, dev, gc*prm.dev.q_0_lb[dev], T_supc, T_sdpc)
                             # 2. active power derivative
@@ -389,13 +389,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
             else  # => dev in idx.cs_devs
                 # 13c. Maximum reserve limits (consumers)
                 cvio                      = max(stt[:p_on][tii][dev] + stt[:p_rgd][tii][dev] + stt[:p_rrd_on][tii][dev] - prm.dev.p_ub[dev][t_ind]*stt[:u_on_dev][tii][dev], 0.0)
-                stt[:zhat_pmax][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+                stt[:zhat_pmax][tii][dev] = dt* cvio
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_pmax] * dt * 2.0 * cvio
-                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                        gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                         mgd[:p_on][tii][dev]     += gc
                         mgd[:p_rgd][tii][dev]    += gc
                         mgd[:p_rrd_on][tii][dev] += gc
@@ -405,13 +405,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
                 # 14c. Minimum reserve limits (consumers)
                 cvio                      = max(prm.dev.p_lb[dev][t_ind]*stt[:u_on_dev][tii][dev] + stt[:p_rru_on][tii][dev] + stt[:p_scr][tii][dev] + stt[:p_rgu][tii][dev] - stt[:p_on][tii][dev], 0.0)
-                stt[:zhat_pmin][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+                stt[:zhat_pmin][tii][dev] = dt* cvio
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_pmin] * dt * 2 * cvio
-                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                        gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                         mgd[:p_on][tii][dev]     += -gc
                         mgd[:p_rgu][tii][dev]    += gc
                         mgd[:p_scr][tii][dev]    += gc
@@ -422,13 +422,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
                 # 15c. Off reserve limits (consumers)
                 cvio                         = max(stt[:p_su][tii][dev] + stt[:p_sd][tii][dev] + stt[:p_rrd_off][tii][dev] - prm.dev.p_ub[dev][t_ind]*(1.0 - stt[:u_on_dev][tii][dev]), 0.0)
-                stt[:zhat_pmaxoff][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+                stt[:zhat_pmaxoff][tii][dev] = dt* cvio
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_pmaxoff] * dt * 2.0 * cvio
-                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                        gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                         mgd[:p_rrd_off][tii][dev] += gc
                         mgd[:u_on_dev][tii][dev]  += gc*prm.dev.p_ub[dev][t_ind]
                         apply_p_su_grad!(idx, t_ind, dev, gc, prm, grd, mgd)
@@ -443,13 +443,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
                 # 16c. Maximum reactive power reserves (consumers)
                 cvio                      = max(stt[:dev_q][tii][dev] + stt[:q_qrd][tii][dev] - prm.dev.q_ub[dev][t_ind]*stt[:u_sum][tii][dev], 0.0)
-                stt[:zhat_qmax][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+                stt[:zhat_qmax][tii][dev] = dt* cvio
 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmax] * dt * 2.0 * cvio
-                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                        gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                         # 1. reactive power derivative
                         dq_alpha!(grd, dev, tii, gc)
                         # 2. qrd
@@ -461,13 +461,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
 
                 # 17c. Minimum reactive power reserves (consumers)
                 cvio                      = max(stt[:q_qru][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev], 0.0)
-                stt[:zhat_qmin][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+                stt[:zhat_qmin][tii][dev] = dt* cvio
                 
                 # evaluate gradient?
                 if qG.eval_grad
                     if cvio > qG.pg_tol
                         # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmin] * dt * 2.0 * cvio
-                        gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                        gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                         # 1. qru
                         mgd[:q_qru][tii][dev] += gc
                         # 2. u_sum derivative
@@ -480,13 +480,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
                 # 18c. Linked maximum reactive power reserves (consumers)
                 if dev in idx.J_pqmax
                     cvio                           = max(stt[:dev_q][tii][dev] + stt[:q_qrd][tii][dev] - prm.dev.q_0_ub[dev]*stt[:u_sum][tii][dev] - prm.dev.beta_ub[dev]*stt[:dev_p][tii][dev], 0.0)
-                    stt[:zhat_qmax_beta][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+                    stt[:zhat_qmax_beta][tii][dev] = dt* cvio
 
                     # evaluate gradient?
                     if qG.eval_grad
                         if cvio > qG.pg_tol
                             # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmax_beta] * dt * 2.0 * cvio
-                            gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                            gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                             # 1. reactive power derivative
                             dq_alpha!(grd, dev, tii, gc)
                             # 2. qrd
@@ -502,13 +502,13 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
                 # 19c. Linked minimum reactive power reserves (consumers)
                 if dev in idx.J_pqmin
                     cvio                           = max(prm.dev.q_0_lb[dev]*stt[:u_sum][tii][dev] + prm.dev.beta_lb[dev]*stt[:dev_p][tii][dev] + stt[:q_qru][tii][dev] - stt[:dev_q][tii][dev], 0.0)
-                    stt[:zhat_qmin_beta][tii][dev] = dt*soft_abs(cvio, qG.constraint_grad_eps2)
+                    stt[:zhat_qmin_beta][tii][dev] = dt* cvio
 
                     # evaluate gradient?
                     if qG.eval_grad
                         if cvio > qG.pg_tol
                             # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zhat_qmin_beta] * dt * 2.0 * cvio
-                            gc = qG.constraint_grad_weight * dt * soft_abs_grad(cvio, qG.constraint_grad_eps2)
+                            gc = qG.constraint_grad_weight * dt * soft_abs_constraint_grad(cvio, qG)
                             # 1. u_sum derivative
                             du_sum!(tii, prm, stt, mgd, dev, gc*prm.dev.q_0_lb[dev], T_supc, T_sdpc)
                             # 2. active power derivative
@@ -557,16 +557,16 @@ function device_reserve_costs!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symb
         dt = prm.ts.duration[tii]
         
         # costs
-        stt[:zrgu][tii] = dt*getindex.(prm.dev.p_reg_res_up_cost,t_ind).*stt[:p_rgu][tii]
-        stt[:zrgd][tii] = dt*getindex.(prm.dev.p_reg_res_down_cost,t_ind).*stt[:p_rgd][tii]
-        stt[:zscr][tii] = dt*getindex.(prm.dev.p_syn_res_cost,t_ind).*stt[:p_scr][tii]
-        stt[:znsc][tii] = dt*getindex.(prm.dev.p_nsyn_res_cost,t_ind).*stt[:p_nsc][tii]
-        stt[:zrru][tii] = dt*(getindex.(prm.dev.p_ramp_res_up_online_cost,t_ind).*stt[:p_rru_on][tii] +
-                              getindex.(prm.dev.p_ramp_res_up_offline_cost,t_ind).*stt[:p_rru_off][tii])
-        stt[:zrrd][tii] = dt*(getindex.(prm.dev.p_ramp_res_down_online_cost,t_ind).*stt[:p_rrd_on][tii] +
-                              getindex.(prm.dev.p_ramp_res_down_offline_cost,t_ind).*stt[:p_rrd_off][tii]) 
-        stt[:zqru][tii] = dt*getindex.(prm.dev.q_res_up_cost,t_ind).*stt[:q_qru][tii]      
-        stt[:zqrd][tii] = dt*getindex.(prm.dev.q_res_down_cost,t_ind).*stt[:q_qrd][tii]
+        stt[:zrgu][tii] .= dt.*prm.dev.p_reg_res_up_cost_tmdv[t_ind].*stt[:p_rgu][tii]
+        stt[:zrgd][tii] .= dt.*prm.dev.p_reg_res_down_cost_tmdv[t_ind].*stt[:p_rgd][tii]
+        stt[:zscr][tii] .= dt.*prm.dev.p_syn_res_cost_tmdv[t_ind].*stt[:p_scr][tii]
+        stt[:znsc][tii] .= dt.*prm.dev.p_nsyn_res_cost_tmdv[t_ind].*stt[:p_nsc][tii]
+        stt[:zrru][tii] .= dt.*(prm.dev.p_ramp_res_up_online_cost_tmdv[t_ind].*stt[:p_rru_on][tii] .+
+                                prm.dev.p_ramp_res_up_offline_cost_tmdv[t_ind].*stt[:p_rru_off][tii])
+        stt[:zrrd][tii] .= dt.*(prm.dev.p_ramp_res_down_online_cost_tmdv[t_ind].*stt[:p_rrd_on][tii] .+
+                                prm.dev.p_ramp_res_down_offline_cost_tmdv[t_ind].*stt[:p_rrd_off][tii]) 
+        stt[:zqru][tii] .= dt.*prm.dev.q_res_up_cost_tmdv[t_ind].*stt[:q_qru][tii]      
+        stt[:zqrd][tii] .= dt.*prm.dev.q_res_down_cost_tmdv[t_ind].*stt[:q_qrd][tii]
     end
 end
 
@@ -586,7 +586,7 @@ function energy_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float6
 
             # get the cost!
             stt[:zen_dev][tii][dev] = dt*sum(cst[ii]*max(min(stt[:dev_p][tii][dev] - pcm[ii-1], pbk[ii]), 0.0)  for ii in 2:nbk; init=0.0)
-            
+                # fancy alternative => stt[:zen_dev][tii][dev] = dt*sum(cst_i*max(min(stt[:dev_p][tii][dev] - pcm_i, pbk_i), 0.0)  for (cst_i,pcm_i,pbk_i) in zip(cst[2:end],pcm[1:end-1],pbk[2:end]); init=0.0)
             # evaluate the grd? 
             #
             # WARNING -- this will break if stt[:dev_p] > pcm[end]! It will
@@ -595,16 +595,15 @@ function energy_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float6
             #                  ~ clipping will fix ~
             if qG.eval_grad
                 # what is the index of the "active" block?
-                del = stt[:dev_p][tii][dev] .- pcm
-                active_block_ind = argmin(del[del .>= 0.0])
-                # The following doesn't work:
-                    #   if minimum(del) > 0
-                    #       active_block_ind = argmin(del[del .>= 0.0])
-                    #   else
-                    #    note: del must be greater than 0! to account for the last edge case..
-                    #       active_block_ind = 1
-                    #   end
-                grd[:zen_dev][:dev_p][tii][dev] = dt*cst[active_block_ind + 1] # where + 1 is due to the leading 0
+                # easier to understand:
+                    # => del = stt[:dev_p][tii][dev] .- pcm
+                    # => active_block_ind = argmin(del[del .>= 0.0])
+                    # => grd[:zen_dev][:dev_p][tii][dev] = dt*cst[active_block_ind + 1] # where + 1 is due to the leading 0
+                if stt[:dev_p][tii][dev] == 0.0
+                    grd[:zen_dev][:dev_p][tii][dev] = dt*cst[2]
+                else
+                    grd[:zen_dev][:dev_p][tii][dev] = dt*cst[findfirst(stt[:dev_p][tii][dev] .< pcm)] # no +1 needed, because we find the upper block
+                end
             end
         end
     end
@@ -674,78 +673,78 @@ function all_device_statuses_and_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symb
         # start up and shutdown costs
         if tii == :t1
             # devices
-            stt[:u_su_dev][tii] =  max.(stt[:u_on_dev][tii] - prm.dev.init_on_status, 0.0)
-            stt[:u_sd_dev][tii] = -min.(stt[:u_on_dev][tii] - prm.dev.init_on_status, 0.0)
+            stt[:u_su_dev][tii] .=   max.(stt[:u_on_dev][tii] .- prm.dev.init_on_status, 0.0)
+            stt[:u_sd_dev][tii] .= .-min.(stt[:u_on_dev][tii] .- prm.dev.init_on_status, 0.0)
             # aclines
-            stt[:u_su_acline][tii] =  max.(stt[:u_on_acline][tii] - prm.acline.init_on_status, 0.0)
-            stt[:u_sd_acline][tii] = -min.(stt[:u_on_acline][tii] - prm.acline.init_on_status, 0.0)
+            stt[:u_su_acline][tii] .=   max.(stt[:u_on_acline][tii] .- prm.acline.init_on_status, 0.0)
+            stt[:u_sd_acline][tii] .= .-min.(stt[:u_on_acline][tii] .- prm.acline.init_on_status, 0.0)
             # xfms
-            stt[:u_su_xfm][tii] =  max.(stt[:u_on_xfm][tii] - prm.xfm.init_on_status, 0.0)
-            stt[:u_sd_xfm][tii] = -min.(stt[:u_on_xfm][tii] - prm.xfm.init_on_status, 0.0)
+            stt[:u_su_xfm][tii] .=   max.(stt[:u_on_xfm][tii] .- prm.xfm.init_on_status, 0.0)
+            stt[:u_sd_xfm][tii] .= .-min.(stt[:u_on_xfm][tii] .- prm.xfm.init_on_status, 0.0)
 
             # evaluate the gradient?
             if qG.eval_grad
                 # devices
-                grd[:u_su_dev][:u_on_dev][tii] =  sign.(stt[:u_su_dev][tii])
-                grd[:u_sd_dev][:u_on_dev][tii] = -sign.(stt[:u_sd_dev][tii])
+                grd[:u_su_dev][:u_on_dev][tii] .=   sign.(stt[:u_su_dev][tii])
+                grd[:u_sd_dev][:u_on_dev][tii] .= .-sign.(stt[:u_sd_dev][tii])
                 # aclines
-                grd[:u_su_acline][:u_on_acline][tii] =  sign.(stt[:u_su_acline][tii])
-                grd[:u_sd_acline][:u_on_acline][tii] = -sign.(stt[:u_sd_acline][tii])
+                grd[:u_su_acline][:u_on_acline][tii] .=   sign.(stt[:u_su_acline][tii])
+                grd[:u_sd_acline][:u_on_acline][tii] .= .-sign.(stt[:u_sd_acline][tii])
                 # xfms
-                grd[:u_su_xfm][:u_on_xfm][tii] =  sign.(stt[:u_su_xfm][tii])
-                grd[:u_sd_xfm][:u_on_xfm][tii] = -sign.(stt[:u_sd_xfm][tii])
+                grd[:u_su_xfm][:u_on_xfm][tii] .=   sign.(stt[:u_su_xfm][tii])
+                grd[:u_sd_xfm][:u_on_xfm][tii] .= .-sign.(stt[:u_sd_xfm][tii])
             end
         else
             # devices
-            stt[:u_su_dev][tii] =  max.(stt[:u_on_dev][tii] - stt[:u_on_dev][prm.ts.tmin1[tii]], 0.0)
-            stt[:u_sd_dev][tii] = -min.(stt[:u_on_dev][tii] - stt[:u_on_dev][prm.ts.tmin1[tii]], 0.0)
+            stt[:u_su_dev][tii] .=   max.(stt[:u_on_dev][tii] .- stt[:u_on_dev][prm.ts.tmin1[tii]], 0.0)
+            stt[:u_sd_dev][tii] .= .-min.(stt[:u_on_dev][tii] .- stt[:u_on_dev][prm.ts.tmin1[tii]], 0.0)
             # aclines
-            stt[:u_su_acline][tii] =  max.(stt[:u_on_acline][tii] - stt[:u_on_acline][prm.ts.tmin1[tii]], 0.0)
-            stt[:u_sd_acline][tii] = -min.(stt[:u_on_acline][tii] - stt[:u_on_acline][prm.ts.tmin1[tii]], 0.0)
+            stt[:u_su_acline][tii] .=   max.(stt[:u_on_acline][tii] .- stt[:u_on_acline][prm.ts.tmin1[tii]], 0.0)
+            stt[:u_sd_acline][tii] .= .-min.(stt[:u_on_acline][tii] .- stt[:u_on_acline][prm.ts.tmin1[tii]], 0.0)
             # xfms
-            stt[:u_su_xfm][tii] =  max.(stt[:u_on_xfm][tii] - stt[:u_on_xfm][prm.ts.tmin1[tii]], 0.0)
-            stt[:u_sd_xfm][tii] = -min.(stt[:u_on_xfm][tii] - stt[:u_on_xfm][prm.ts.tmin1[tii]], 0.0)
+            stt[:u_su_xfm][tii] .=   max.(stt[:u_on_xfm][tii] .- stt[:u_on_xfm][prm.ts.tmin1[tii]], 0.0)
+            stt[:u_sd_xfm][tii] .= .-min.(stt[:u_on_xfm][tii] .- stt[:u_on_xfm][prm.ts.tmin1[tii]], 0.0)
             
             # evaluate the gradient?
             if qG.eval_grad
                 # current time:
                 #
                 # devices
-                grd[:u_su_dev][:u_on_dev][tii] =  sign.(stt[:u_su_dev][tii])
-                grd[:u_sd_dev][:u_on_dev][tii] = -sign.(stt[:u_sd_dev][tii])
+                grd[:u_su_dev][:u_on_dev][tii] .=   sign.(stt[:u_su_dev][tii])
+                grd[:u_sd_dev][:u_on_dev][tii] .= .-sign.(stt[:u_sd_dev][tii])
                 # aclines
-                grd[:u_su_acline][:u_on_acline][tii] =  sign.(stt[:u_su_acline][tii])
-                grd[:u_sd_acline][:u_on_acline][tii] = -sign.(stt[:u_sd_acline][tii])
+                grd[:u_su_acline][:u_on_acline][tii] .=   sign.(stt[:u_su_acline][tii])
+                grd[:u_sd_acline][:u_on_acline][tii] .= .-sign.(stt[:u_sd_acline][tii])
                 # xfms
-                grd[:u_su_xfm][:u_on_xfm][tii] =  sign.(stt[:u_su_xfm][tii])
-                grd[:u_sd_xfm][:u_on_xfm][tii] = -sign.(stt[:u_sd_xfm][tii])
+                grd[:u_su_xfm][:u_on_xfm][tii] .=   sign.(stt[:u_su_xfm][tii])
+                grd[:u_sd_xfm][:u_on_xfm][tii] .= .-sign.(stt[:u_sd_xfm][tii])
 
                 # previous time:
                 #
                 # devices
-                grd[:u_su_dev][:u_on_dev_prev][tii] = -sign.(stt[:u_su_dev][tii])
-                grd[:u_sd_dev][:u_on_dev_prev][tii] =  sign.(stt[:u_sd_dev][tii])
+                grd[:u_su_dev][:u_on_dev_prev][tii] .= .-sign.(stt[:u_su_dev][tii])
+                grd[:u_sd_dev][:u_on_dev_prev][tii] .=   sign.(stt[:u_sd_dev][tii])
                 # aclines
-                grd[:u_su_acline][:u_on_acline_prev][tii] = -sign.(stt[:u_su_acline][tii])
-                grd[:u_sd_acline][:u_on_acline_prev][tii] =  sign.(stt[:u_sd_acline][tii])
+                grd[:u_su_acline][:u_on_acline_prev][tii] .= .-sign.(stt[:u_su_acline][tii])
+                grd[:u_sd_acline][:u_on_acline_prev][tii] .=   sign.(stt[:u_sd_acline][tii])
                 # xfms
-                grd[:u_su_xfm][:u_on_xfm_prev][tii] = -sign.(stt[:u_su_xfm][tii])
-                grd[:u_sd_xfm][:u_on_xfm_prev][tii] =  sign.(stt[:u_sd_xfm][tii])
+                grd[:u_su_xfm][:u_on_xfm_prev][tii] .= .-sign.(stt[:u_su_xfm][tii])
+                grd[:u_sd_xfm][:u_on_xfm_prev][tii] .=   sign.(stt[:u_sd_xfm][tii])
             end
         end
 
         # get these costs -- devices
-        stt[:zon_dev][tii] = dt*prm.dev.on_cost.*stt[:u_on_dev][tii]
-        stt[:zsu_dev][tii] = prm.dev.startup_cost.*stt[:u_su_dev][tii]
-        stt[:zsd_dev][tii] = prm.dev.shutdown_cost.*stt[:u_sd_dev][tii]
+        stt[:zon_dev][tii] .= dt*prm.dev.on_cost.*stt[:u_on_dev][tii]
+        stt[:zsu_dev][tii] .= prm.dev.startup_cost.*stt[:u_su_dev][tii]
+        stt[:zsd_dev][tii] .= prm.dev.shutdown_cost.*stt[:u_sd_dev][tii]
         # aclines
             # stt[:zon_acline][tii] ---> this does not exist
-        stt[:zsu_acline][tii] = prm.acline.connection_cost.*stt[:u_su_acline][tii]
-        stt[:zsd_acline][tii] = prm.acline.disconnection_cost.*stt[:u_sd_acline][tii]
+        stt[:zsu_acline][tii] .= prm.acline.connection_cost.*stt[:u_su_acline][tii]
+        stt[:zsd_acline][tii] .= prm.acline.disconnection_cost.*stt[:u_sd_acline][tii]
         # xfms
             # stt[:zon_xfm][tii] ---> this does not exist
-        stt[:zsu_xfm][tii] = prm.xfm.connection_cost.*stt[:u_su_xfm][tii]
-        stt[:zsd_xfm][tii] = prm.xfm.disconnection_cost.*stt[:u_sd_xfm][tii]
+        stt[:zsu_xfm][tii] .= prm.xfm.connection_cost.*stt[:u_su_xfm][tii]
+        stt[:zsd_xfm][tii] .= prm.xfm.disconnection_cost.*stt[:u_sd_xfm][tii]
     end
 end
 
@@ -755,12 +754,12 @@ function simple_device_statuses!(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::
         # start up and shutdown costs
         if tii == :t1
             # devices
-            stt[:u_su_dev][tii] =  max.(stt[:u_on_dev][tii] - prm.dev.init_on_status, 0.0)
-            stt[:u_sd_dev][tii] = -min.(stt[:u_on_dev][tii] - prm.dev.init_on_status, 0.0)
+            stt[:u_su_dev][tii] .=   max.(stt[:u_on_dev][tii] .- prm.dev.init_on_status, 0.0)
+            stt[:u_sd_dev][tii] .= .-min.(stt[:u_on_dev][tii] .- prm.dev.init_on_status, 0.0)
         else
             # devices
-            stt[:u_su_dev][tii] =  max.(stt[:u_on_dev][tii] - stt[:u_on_dev][prm.ts.tmin1[tii]], 0.0)
-            stt[:u_sd_dev][tii] = -min.(stt[:u_on_dev][tii] - stt[:u_on_dev][prm.ts.tmin1[tii]], 0.0)
+            stt[:u_su_dev][tii] .=   max.(stt[:u_on_dev][tii] .- stt[:u_on_dev][prm.ts.tmin1[tii]], 0.0)
+            stt[:u_sd_dev][tii] .= .-min.(stt[:u_on_dev][tii] .- stt[:u_on_dev][prm.ts.tmin1[tii]], 0.0)
         end
     end
 
@@ -795,7 +794,7 @@ function device_active_powers!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::qua
         end
 
         # finally, get the total power balance
-        stt[:dev_p][tii] = stt[:p_on][tii] + stt[:p_su][tii] + stt[:p_sd][tii]
+        stt[:dev_p][tii] .= stt[:p_on][tii] .+ stt[:p_su][tii] .+ stt[:p_sd][tii]
 
         # we can add a clip here, so that the cost doesn't cause error, but not needed
     end
@@ -804,7 +803,7 @@ end
 # reactive power computation
 function device_reactive_powers!(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # loop over each time period
-    for (t_ind, tii) in enumerate(prm.ts.time_keys)
+    for tii in prm.ts.time_keys
         for dev in 1:sys.ndev
             # only a subset of devices will have a reactive power equality constraint
             if dev in idx.J_pqe
@@ -813,18 +812,18 @@ function device_reactive_powers!(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::
                 if dev in idx.pr_devs
                     # producer? 
                     # ** the following is ONLY needed if stt[:u_sum] isn't being tracked in stt
-                    # T_supc = idx.Ts_supc[dev][t_ind] # => T_supc, ~ = get_supc(tii, dev, prm)
-                    # T_sdpc = idx.Ts_sdpc[dev][t_ind] # => T_sdpc, ~ = get_sdpc(tii, dev, prm)
-                    # stt[:u_sum][tii][dev] = stt[:u_on_dev][tii][dev] + sum(stt[:u_su_dev][tii_inst][dev] for tii_inst in T_supc; init=0.0) + sum(stt[:u_sd_dev][tii_inst][dev] for tii_inst in T_sdpc; init=0.0)
+                        # => T_supc = idx.Ts_supc[dev][t_ind] # => T_supc, ~ = get_supc(tii, dev, prm)
+                        # => T_sdpc = idx.Ts_sdpc[dev][t_ind] # => T_sdpc, ~ = get_sdpc(tii, dev, prm)
+                        # => stt[:u_sum][tii][dev] = stt[:u_on_dev][tii][dev] + sum(stt[:u_su_dev][tii_inst][dev] for tii_inst in T_supc; init=0.0) + sum(stt[:u_sd_dev][tii_inst][dev] for tii_inst in T_sdpc; init=0.0)
                     
                     # compute q
                     stt[:dev_q][tii][dev] = prm.dev.q_0[dev]*stt[:u_sum][tii][dev] + prm.dev.beta[dev]*stt[:dev_p][tii][dev]
                 else
                     # the device must be a consumer :)
                     # ** the following is ONLY needed if stt[:u_sum] isn't being tracked in stt
-                    # T_supc = idx.Ts_supc[dev][t_ind] # => T_supc, ~ = get_supc(tii, dev, prm)
-                    # T_sdpc = idx.Ts_sdpc[dev][t_ind] # => T_sdpc, ~ = get_sdpc(tii, dev, prm)
-                    # stt[:u_sum][tii][dev] = stt[:u_on_dev][tii][dev] + sum(stt[:u_su_dev][tii_inst][dev] for tii_inst in T_supc; init=0.0) + sum(stt[:u_sd_dev][tii_inst][dev] for tii_inst in T_sdpc; init=0.0)
+                        # => T_supc = idx.Ts_supc[dev][t_ind] # => T_supc, ~ = get_supc(tii, dev, prm)
+                        # => T_sdpc = idx.Ts_sdpc[dev][t_ind] # => T_sdpc, ~ = get_sdpc(tii, dev, prm)
+                        # => stt[:u_sum][tii][dev] = stt[:u_on_dev][tii][dev] + sum(stt[:u_su_dev][tii_inst][dev] for tii_inst in T_supc; init=0.0) + sum(stt[:u_sd_dev][tii_inst][dev] for tii_inst in T_sdpc; init=0.0)
 
                     # compute q
                     stt[:dev_q][tii][dev] = prm.dev.q_0[dev]*stt[:u_sum][tii][dev] + prm.dev.beta[dev]*stt[:dev_p][tii][dev]
@@ -843,79 +842,81 @@ function device_startup_states!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vect
             # has been on within some recent time period.
             #
             # flush the sus
-            stt[:zsus_dev][tii][dev] = 0
+            stt[:zsus_dev][tii][dev] = 0.0
 
             # loop over sus (i.e., f in F)
             for ii in 1:prm.dev.num_sus[dev]
-                # grab the sets of T_sus
-                T_sus_jft = idx.Ts_sus_jft[dev][t_ind][ii] # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
-                T_sus_jf  = idx.Ts_sus_jf[dev][t_ind][ii]  # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
-                
+                if prm.dev.startup_states[dev][ii][1] < 0.0 # skip if 0! why are these even here?
+                    # grab the sets of T_sus
+                    #T_sus_jft = idx.Ts_sus_jft[dev][t_ind][ii] # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
+                    #T_sus_jf  = idx.Ts_sus_jf[dev][t_ind][ii]  # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
 
-                if tii in T_sus_jf
-                    if tii == :t1
-                        # this is an edge case, where there are no previous states which
-                        # could be "on" (since we can't turn on the generator in the fixed
-                        # past, and it wasn't on)
-                        # ** stt[:u_sus_bnd][tii][dev][ii] = 0.0
-                        u_sus_bnd = 0.0
-                    else
-                        u_on_max_ind = argmax([stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft])
-                        u_sus_bnd    = stt[:u_on_dev][T_sus_jft[u_on_max_ind]][dev]
-                        # ** stt[:u_sus_bnd][tii][dev][ii] = stt[:u_on_dev][T_sus_jft[u_on_max_ind]][dev]
-                    end
-                    #
-                    # note: u_on_max == stt[:u_on_dev][T_sus_jft[u_on_max_ind]][dev]
-                    #
-                    # previous bound based on directly taking the max:
-                        # stt[:u_sus_bnd][tii][dev][ii] = max.([stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft])
-                    # previous bound based on the sum (rather than max)
-                        # stt[:u_sus_bnd][tii][dev][ii] = max.(sum(stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft; init=0.0), 1.0)
-                else
-                    # ok, in this case the device was on in a sufficiently recent time (based on
-                    # startup conditions), so we don't need to compute a bound
-                    u_sus_bnd = 1.0
-                    # ** stt[:u_sus_bnd][tii][dev][ii] = 1.0
-                end
-
-                # now, compute the discount/cost ==> this is "+=", since it is over all (f in F) states
-                stt[:zsus_dev][tii][dev] += prm.dev.startup_states[dev][ii][1]*min(stt[:u_su_dev][tii][dev],u_sus_bnd)
-                # ** stt[:zsus_dev][tii][dev] += prm.dev.startup_states[dev][ii][1]*min(stt[:u_su_dev][tii][dev],stt[:u_sus_bnd][tii][dev][ii])
-
-                # this is all pretty expensive, so let's take the gradient right here
-                #
-                # evaluate gradient?
-                if qG.eval_grad
-                    # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsus_dev] * prm.dev.startup_states[dev][ii][1]
-                    gc = prm.dev.startup_states[dev][ii][1]
-
-                    # test which was smaller: u_su, or the su_bound?
-                    #
-                    # we want "<=" so that we never end up in a case where 
-                    # we try to take the gradient of u_sus_bnd == 1 (see else case above)
-                    if stt[:u_su_dev][tii][dev] <= u_sus_bnd # ** stt[:u_sus_bnd][tii][dev][ii]
-                        # in this case, there is an available discount, so we want u_su
-                        # to feel a bit less downward pressure and rise up (potentially)
-                        mgd[:u_on_dev][tii][dev] += gc*grd[:u_su_dev][:u_on_dev][tii][dev]
-                        if tii != :t1
-                            # previous time?
-                            mgd[:u_on_dev][prm.ts.tmin1[tii]][dev] += gc*grd[:u_su_dev][:u_on_dev_prev][tii][dev]
+                    if tii in idx.Ts_sus_jf[dev][t_ind][ii]
+                        if tii == :t1
+                            # this is an edge case, where there are no previous states which
+                            # could be "on" (since we can't turn on the generator in the fixed
+                            # past, and it wasn't on)
+                            # ** stt[:u_sus_bnd][tii][dev][ii] = 0.0
+                            u_sus_bnd = 0.0
+                        else
+                            u_on_max_ind = argmax([stt[:u_on_dev][tii_inst][dev] for tii_inst in idx.Ts_sus_jft[dev][t_ind][ii]])
+                            u_sus_bnd    = stt[:u_on_dev][idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]][dev]
+                            # => u_sus_bnd = maximum([stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft])
+                            # ** stt[:u_sus_bnd][tii][dev][ii] = stt[:u_on_dev][T_sus_jft[u_on_max_ind]][dev]
                         end
-                    else
-                        # in this case, sus bound is lower than u_su, so we'll put some pressure on the
-                        # previous largest u_on, trying to push it up, in order to extract a little value
-                        # from this sus.. :)
                         #
-                        # what time is associated with this derivative? it is the time associated with the max u_on
-                        if tii != :t1
-                            # skip the gradient if tii == :t1, since stt[:u_sus_bnd] == 0 and no gradient exists
-                            # -- this is a weird edge case, but it does make sense if you think about it for
-                            # long enough.....
-                            tt_max = T_sus_jft[u_on_max_ind]
-                            mgd[:u_on_dev][tt_max][dev] += gc*grd[:u_su_dev][:u_on_dev][tt_max][dev]
-                            if tt_max != :t1
+                        # note: u_on_max == stt[:u_on_dev][T_sus_jft[u_on_max_ind]][dev]
+                        #
+                        # previous bound based on directly taking the max:
+                            # stt[:u_sus_bnd][tii][dev][ii] = max.([stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft])
+                        # previous bound based on the sum (rather than max)
+                            # stt[:u_sus_bnd][tii][dev][ii] = max.(sum(stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft; init=0.0), 1.0)
+                    else
+                        # ok, in this case the device was on in a sufficiently recent time (based on
+                        # startup conditions), so we don't need to compute a bound
+                        u_sus_bnd = 1.0
+                        # ** stt[:u_sus_bnd][tii][dev][ii] = 1.0
+                    end
+
+                    # now, compute the discount/cost ==> this is "+=", since it is over all (f in F) states
+                    if u_sus_bnd > 0.0
+                        stt[:zsus_dev][tii][dev] += prm.dev.startup_states[dev][ii][1]*min(stt[:u_su_dev][tii][dev],u_sus_bnd)
+                    end
+                    # ** stt[:zsus_dev][tii][dev] += prm.dev.startup_states[dev][ii][1]*min(stt[:u_su_dev][tii][dev],stt[:u_sus_bnd][tii][dev][ii])
+
+                    # this is all pretty expensive, so let's take the gradient right here
+                    #
+                    # evaluate gradient?
+                    if qG.eval_grad
+                        # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsus_dev] * prm.dev.startup_states[dev][ii][1]
+                        # test which was smaller: u_su, or the su_bound?
+                        #
+                        # we want "<=" so that we never end up in a case where 
+                        # we try to take the gradient of u_sus_bnd == 1 (see else case above)
+                        if stt[:u_su_dev][tii][dev] <= u_sus_bnd # ** stt[:u_sus_bnd][tii][dev][ii]
+                            # in this case, there is an available discount, so we want u_su
+                            # to feel a bit less downward pressure and rise up (potentially)
+                            mgd[:u_on_dev][tii][dev] += prm.dev.startup_states[dev][ii][1]*grd[:u_su_dev][:u_on_dev][tii][dev]
+                            if tii != :t1
                                 # previous time?
-                                mgd[:u_on_dev][prm.ts.tmin1[tt_max]][dev] += gc*grd[:u_su_dev][:u_on_dev_prev][tt_max][dev]
+                                mgd[:u_on_dev][prm.ts.tmin1[tii]][dev] += prm.dev.startup_states[dev][ii][1]*grd[:u_su_dev][:u_on_dev_prev][tii][dev]
+                            end
+                        else
+                            # in this case, sus bound is lower than u_su, so we'll put some pressure on the
+                            # previous largest u_on, trying to push it up, in order to extract a little value
+                            # from this sus.. :)
+                            #
+                            # what time is associated with this derivative? it is the time associated with the max u_on
+                            if tii != :t1
+                                # skip the gradient if tii == :t1, since stt[:u_sus_bnd] == 0 and no gradient exists
+                                # -- this is a weird edge case, but it does make sense if you think about it for
+                                # long enough.....
+                                    # => tt_max = T_sus_jft[u_on_max_ind]
+                                mgd[:u_on_dev][idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]][dev] += prm.dev.startup_states[dev][ii][1]*grd[:u_su_dev][:u_on_dev][idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]][dev]
+                                if idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind] != :t1
+                                    # previous time?
+                                    mgd[:u_on_dev][prm.ts.tmin1[idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]]][dev] += prm.dev.startup_states[dev][ii][1]*grd[:u_su_dev][:u_on_dev_prev][idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]][dev]
+                                end
                             end
                         end
                     end

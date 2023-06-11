@@ -64,10 +64,10 @@ function run_adam_with_plotting!(
         beta2_decay = beta2_decay*beta2
 
         # compute all states and grads
-        quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+        quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
         # take an adam step
-        quasiGrad.adam!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+        quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
 
         # stopping criteria
         if qG.adam_stopper == "time"
@@ -89,7 +89,7 @@ function run_adam_with_plotting!(
 
     # one last clip + state computation -- no grad needed!
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
     # turn it back on
     qG.eval_grad = true
@@ -117,7 +117,7 @@ function initialize_plot(
     
     # first, make sure scores are updated!
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
     qG.eval_grad = true
 
     # now, initialize

@@ -46,7 +46,7 @@ adm = quasiGrad.initialize_adam_states(sys)
 upd = quasiGrad.identify_update_states(prm, idx, stt, sys)
 ntk = quasiGrad.initialize_ctg(sys, prm, qG, idx)
 
-quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # call the ctg solver
 #include("../src/core/initializations.jl")
@@ -157,7 +157,7 @@ println(ptdf[line,bus-1])
 
 
 # %% compute the states (without gradients)
-quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # solve and apply a Gurobi projection!
 quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
@@ -168,7 +168,7 @@ quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
 #qG.pcg_tol = 0.01
 #qG.pcg_tol = 0.001
 #qG.pcg_tol = 0.000001
-quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # %% write a solution :)
 soln_dict = quasiGrad.prepare_solution(prm, stt, sys)

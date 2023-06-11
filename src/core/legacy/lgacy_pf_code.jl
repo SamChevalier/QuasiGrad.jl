@@ -18,10 +18,10 @@ function get_injection_bounds!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Floa
 
     # at this time, compute the pr and cs upper and lower bounds across all devices --
     # -> skip pqe equality links!
-    dev_plb = stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind)
-    dev_pub = stt[:u_on_dev][tii].*getindex.(prm.dev.p_ub,t_ind)
-    dev_qlb = stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind)
-    dev_qub = stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind)
+    dev_plb = stt[:u_on_dev][tii].*prm.dev.p_lb_tmdv[t_ind]
+    dev_pub = stt[:u_on_dev][tii].*prm.dev.p_ub_tmdv[t_ind]
+    dev_qlb = stt[:u_sum][tii].*prm.dev.q_lb_tmdv[t_ind]
+    dev_qub = stt[:u_sum][tii].*prm.dev.q_ub_tmdv[t_ind]
 
     # note: clipping is based on the upper/lower bounds, and not
     # based on the beta linking equations -- so, we just treat
@@ -168,10 +168,10 @@ function apply_pq_injections!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quas
     t_ind = prm.ts.time_key_ind[tii]
 
     # at this time, compute the pr and cs upper and lower bounds across all devices
-    dev_plb = stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind)
-    dev_pub = stt[:u_on_dev][tii].*getindex.(prm.dev.p_ub,t_ind)
-    dev_qlb = stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind)
-    dev_qub = stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind)
+    dev_plb = stt[:u_on_dev][tii].*prm.dev.p_lb_tmdv[t_ind]
+    dev_pub = stt[:u_on_dev][tii].*prm.dev.p_ub_tmdv[t_ind]
+    dev_qlb = stt[:u_sum][tii].*prm.dev.q_lb_tmdv[t_ind]
+    dev_qub = stt[:u_sum][tii].*prm.dev.q_ub_tmdv[t_ind]
 
     # note: clipping is based on the upper/lower bounds, and not
     # based on the beta linking equations -- so, we just treat
@@ -370,10 +370,10 @@ function slack_factors(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::Dict{Symbo
     t_ind = prm.ts.time_key_ind[tii]
 
     # at this time, compute the pr and cs upper and lower bounds across all devices
-    dev_plb = stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind)
-    dev_pub = stt[:u_on_dev][tii].*getindex.(prm.dev.p_ub,t_ind)
-    dev_qlb = stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind)
-    dev_qub = stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind)
+    dev_plb = stt[:u_on_dev][tii].*prm.dev.p_lb_tmdv[t_ind]
+    dev_pub = stt[:u_on_dev][tii].*prm.dev.p_ub_tmdv[t_ind]
+    dev_qlb = stt[:u_sum][tii].*prm.dev.q_lb_tmdv[t_ind]
+    dev_qub = stt[:u_sum][tii].*prm.dev.q_ub_tmdv[t_ind]
 
     # note: clipping is based on the upper/lower bounds, and not
     # based on the beta linking equations -- so, we just treat
@@ -548,7 +548,7 @@ function solve_power_flow(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Flo
             stt[:va][tii][2:end] = x[(nPQ+2):end]
 
             # update the flows and residual and such
-            quasiGrad.update_states_for_distributed_slack_pf!(grd, idx, prm, qG, stt)
+            quasiGrad.update_states_for_distributed_slack_pf!(bit, grd, idx, prm, qG, stt)
         end
     end
 

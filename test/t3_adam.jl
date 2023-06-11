@@ -10,7 +10,7 @@ file_name = "scenario_002.json"
 jsn = quasiGrad.load_json(data_dir*file_name)
 
 # %% initialize
-adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
+adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
 stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # %% set adam parameters
@@ -33,7 +33,7 @@ qG.delta         = 1e5
 plot_adam = true
 
 # run :)
-quasiGrad.run_adam!(adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
 # %% project
 quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
 quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
@@ -41,4 +41,4 @@ quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
 
 # %%
 
-quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)

@@ -11,64 +11,86 @@ function power_balance!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float
         # duration
         dt = prm.ts.duration[tii]
 
-        # loop over each bus
+        # loop over each bus and aggregate powers
         for bus in 1:sys.nb
-            # active power balance: msc[:pb_slack][tii][bus] to record with time
-            msc[:pb_slack][bus] = 
-                    # consumers (positive)
-                    sum(stt[:dev_p][tii][idx.cs[bus]]; init=0.0) +
-                    # shunt
-                    sum(stt[:sh_p][tii][idx.sh[bus]]; init=0.0) +
-                    # acline
-                    sum(stt[:acline_pfr][tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
-                    sum(stt[:acline_pto][tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
-                    # xfm
-                    sum(stt[:xfm_pfr][tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
-                    sum(stt[:xfm_pto][tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
-                    # dcline
-                    sum(stt[:dc_pfr][tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
-                    sum(stt[:dc_pto][tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
-                    # producer (negative)
-                   -sum(stt[:dev_p][tii][idx.pr[bus]]; init=0.0)
-            
-            # reactive power balance
-            msc[:qb_slack][bus] = 
-                    # consumers (positive)
-                    sum(stt[:dev_q][tii][idx.cs[bus]]; init=0.0) +
-                    # shunt
-                    sum(stt[:sh_q][tii][idx.sh[bus]]; init=0.0) +
-                    # acline
-                    sum(stt[:acline_qfr][tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
-                    sum(stt[:acline_qto][tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
-                    # xfm
-                    sum(stt[:xfm_qfr][tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
-                    sum(stt[:xfm_qto][tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
-                    # dcline
-                    sum(stt[:dc_qfr][tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
-                    sum(stt[:dc_qto][tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
-                    # producer (negative)
-                   -sum(stt[:dev_q][tii][idx.pr[bus]]; init=0.0)
+            quasiGrad.pq_sums!(bus, idx, msc, stt, tii)
         end
 
         # actual mismatch penalty
-        stt[:zp][tii] = abs.(msc[:pb_slack])*cp*dt
-        stt[:zq][tii] = abs.(msc[:qb_slack])*cq*dt
+        stt[:zp][tii] .= abs.(msc[:pb_slack]).*(cp*dt)
+        stt[:zq][tii] .= abs.(msc[:qb_slack]).*(cq*dt)
 
         # evaluate the grad?
         if qG.eval_grad
             if qG.pqbal_grad_type == "standard"
-                grd[:zp][:pb_slack][tii] = cp*dt*sign.(msc[:pb_slack])
-                grd[:zq][:qb_slack][tii] = cq*dt*sign.(msc[:qb_slack])
+                grd[:zp][:pb_slack][tii] .= (cp*dt).*sign.(msc[:pb_slack])
+                grd[:zq][:qb_slack][tii] .= (cq*dt).*sign.(msc[:qb_slack])
             elseif qG.pqbal_grad_type == "soft_abs"
-                grd[:zp][:pb_slack][tii] = qG.pqbal_grad_weight_p*dt*soft_abs_grad.(msc[:pb_slack], qG.pqbal_grad_eps2) # alt =>  msc[:pb_slack]./(sqrt.(msc[:pb_slack].^2 .+ qG.pqbal_grad_eps2))
-                grd[:zq][:qb_slack][tii] = qG.pqbal_grad_weight_q*dt*soft_abs_grad.(msc[:qb_slack], qG.pqbal_grad_eps2) # alt =>  msc[:qb_slack]./(sqrt.(msc[:qb_slack].^2 .+ qG.pqbal_grad_eps2))
+                grd[:zp][:pb_slack][tii] .= (qG.pqbal_grad_weight_p*dt).*msc[:pb_slack]./(sqrt.(msc[:pb_slack].^2 .+ qG.pqbal_grad_eps2))
+                grd[:zq][:qb_slack][tii] .= (qG.pqbal_grad_weight_q*dt).*msc[:qb_slack]./(sqrt.(msc[:qb_slack].^2 .+ qG.pqbal_grad_eps2))
             elseif qG.pqbal_grad_type == "quadratic_for_lbfgs"
-                grd[:zp][:pb_slack][tii] = cp*dt*msc[:pb_slack]
-                grd[:zq][:qb_slack][tii] = cp*dt*msc[:qb_slack]
+                grd[:zp][:pb_slack][tii] .= (cp*dt).*msc[:pb_slack]
+                grd[:zq][:qb_slack][tii] .= (cp*dt).*msc[:qb_slack]
             else
                 println("not recognized!")
             end
         end
+    end
+end
+
+# fast sum
+function pq_sums!(bus::Int64, idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, tii::Symbol)
+    # loop over devices
+    #
+    msc[:pb_slack][bus] = 0.0
+    msc[:qb_slack][bus] = 0.0
+
+    # consumers -- positive
+    for cs in idx.cs[bus]
+        msc[:pb_slack][bus] += stt[:dev_p][tii][cs]
+        msc[:qb_slack][bus] += stt[:dev_q][tii][cs]
+    end
+
+    # shunts -- positive
+    for sh in idx.sh[bus]
+        msc[:pb_slack][bus] += stt[:sh_p][tii][sh]
+        msc[:qb_slack][bus] += stt[:sh_q][tii][sh]
+    end
+
+    # acline -- positive
+    for acl in idx.bus_is_acline_frs[bus]
+        msc[:pb_slack][bus] += stt[:acline_pfr][tii][acl]
+        msc[:qb_slack][bus] += stt[:acline_qfr][tii][acl]
+    end
+    for acl in idx.bus_is_acline_tos[bus]
+        msc[:pb_slack][bus] += stt[:acline_pto][tii][acl]
+        msc[:qb_slack][bus] += stt[:acline_qto][tii][acl]
+    end
+
+    # xfm -- positive
+    for xfm in idx.bus_is_xfm_frs[bus]
+        msc[:pb_slack][bus] += stt[:xfm_pfr][tii][xfm]
+        msc[:qb_slack][bus] += stt[:xfm_qfr][tii][xfm]
+    end
+    for xfm in idx.bus_is_xfm_tos[bus]
+        msc[:pb_slack][bus] += stt[:xfm_pto][tii][xfm]
+        msc[:qb_slack][bus] += stt[:xfm_qto][tii][xfm]
+    end
+
+    # dcline -- positive
+    for dc in idx.bus_is_dc_frs[bus]
+        msc[:pb_slack][bus] += stt[:dc_pfr][tii][dc]
+        msc[:qb_slack][bus] += stt[:dc_qfr][tii][dc]
+    end
+    for dc in idx.bus_is_dc_tos[bus] 
+        msc[:pb_slack][bus] += stt[:dc_pto][tii][dc]
+        msc[:qb_slack][bus] += stt[:dc_qto][tii][dc]
+    end
+
+    # producer -- NEGATIVE
+    for pr in idx.pr[bus]
+        msc[:pb_slack][bus] -= stt[:dev_p][tii][pr]
+        msc[:qb_slack][bus] -= stt[:dev_q][tii][pr]
     end
 end
 
@@ -77,12 +99,13 @@ function correct_reactive_injections!(idx::quasiGrad.Idx, prm::quasiGrad.Param, 
 
     # warning
     @info "note: the reactive power correction function does NOT take J pqe into account yet"
+    @warn "this was a good idea, but it doesn't really work -- replaced by power flow!"
 
     # loop over each time period
     for (t_ind, tii) in enumerate(prm.ts.time_keys)
         # at this time, compute the pr and cs upper and lower bounds across all devices
-        dev_qlb = stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind)
-        dev_qub = stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind)
+        dev_qlb = stt[:u_sum][tii].*prm.dev.q_lb_tmdv[t_ind]
+        dev_qub = stt[:u_sum][tii].*prm.dev.q_ub_tmdv[t_ind]
         # note: clipping is based on the upper/lower bounds, and not
         # based on the beta linking equations -- so, we just treat
         # that as a penalty, and not as a power balance factor

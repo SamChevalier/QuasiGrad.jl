@@ -1,18 +1,21 @@
 using quasiGrad
-#using GLMakie
+using GLMakie
 using Revise
 using Plots
-#using Makie
+using Makie
 
 # call the plotting tools
 # include("../core/plotting.jl")
 
-#  ===============
+# %% ===============
 #path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D2/C3S0N00073/scenario_002.json"
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
+#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D2/C3S1N00600/scenario_001.json"
 #path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D1/C3S0N00073/scenario_002.json"
-path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D2/C3S1N00600/scenario_001.json"
+#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_117.json"
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_117.json"
 
+# parameters
 InFile1               = path
 TimeLimitInSeconds    = 600.0
 NewTimeLimitInSeconds = TimeLimitInSeconds - 35.0
@@ -21,154 +24,152 @@ NetworkModel          = "test"
 AllowSwitching        = 0
 
 # this is the master function which executes quasiGrad.
-# 1. InFile1 -> if string, assume we need to load the jsn data
-#
+# 
 #
 # =====================================================\\
-# start time
+# TT: start time
 start_time = time()
 
 # I1. load the system data
 jsn = quasiGrad.load_json(InFile1)
 
 # I2. initialize the system
-adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
+adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
 stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 
+@warn "homotopy ON"
+qG.apply_grad_weight_homotopy = true
+
 # I3. run an economic dispatch and update the states
-quasiGrad.economic_dispatch_initialization!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+
+# TT: time
+time_spent_before_loop = time() - start_time
+
+# TT: how much time is left?
+time_left = NewTimeLimitInSeconds - time_spent_before_loop
+
+# TT: time management:
+quasiGrad.manage_time!(time_left, qG)
+
+# TT: set an adam solve time
+qG.adam_max_time = 150.0
 
 # L1. run power flow
-quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
 
-# L2. clean-up reserves by solving softly constrained LP
+# %% L2. clean-up reserves by solving softly constrained LP
 quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 
-# =============
-qG.adam_max_time = 100.0
-qG.alpha_0       = 2.5e-6
-quasiGrad.run_adam!(adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+# L4. solve Gurobi projection
+quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
 
-# %%
-quasiGrad.cleanup_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
+# L5. fix binaries which are closest to their Gurobi solutions
+quasiGrad.batch_fix!(pct_round, prm, stt, sys, upd)
 
-# compare the current gradient (cg) and the prvious gradient (pg).
-# compare the current state and the prvious state.
-#
-# if cg \approx pg
-#   step = 1.5*step
-#
-# elseif cg > pg
-#   step = 1.5*step
-#
-#
-# %%
+# %% L6. update the state (i.e., apply the projection)
+quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
+
+qG.max_pf_dx = 1e-2
+quasiGrad.cleanup_constrained_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
+
+# %% save a copy
 stt0 = deepcopy(stt)
 
-# %%
-#
-#
-quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
-println(scr[:zms_penalized])
+# %% return!
+stt = deepcopy(stt0)
 
-# %% test solver
-function MyJulia1(InFile1::String, TimeLimitInSeconds::Any, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
-    println("running MyJulia1")
-    println("  $(InFile1)")
-    println("  $(TimeLimitInSeconds)")
-    println("  $(Division)")
-    println("  $(NetworkModel)")
-    println("  $(AllowSwitching)")
+# L3. run adam
+qG.adam_max_time      = 25.0
+qG.take_adam_pf_steps = false
 
-    # how long did package loading take? Give it 20 sec for now..
-    NewTimeLimitInSeconds = Float64(TimeLimitInSeconds) - 20.0
+# choose step sizes
+vmva_scale    = 1e-6
+xfm_scale     = 1e-5
+dc_scale      = 1e-5
+power_scale   = 1e-4
+reserve_scale = 1e-4
+bin_scale     = 1e-2
 
-    # compute the solution
-    quasiGrad.compute_quasiGrad_solution(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
-end
+qG.alpha_0[:vm]           = vmva_scale
+qG.alpha_0[:va]           = vmva_scale
+qG.alpha_0[:phi]          = xfm_scale
+qG.alpha_0[:tau]          = xfm_scale
+qG.alpha_0[:dc_pfr]       = dc_scale
+qG.alpha_0[:dc_qto]       = dc_scale
+qG.alpha_0[:dc_qfr]       = dc_scale
+qG.alpha_0[:dev_q]        = power_scale
+qG.alpha_0[:p_on]         = power_scale
+qG.alpha_0[:p_rgu]        = reserve_scale
+qG.alpha_0[:p_rgd]        = reserve_scale
+qG.alpha_0[:p_scr]        = reserve_scale
+qG.alpha_0[:p_nsc]        = reserve_scale
+qG.alpha_0[:p_rrd_on]     = reserve_scale
+qG.alpha_0[:p_rrd_off]    = reserve_scale
+qG.alpha_0[:p_rru_on]     = reserve_scale
+qG.alpha_0[:p_rru_off]    = reserve_scale
+qG.alpha_0[:q_qrd]        = reserve_scale
+qG.alpha_0[:q_qru]        = reserve_scale
+qG.alpha_0[:u_on_xfm]     = bin_scale
+qG.alpha_0[:u_on_dev]     = bin_scale
+qG.alpha_0[:u_step_shunt] = bin_scale
+qG.alpha_0[:u_on_acline]  = bin_scale
 
-# %%
-path                  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
+quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+
+# %% Plots
+sum(stt[:u_on_dev][:t7])
+
+
+
+# Plots.plot(stt[:u_on_dev][:t1])
+
+# %% ===================
+#=
+tii   = :t1
+alpha = 2e-6
+
+adm[:u_on_dev][:m][tii][498] = beta1.*adm[:u_on_dev][:m][tii][498] + (1.0-beta1).*mgd[:u_on_dev][:t1][498]
+adm[:u_on_dev][:v][tii][498] = beta2.*adm[:u_on_dev][:v][tii][498] + (1.0-beta2).*mgd[:u_on_dev][:t1][498].^2.0
+stt[:u_on_dev][tii]          = stt[:u_on_dev][tii][498] - alpha*(adm[:u_on_dev][:m][tii][498])./(sqrt.(adm[:u_on_dev][:v][tii][498]) .+ qG.eps)
+=#
+
+# %% ================================
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
+#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D2/C3S1N00600/scenario_001.json"
+#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D1/C3S0N00073/scenario_002.json"
+#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_117.json"
+#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_130.json"
+
+# parameters
 InFile1               = path
-TimeLimitInSeconds    = 600.0
+TimeLimitInSeconds    = 1000.0
 NewTimeLimitInSeconds = TimeLimitInSeconds - 35.0
 Division              = 1
 NetworkModel          = "test"
 AllowSwitching        = 0
 
-MyJulia1(InFile1, TimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
-
-# %%
-# L4. solve Gurobi projection
-quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
-
-# %% L5. fix binaries which are closest to their Gurobi solutions
-pct_round = 100.0
-quasiGrad.batch_fix!(pct_round, prm, stt, sys, upd)
-
-# L6. update the state (i.e., apply the projection)
-quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
-
-# %%
-# qG.clip_pq_based_on_bins: should we clip p and q based on the current values of the binaries?
-#                           there are pros and cons to both decisions, so it is probably best
-#                           to alternate..
-t_ind = 5
-tii = :t5
-
-#=
-if qG.clip_pq_based_on_bins == true
-    stt[:p_on][tii] = max.(stt[:p_on][tii], stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind))
-    stt[:p_on][tii] = min.(stt[:p_on][tii], stt[:u_on_dev][tii].*getindex.(prm.dev.p_ub,t_ind))
-else
-    # watch out!! 
-    # => the absolute bounds are given by 0 < p < p_ub, so this is how we clip!
-    stt[:p_on][tii] = max.(stt[:p_on][tii], 0.0)
-    stt[:p_on][tii] = min.(stt[:p_on][tii], getindex.(prm.dev.p_ub,t_ind))
-end
-=#
-# clip q -- we clip very simply based on (112), (113), (122), (123), where q_qru is negelcted!
+# this is the master function which executes quasiGrad.
+# 
 #
-if qG.clip_pq_based_on_bins == true
-    stt[:dev_q][tii] = max.(stt[:dev_q][tii], stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind))
-    stt[:dev_q][tii] = min.(stt[:dev_q][tii], stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind))
-else
-    # watch out!! 
-    # => the absolute bounds are given by q_lb < q < q_ub, but
-    # we don't know if q_lb is positive or negative, so to include 0,
-    # we take min.(q_lb, 0.0). the upper bound is fine.
-    stt[:dev_q][tii] = max.(stt[:dev_q][tii], min.(getindex.(prm.dev.q_lb,t_ind), 0.0))
-    stt[:dev_q][tii] = min.(stt[:dev_q][tii], getindex.(prm.dev.q_ub,t_ind))
-end
+# =====================================================\\
+# TT: start time
+start_time = time()
 
-# %%
-t_ind = 4
-tii = :t4
-vals = Float64[]
-vals2 = Float64[]
-for dev in 1:sys.ndev
-    if dev in idx.cs_devs
-        push!(vals, stt[:q_qru][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev])
-        push!(vals2, stt[:dev_q][tii][dev] + stt[:q_qrd][tii][dev] - prm.dev.q_ub[dev][t_ind]*stt[:u_sum][tii][dev])
-    else
-        push!(vals, 0.0)
-        push!(vals2, 0.0)
-    end
-end
+# I1. load the system data
+jsn = quasiGrad.load_json(InFile1)
 
-# %%
-# a(n unfinished) version where all devices are solved at once!
-model = Model(Gurobi.Optimizer; add_bridges = false)
-set_string_names_on_creation(model, false)
-set_silent(model)
+# I2. initialize the system
+adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
+stt, sys, upd, wct = quasiGrad.base_initialization(jsn, true, 1.0);
 
-# status update
-@info "Running MILP projection across $(sys.ndev) devices."
+# project
+quasiGrad.project!(15.0, idx, prm, qG, stt, sys, upd, final_projection = true)
 
-# %%
-quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), 1e-10)
-quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), 1e-10)
+quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
-# %%
-get_attribute(model, MOI.RelativeGapTolerance())
-get_attribute(model, MOI.AbsoluteGapTolerance())
+# E7. write the final solution
+quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+
+# E8. post process
+quasiGrad.post_process_stats(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)

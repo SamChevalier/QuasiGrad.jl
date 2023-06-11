@@ -56,55 +56,55 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Sy
             # all devices
             for dev in 1:sys.ndev
                 # OG=> alpha = grd[:nzms][:zbase] .* grd[:zbase][:zt] .* grd[:zt][:zen_dev][dev] .* grd[:zen_dev][:dev_p][tii][dev]
-                alpha = -cgd.dzt_dzen[dev] .* grd[:zen_dev][:dev_p][tii][dev]
-                dp_alpha!(grd, dev, tii, alpha)
+                # => alpha = -cgd.dzt_dzen[dev] .* grd[:zen_dev][:dev_p][tii][dev]
+                dp_alpha!(grd, dev, tii, -cgd.dzt_dzen[dev] .* grd[:zen_dev][:dev_p][tii][dev])
             end
 
             # g2 (zsu): nzms => zbase => zt => => zsu => u_su_dev => u_on_dev
             #
             # devices
             # OG=> gc_d = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsu_dev] * grd[:zsu_dev][:u_su_dev]
-            mgd[:u_on_dev][tii] += prm.dev.startup_cost .* grd[:u_su_dev][:u_on_dev][tii]
+            mgd[:u_on_dev][tii] .+= prm.dev.startup_cost .* grd[:u_su_dev][:u_on_dev][tii]
             
             # acline
             # OG => gc_l = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsu_acline] * grd[:zsu_acline][:u_su_acline]
-            mgd[:u_on_acline][tii] += prm.acline.connection_cost .* grd[:u_su_acline][:u_on_acline][tii]
+            mgd[:u_on_acline][tii] .+= prm.acline.connection_cost .* grd[:u_su_acline][:u_on_acline][tii]
 
             # xfm
             # OG => gc_x = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsu_xfm] * grd[:zsu_xfm][:u_su_xfm]
-            mgd[:u_on_xfm][tii] += prm.xfm.connection_cost .* grd[:u_su_xfm][:u_on_xfm][tii]
+            mgd[:u_on_xfm][tii] .+= prm.xfm.connection_cost .* grd[:u_su_xfm][:u_on_xfm][tii]
 
             # include previous times?
             if tii != :t1
-                mgd[:u_on_dev][prm.ts.tmin1[tii]]    += prm.dev.startup_cost       .* grd[:u_su_dev][:u_on_dev_prev][tii]
-                mgd[:u_on_acline][prm.ts.tmin1[tii]] += prm.acline.connection_cost .* grd[:u_su_acline][:u_on_acline_prev][tii]
-                mgd[:u_on_xfm][prm.ts.tmin1[tii]]    += prm.xfm.connection_cost    .* grd[:u_su_xfm][:u_on_xfm_prev][tii]
+                mgd[:u_on_dev][prm.ts.tmin1[tii]]    .+= prm.dev.startup_cost       .* grd[:u_su_dev][:u_on_dev_prev][tii]
+                mgd[:u_on_acline][prm.ts.tmin1[tii]] .+= prm.acline.connection_cost .* grd[:u_su_acline][:u_on_acline_prev][tii]
+                mgd[:u_on_xfm][prm.ts.tmin1[tii]]    .+= prm.xfm.connection_cost    .* grd[:u_su_xfm][:u_on_xfm_prev][tii]
             end
             
             # g3 (zsd): nzms => zbase => zt => => zsd => u_sd_dev => u_on_dev
             #
             # devices
             # OG => grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsd_dev] * grd[:zsd_dev][:u_sd_dev]
-            mgd[:u_on_dev][tii] += prm.dev.shutdown_cost .* grd[:u_sd_dev][:u_on_dev][tii]
+            mgd[:u_on_dev][tii] .+= prm.dev.shutdown_cost .* grd[:u_sd_dev][:u_on_dev][tii]
 
             # acline
             # OG => gc_l = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsd_acline] * grd[:zsd_acline][:u_sd_acline]
-            mgd[:u_on_acline][tii] += prm.acline.disconnection_cost .* grd[:u_sd_acline][:u_on_acline][tii]
+            mgd[:u_on_acline][tii] .+= prm.acline.disconnection_cost .* grd[:u_sd_acline][:u_on_acline][tii]
 
             # xfm
             # OG => gc_x = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsd_xfm] * grd[:zsd_xfm][:u_sd_xfm]
-            mgd[:u_on_xfm][tii] += prm.xfm.disconnection_cost .* grd[:u_sd_xfm][:u_on_xfm][tii]
+            mgd[:u_on_xfm][tii] .+= prm.xfm.disconnection_cost .* grd[:u_sd_xfm][:u_on_xfm][tii]
 
             # include previous times?
             if tii != :t1
-                mgd[:u_on_dev][prm.ts.tmin1[tii]]    += prm.dev.shutdown_cost         .* grd[:u_sd_dev][:u_on_dev_prev][tii]
-                mgd[:u_on_acline][prm.ts.tmin1[tii]] += prm.acline.disconnection_cost .* grd[:u_sd_acline][:u_on_acline_prev][tii]
-                mgd[:u_on_xfm][prm.ts.tmin1[tii]]    += prm.xfm.disconnection_cost    .* grd[:u_sd_xfm][:u_on_xfm_prev][tii]
+                mgd[:u_on_dev][prm.ts.tmin1[tii]]    .+= prm.dev.shutdown_cost         .* grd[:u_sd_dev][:u_on_dev_prev][tii]
+                mgd[:u_on_acline][prm.ts.tmin1[tii]] .+= prm.acline.disconnection_cost .* grd[:u_sd_acline][:u_on_acline_prev][tii]
+                mgd[:u_on_xfm][prm.ts.tmin1[tii]]    .+= prm.xfm.disconnection_cost    .* grd[:u_sd_xfm][:u_on_xfm_prev][tii]
             end
 
             # g4 (zon_dev): nzms => zbase => zt => => zon_dev => u_on_dev
             # OG => mgd[:u_on_dev][tii] += grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zon_dev] * grd[:zon_dev][:u_on_dev][tii]
-            mgd[:u_on_dev][tii] += cgd.dzon_dev_du_on_dev[tii] #grd[:zon_dev][:u_on_dev][tii]
+            mgd[:u_on_dev][tii] .+= cgd.dzon_dev_du_on_dev[tii] #grd[:zon_dev][:u_on_dev][tii]
 
             # g5 (zsus_dev): nzms => zbase => zt => => zsus_dev => u_on_dev ... ?
                 # => taken in device_startup_states!()
@@ -115,45 +115,45 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Sy
 
             # g7 (zrgu):  nzms => zbase => zt => zrgu => p_rgu
             # OG => grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrgu] * cgd.dzrgu_dp_rgu[tii] #grd[:zrgu][:p_rgu][tii]
-            mgd[:p_rgu][tii] += cgd.dzrgu_dp_rgu[tii]
+            mgd[:p_rgu][tii] .+= cgd.dzrgu_dp_rgu[tii]
 
             # g8 (zrgd):  nzms => zbase => zt => => zrgd => p_rgd
             # OG => grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrgd] * cgd.dzrgd_dp_rgd[tii] #grd[:zrgd][:p_rgd][tii]
-            mgd[:p_rgd][tii] += cgd.dzrgd_dp_rgd[tii]
+            mgd[:p_rgd][tii] .+= cgd.dzrgd_dp_rgd[tii]
 
             # g9 (zscr):  nzms => zbase => zt => => zscr => p_scr
             # OG => grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zscr] * cgd.dzscr_dp_scr[tii] #grd[:zscr][:p_scr][tii]
-            mgd[:p_scr][tii] += cgd.dzscr_dp_scr[tii]
+            mgd[:p_scr][tii] .+= cgd.dzscr_dp_scr[tii]
             
             # g10 (znsc): nzms => zbase => zt => => znsc => p_nsc
             # OG => grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:znsc] * cgd.dznsc_dp_nsc[tii] #grd[:znsc][:p_nsc][tii]
-            mgd[:p_nsc][tii] += cgd.dznsc_dp_nsc[tii]
+            mgd[:p_nsc][tii] .+= cgd.dznsc_dp_nsc[tii]
 
             # g11 (zrru): nzms => zbase => zt => => zrru => (p_rru_on,p_rru_off)
             # OG => grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrru] * cgd.dzrru_dp_rru_on[tii]  #grd[:zrru][:p_rru_on][tii]
             # OG => grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrru] * cgd.dzrru_dp_rru_off[tii] #grd[:zrru][:p_rru_off][tii]
-            mgd[:p_rru_on][tii]  += cgd.dzrru_dp_rru_on[tii]
-            mgd[:p_rru_off][tii] += cgd.dzrru_dp_rru_off[tii]
+            mgd[:p_rru_on][tii]  .+= cgd.dzrru_dp_rru_on[tii]
+            mgd[:p_rru_off][tii] .+= cgd.dzrru_dp_rru_off[tii]
 
             # g12 (zrrd): nzms => zbase => zt => => zrrd => (p_rrd_on,p_rrd_off)
             # OG => grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrrd] * cgd.dzrrd_dp_rrd_on[tii]  #grd[:zrrd][:p_rrd_on][tii]
             # OG => grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrrd] * cgd.dzrrd_dp_rrd_off[tii] #grd[:zrrd][:p_rrd_off][tii]
-            mgd[:p_rrd_on][tii]  += cgd.dzrrd_dp_rrd_on[tii]
-            mgd[:p_rrd_off][tii] += cgd.dzrrd_dp_rrd_off[tii]
+            mgd[:p_rrd_on][tii]  .+= cgd.dzrrd_dp_rrd_on[tii]
+            mgd[:p_rrd_off][tii] .+= cgd.dzrrd_dp_rrd_off[tii]
 
             # g13 (zqru): nzms => zbase => zt => => zqru => q_qru
             # OG => grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zqru] * cgd.dzqru_dq_qru[tii] #grd[:zqru][:q_qru][tii]
-            mgd[:q_qru][tii] += cgd.dzqru_dq_qru[tii]
+            mgd[:q_qru][tii] .+= cgd.dzqru_dq_qru[tii]
 
             # g14 (zqrd): nzms => zbase => zt => => zqrd => q_qrd
             # OG => grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zqrd] * cgd.dzqrd_dq_qrd[tii] #grd[:zqrd][:q_qrd][tii]
-            mgd[:q_qrd][tii] += cgd.dzqrd_dq_qrd[tii]
+            mgd[:q_qrd][tii] .+= cgd.dzqrd_dq_qrd[tii]
 
             # g15 (zp): nzms => zbase => zt => zp => (all p injection variables)
-            master_grad_zp!(tii, prm, idx, stt, grd, mgd, sys)
+            master_grad_zp!(tii, prm, idx, grd, mgd, sys)
 
             # g16 (zq): nzms => zbase => zt => zq => (all q injection variables)
-            master_grad_zq!(tii, prm, idx, stt, grd, mgd, sys)
+            master_grad_zq!(tii, prm, idx, grd, mgd, sys)
 
             # reserve zones -- p
             #
@@ -162,35 +162,35 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Sy
                 # g17 (zrgu_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrgu_zonal] * cgd.dzrgu_zonal_dp_rgu_zonal_penalty[tii][zone] #grd[:zrgu_zonal][:p_rgu_zonal_penalty][tii][zone]
                 if qG.reserve_grad_is_soft_abs
-                    mgd_com = cgd.dzrgu_zonal_dp_rgu_zonal_penalty[tii][zone]*soft_abs_grad(stt[:p_rgu_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
+                    mgd_com = cgd.dzrgu_zonal_dp_rgu_zonal_penalty[tii][zone]*soft_abs_reserve_grad(stt[:p_rgu_zonal_penalty][tii][zone], qG)
                 else
                     mgd_com = cgd.dzrgu_zonal_dp_rgu_zonal_penalty[tii][zone]*sign(stt[:p_rgu_zonal_penalty][tii][zone])
                 end
                 mgd[:p_rgu][tii][idx.dev_pzone[zone]] .-= mgd_com
                 # ===> requirements -- depend on active power consumption
                 for dev in idx.cs_pzone[zone]
-                    alpha = mgd_com*prm.reserve.rgu_sigma[zone]
-                    dp_alpha!(grd, dev, tii, alpha)
+                    # => alpha = mgd_com*prm.reserve.rgu_sigma[zone]
+                    dp_alpha!(grd, dev, tii, mgd_com*prm.reserve.rgu_sigma[zone])
                 end
 
                 # g18 (zrgd_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrgd_zonal] * cgd.dzrgd_zonal_dp_rgd_zonal_penalty[tii][zone] #grd[:zrgd_zonal][:p_rgd_zonal_penalty][tii][zone]
                 if qG.reserve_grad_is_soft_abs
-                    mgd_com = cgd.dzrgd_zonal_dp_rgd_zonal_penalty[tii][zone]*soft_abs_grad(sign(stt[:p_rgd_zonal_penalty][tii][zone]), qG.reserve_grad_eps2)
+                    mgd_com = cgd.dzrgd_zonal_dp_rgd_zonal_penalty[tii][zone]*soft_abs_reserve_grad(sign(stt[:p_rgd_zonal_penalty][tii][zone]), qG)
                 else
                     mgd_com = cgd.dzrgd_zonal_dp_rgd_zonal_penalty[tii][zone]*sign(stt[:p_rgd_zonal_penalty][tii][zone])
                 end
                 mgd[:p_rgd][tii][idx.dev_pzone[zone]] .-= mgd_com
                 # ===> requirements -- depend on active power consumption
                 for dev in idx.cs_pzone[zone]
-                    alpha = mgd_com*prm.reserve.rgd_sigma[zone]
-                    dp_alpha!(grd, dev, tii, alpha)
+                    # => alpha = mgd_com*prm.reserve.rgd_sigma[zone]
+                    dp_alpha!(grd, dev, tii, mgd_com*prm.reserve.rgd_sigma[zone])
                 end
 
                 # g19 (zscr_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zscr_zonal] * cgd.dzscr_zonal_dp_scr_zonal_penalty[tii][zone] #grd[:zscr_zonal][:p_scr_zonal_penalty][tii][zone]
                 if qG.reserve_grad_is_soft_abs
-                    mgd_com = cgd.dzscr_zonal_dp_scr_zonal_penalty[tii][zone]*soft_abs_grad(sign(stt[:p_scr_zonal_penalty][tii][zone]), qG.reserve_grad_eps2)
+                    mgd_com = cgd.dzscr_zonal_dp_scr_zonal_penalty[tii][zone]*soft_abs_reserve_grad(sign(stt[:p_scr_zonal_penalty][tii][zone]), qG)
                 else
                     mgd_com = cgd.dzscr_zonal_dp_scr_zonal_penalty[tii][zone]*sign(stt[:p_scr_zonal_penalty][tii][zone])
                 end
@@ -201,22 +201,22 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Sy
                     i_pmax  = idx.pr_pzone[zone][argmax(stt[:dev_p][tii][idx.pr_pzone[zone]])]
                     # ===> requirements -- depend on active power production/consumption!
                     for dev = i_pmax # we only take the derivative of the device which has the highest production
-                        alpha = mgd_com*prm.reserve.scr_sigma[zone]
-                        dp_alpha!(grd, dev, tii, alpha)
+                        # => alpha = mgd_com*prm.reserve.scr_sigma[zone]
+                        dp_alpha!(grd, dev, tii, mgd_com*prm.reserve.scr_sigma[zone])
                     end
                 end
                 if ~isempty(idx.cs_pzone[zone])
                     # only do the following if there are consumers here -- overly cautious
                     for dev in idx.cs_pzone[zone]
-                        alpha = mgd_com*prm.reserve.rgu_sigma[zone]
-                        dp_alpha!(grd, dev, tii, alpha)
+                        # => alpha = mgd_com*prm.reserve.rgu_sigma[zone]
+                        dp_alpha!(grd, dev, tii, mgd_com*prm.reserve.rgu_sigma[zone])
                     end
                 end
 
                 # g20 (znsc_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:znsc_zonal] * cgd.dznsc_zonal_dp_nsc_zonal_penalty[tii][zone] #grd[:znsc_zonal][:p_nsc_zonal_penalty][tii][zone]
                 if qG.reserve_grad_is_soft_abs
-                    mgd_com = cgd.dznsc_zonal_dp_nsc_zonal_penalty[tii][zone]*soft_abs_grad(stt[:p_nsc_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
+                    mgd_com = cgd.dznsc_zonal_dp_nsc_zonal_penalty[tii][zone]*soft_abs_reserve_grad(stt[:p_nsc_zonal_penalty][tii][zone], qG)
                 else
                     mgd_com = cgd.dznsc_zonal_dp_nsc_zonal_penalty[tii][zone]*sign(stt[:p_nsc_zonal_penalty][tii][zone])
                 end
@@ -228,27 +228,27 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Sy
                     i_pmax  = idx.pr_pzone[zone][argmax(stt[:dev_p][tii][idx.pr_pzone[zone]])]
                     # ===> requirements -- depend on active power production/consumption!
                     for dev in i_pmax # we only take the derivative of the device which has the highest production
-                        alpha = mgd_com*prm.reserve.scr_sigma[zone]
-                        dp_alpha!(grd, dev, tii, alpha)
+                        # => alpha = mgd_com*prm.reserve.scr_sigma[zone]
+                        dp_alpha!(grd, dev, tii, mgd_com*prm.reserve.scr_sigma[zone])
                     end
                     for dev in i_pmax # we only take the derivative of the device which has the highest production
-                        alpha = mgd_com*prm.reserve.nsc_sigma[zone]
-                        dp_alpha!(grd, dev, tii, alpha)
+                        # => alpha = mgd_com*prm.reserve.nsc_sigma[zone]
+                        dp_alpha!(grd, dev, tii, mgd_com*prm.reserve.nsc_sigma[zone])
                     end
                 end
                 if ~isempty(idx.cs_pzone[zone])
                     # only do the following if there are consumers here -- overly cautious
                     for dev in idx.cs_pzone[zone]
-                        alpha = mgd_com*prm.reserve.rgu_sigma[zone]
-                        dp_alpha!(grd, dev, tii, alpha)
+                        # => alpha = mgd_com*prm.reserve.rgu_sigma[zone]
+                        dp_alpha!(grd, dev, tii, mgd_com*prm.reserve.rgu_sigma[zone])
                     end
                 end
 
                 # g21 (zrru_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrru_zonal] * cgd.dzrru_zonal_dp_rru_zonal_penalty[tii][zone] #grd[:zrru_zonal][:p_rru_zonal_penalty][tii][zone]
                 if qG.reserve_grad_is_soft_abs
-                    mgd[:p_rru_on][tii][idx.dev_pzone[zone]]  .-= cgd.dzrru_zonal_dp_rru_zonal_penalty[tii][zone]*soft_abs_grad(stt[:p_rru_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
-                    mgd[:p_rru_off][tii][idx.dev_pzone[zone]] .-= cgd.dzrru_zonal_dp_rru_zonal_penalty[tii][zone]*soft_abs_grad(stt[:p_rru_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
+                    mgd[:p_rru_on][tii][idx.dev_pzone[zone]]  .-= cgd.dzrru_zonal_dp_rru_zonal_penalty[tii][zone]*soft_abs_reserve_grad(stt[:p_rru_zonal_penalty][tii][zone], qG)
+                    mgd[:p_rru_off][tii][idx.dev_pzone[zone]] .-= cgd.dzrru_zonal_dp_rru_zonal_penalty[tii][zone]*soft_abs_reserve_grad(stt[:p_rru_zonal_penalty][tii][zone], qG)
                 else
                     mgd[:p_rru_on][tii][idx.dev_pzone[zone]]  .-= cgd.dzrru_zonal_dp_rru_zonal_penalty[tii][zone]*sign(stt[:p_rru_zonal_penalty][tii][zone])
                     mgd[:p_rru_off][tii][idx.dev_pzone[zone]] .-= cgd.dzrru_zonal_dp_rru_zonal_penalty[tii][zone]*sign(stt[:p_rru_zonal_penalty][tii][zone])
@@ -257,8 +257,8 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Sy
                 # g22 (zrrd_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrrd_zonal] * cgd.dzrrd_zonal_dp_rrd_zonal_penalty[tii][zone] #grd[:zrrd_zonal][:p_rrd_zonal_penalty][tii][zone]
                 if qG.reserve_grad_is_soft_abs
-                    mgd[:p_rrd_on][tii][idx.dev_pzone[zone]]  .-= cgd.dzrrd_zonal_dp_rrd_zonal_penalty[tii][zone]*soft_abs_grad(stt[:p_rrd_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
-                    mgd[:p_rrd_off][tii][idx.dev_pzone[zone]] .-= cgd.dzrrd_zonal_dp_rrd_zonal_penalty[tii][zone]*soft_abs_grad(stt[:p_rrd_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
+                    mgd[:p_rrd_on][tii][idx.dev_pzone[zone]]  .-= cgd.dzrrd_zonal_dp_rrd_zonal_penalty[tii][zone]*soft_abs_reserve_grad(stt[:p_rrd_zonal_penalty][tii][zone], qG)
+                    mgd[:p_rrd_off][tii][idx.dev_pzone[zone]] .-= cgd.dzrrd_zonal_dp_rrd_zonal_penalty[tii][zone]*soft_abs_reserve_grad(stt[:p_rrd_zonal_penalty][tii][zone], qG)
                 else
                     mgd[:p_rrd_on][tii][idx.dev_pzone[zone]]  .-= cgd.dzrrd_zonal_dp_rrd_zonal_penalty[tii][zone]*sign(stt[:p_rrd_zonal_penalty][tii][zone])
                     mgd[:p_rrd_off][tii][idx.dev_pzone[zone]] .-= cgd.dzrrd_zonal_dp_rrd_zonal_penalty[tii][zone]*sign(stt[:p_rrd_zonal_penalty][tii][zone])
@@ -270,14 +270,14 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Sy
                 # g23 (zqru_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zqru_zonal] * cgd.dzqru_zonal_dq_qru_zonal_penalty[tii][zone] #grd[:zqru_zonal][:q_qru_zonal_penalty][tii][zone]
                 if qG.reserve_grad_is_soft_abs
-                    mgd[:q_qru][tii][idx.dev_qzone[zone]] .-= cgd.dzqru_zonal_dq_qru_zonal_penalty[tii][zone]*soft_abs_grad(stt[:q_qru_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
+                    mgd[:q_qru][tii][idx.dev_qzone[zone]] .-= cgd.dzqru_zonal_dq_qru_zonal_penalty[tii][zone]*soft_abs_reserve_grad(stt[:q_qru_zonal_penalty][tii][zone], qG)
                 else
                     mgd[:q_qru][tii][idx.dev_qzone[zone]] .-= cgd.dzqru_zonal_dq_qru_zonal_penalty[tii][zone]*sign(stt[:q_qru_zonal_penalty][tii][zone])
                 end
                 # g24 (zqrd_zonal):
                 # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zqrd_zonal] * cgd.dzqrd_zonal_dq_qrd_zonal_penalty[tii][zone] #grd[:zqrd_zonal][:q_qrd_zonal_penalty][tii][zone]
                 if qG.reserve_grad_is_soft_abs
-                    mgd[:q_qrd][tii][idx.dev_qzone[zone]] .-= cgd.dzqrd_zonal_dq_qrd_zonal_penalty[tii][zone]*soft_abs_grad(stt[:q_qrd_zonal_penalty][tii][zone], qG.reserve_grad_eps2)
+                    mgd[:q_qrd][tii][idx.dev_qzone[zone]] .-= cgd.dzqrd_zonal_dq_qrd_zonal_penalty[tii][zone]*soft_abs_reserve_grad(stt[:q_qrd_zonal_penalty][tii][zone], qG)
                 else
                     mgd[:q_qrd][tii][idx.dev_qzone[zone]] .-= cgd.dzqrd_zonal_dq_qrd_zonal_penalty[tii][zone]*sign(stt[:q_qrd_zonal_penalty][tii][zone])
                 end
@@ -318,9 +318,9 @@ function master_grad_solve_pf!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol
         end
 
         # g15 (zp): nzms => zbase => zt => zp => (all p injection variables)
-        master_grad_zp!(tii, prm, idx, stt, grd, mgd, sys)
+        master_grad_zp!(tii, prm, idx, grd, mgd, sys)
         # g16 (zq): nzms => zbase => zt => zq => (all q injection variables)
-        master_grad_zq!(tii, prm, idx, stt, grd, mgd, sys)
+        master_grad_zq!(tii, prm, idx, grd, mgd, sys)
     end
 
     # loop over time -- compute the partial derivative contributions
@@ -333,6 +333,22 @@ function master_grad_solve_pf!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol
             #         terms also call active power terms, which will add to their derivatives
             apply_dev_p_grads!(tii, t_ind, prm, qG, idx, stt, grd, mgd, dev, grd[:dx][:dp][tii][dev])
         end
+    end
+end
+
+function master_grad_adam_pf!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, sys::quasiGrad.System)
+    # this function takes the gradient of zms with respect to the
+    # variables which will help to resolve power flow.
+    # Notably, even though we solve time-independent power flow
+    # problems, we can still use this case exactly, since:
+    # dzms_dv => dpftii_dv maps without any issue
+
+    for tii in prm.ts.time_keys
+        # g15 (zp): nzms => zbase => zt => zp => (all p injection variables)
+        master_grad_zp!(tii, prm, idx, grd, mgd, sys, run_devs = false)
+
+        # g16 (zq): nzms => zbase => zt => zq => (all q injection variables)
+        master_grad_zq!(tii, prm, idx, grd, mgd, sys, run_devs = false)
     end
 end
 
@@ -386,7 +402,7 @@ function master_grad_zs_acline!(tii::Symbol, idx::quasiGrad.Idx, stt::Dict{Symbo
     vatoqto = qto_com.*grd[:acline_qto][:vato][tii]
     uonqto  = qto_com.*grd[:acline_qto][:uon][tii]
 
-    # note: we must loop over these assignments!
+    # note: we MUST loop over these assignments! otherwise, += gets confused
     for ln in 1:sys.nl
         # update the master grad -- pfr
         mgd[:vm][tii][idx.acline_fr_bus[ln]] += vmfrpfr[ln]
@@ -516,7 +532,7 @@ function master_grad_zs_xfm!(tii::Symbol, idx::quasiGrad.Idx, stt::Dict{Symbol, 
     end
 end
 
-function master_grad_zp!(tii::Symbol, prm::quasiGrad.Param, idx::quasiGrad.Idx, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+function master_grad_zp!(tii::Symbol, prm::quasiGrad.Param, idx::quasiGrad.Idx, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System; run_devs = true)
     # gradient chain: nzms => zbase => zt => zp => (all p injection variables)
     #
     # note: grd[:pb_slack][...] is negelected here, and all terms are trivially
@@ -527,25 +543,30 @@ function master_grad_zp!(tii::Symbol, prm::quasiGrad.Param, idx::quasiGrad.Idx, 
         # OG => grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zp]
         mgd_com = grd[:zp][:pb_slack][tii][bus]
 
-        # consumer injections
-        for dev in idx.cs[bus]
-            alpha = mgd_com # grd[:pb_slack][:dev_p_cs] = +1
-            dp_alpha!(grd, dev, tii, alpha)
-        end
+        # run devices?
+        if run_devs
+            # consumer injections
+            for dev in idx.cs[bus]
+                # => alpha = mgd_com # grd[:pb_slack][:dev_p_cs] = +1
+                dp_alpha!(grd, dev, tii, mgd_com)
+            end
 
-        # producer injections
-        for dev in idx.pr[bus]
-            alpha = -mgd_com # grd[:pb_slack][:dev_p_pr] = -1
-            dp_alpha!(grd, dev, tii, alpha)
+            # producer injections
+            for dev in idx.pr[bus]
+                # => alpha = -mgd_com # grd[:pb_slack][:dev_p_pr] = -1
+                dp_alpha!(grd, dev, tii, -mgd_com)
+            end
         end
 
         # shunt injections -- bus voltage # grd[:pb_slack][bus][:sh_p][tii][idx.sh[bus]].*
-        mgd[:vm][tii][bus] += sum(mgd_com*grd[:sh_p][:vm][tii][idx.sh[bus]]; init=0.0)
+        mgd[:vm][tii][bus] += sum(mgd_com*grd[:sh_p][:vm][tii][sh] for sh in idx.sh[bus]; init=0.0)
 
         # shunt injections -- shunt steps # grd[:pb_slack][bus][:sh_p][tii][idx.sh[bus]].*
-        mgd[:u_step_shunt][tii][idx.sh[bus]] += mgd_com*
-        grd[:sh_p][:g_tv_shunt][tii][idx.sh[bus]].*
-        prm.shunt.gs[idx.sh[bus]] # => grd[:g_tv_shunt][:u_step_shunt][idx.sh[bus]]
+        for sh in idx.sh[bus]
+            mgd[:u_step_shunt][tii][sh] += mgd_com*
+            grd[:sh_p][:g_tv_shunt][tii][sh]*
+            prm.shunt.gs[sh] # => grd[:g_tv_shunt][:u_step_shunt][idx.sh[bus]]
+        end
         
         # line injections -- "from" flows
         #
@@ -558,20 +579,20 @@ function master_grad_zp!(tii::Symbol, prm::quasiGrad.Param, idx::quasiGrad.Idx, 
             @assert bus_fr == bus
 
             # gradients
-            vmfrpfr = grd[:acline_pfr][:vmfr][tii][line]
-            vafrpfr = grd[:acline_pfr][:vafr][tii][line]
-            uonpfr  = grd[:acline_pfr][:uon][tii][line]
+            # => vmfrpfr = grd[:acline_pfr][:vmfr][tii][line]
+            # => vafrpfr = grd[:acline_pfr][:vafr][tii][line]
+            # => uonpfr  = grd[:acline_pfr][:uon][tii][line]
 
             # "pfr" is also a function of the to bus voltages, so we need these
-            vmtopfr = grd[:acline_pfr][:vmto][tii][line]
-            vatopfr = grd[:acline_pfr][:vato][tii][line]
+            # => vmtopfr = grd[:acline_pfr][:vmto][tii][line]
+            # => vatopfr = grd[:acline_pfr][:vato][tii][line]
 
             # update the master grad -- pfr, at this bus and its corresponding "to" bus
-            mgd[:vm][tii][bus_fr]        += mgd_com*vmfrpfr
-            mgd[:va][tii][bus_fr]        += mgd_com*vafrpfr
-            mgd[:vm][tii][bus_to]        += mgd_com*vmtopfr
-            mgd[:va][tii][bus_to]        += mgd_com*vatopfr
-            mgd[:u_on_acline][tii][line] += mgd_com*uonpfr
+            mgd[:vm][tii][bus_fr]        += mgd_com*grd[:acline_pfr][:vmfr][tii][line]
+            mgd[:va][tii][bus_fr]        += mgd_com*grd[:acline_pfr][:vafr][tii][line]
+            mgd[:vm][tii][bus_to]        += mgd_com*grd[:acline_pfr][:vmto][tii][line]
+            mgd[:va][tii][bus_to]        += mgd_com*grd[:acline_pfr][:vato][tii][line]
+            mgd[:u_on_acline][tii][line] += mgd_com*grd[:acline_pfr][:uon][tii][line]
         end
         # line injections -- "to" flows
         #
@@ -584,20 +605,20 @@ function master_grad_zp!(tii::Symbol, prm::quasiGrad.Param, idx::quasiGrad.Idx, 
             @assert bus_to == bus
 
             # gradients
-            vmtopto = grd[:acline_pto][:vmto][tii][line]
-            vatopto = grd[:acline_pto][:vato][tii][line]
-            uonpto  = grd[:acline_pto][:uon][tii][line]
+            # => vmtopto = grd[:acline_pto][:vmto][tii][line]
+            # => vatopto = grd[:acline_pto][:vato][tii][line]
+            # => uonpto  = grd[:acline_pto][:uon][tii][line]
 
             # "pto" is also a function of the fr bus voltages, so we need these
-            vmfrpto = grd[:acline_pto][:vmfr][tii][line]
-            vafrpto = grd[:acline_pto][:vafr][tii][line]
+            # => vmfrpto = grd[:acline_pto][:vmfr][tii][line]
+            # => vafrpto = grd[:acline_pto][:vafr][tii][line]
 
             # update the master grad -- pto, at this bus and its corresponding "fr" bus
-            mgd[:vm][tii][bus_to]        += mgd_com*vmtopto
-            mgd[:va][tii][bus_to]        += mgd_com*vatopto
-            mgd[:vm][tii][bus_fr]        += mgd_com*vmfrpto
-            mgd[:va][tii][bus_fr]        += mgd_com*vafrpto
-            mgd[:u_on_acline][tii][line] += mgd_com*uonpto
+            mgd[:vm][tii][bus_to]        += mgd_com*grd[:acline_pto][:vmto][tii][line]
+            mgd[:va][tii][bus_to]        += mgd_com*grd[:acline_pto][:vato][tii][line]
+            mgd[:vm][tii][bus_fr]        += mgd_com*grd[:acline_pto][:vmfr][tii][line]
+            mgd[:va][tii][bus_fr]        += mgd_com*grd[:acline_pto][:vafr][tii][line]
+            mgd[:u_on_acline][tii][line] += mgd_com*grd[:acline_pto][:uon][tii][line]
         end
         
         # xfm injections -- "from" flows
@@ -611,26 +632,26 @@ function master_grad_zp!(tii::Symbol, prm::quasiGrad.Param, idx::quasiGrad.Idx, 
             @assert bus_fr == bus
 
             # gradients
-            vmfrpfr = grd[:xfm_pfr][:vmfr][tii][xfm]
-            vafrpfr = grd[:xfm_pfr][:vafr][tii][xfm]
-            uonpfr  = grd[:xfm_pfr][:uon][tii][xfm]
+            # => vmfrpfr = grd[:xfm_pfr][:vmfr][tii][xfm]
+            # => vafrpfr = grd[:xfm_pfr][:vafr][tii][xfm]
+            # => uonpfr  = grd[:xfm_pfr][:uon][tii][xfm]
 
             # "pfr" is also a function of the to bus voltages, so we need these
-            vmtopfr = grd[:xfm_pfr][:vmto][tii][xfm]
-            vatopfr = grd[:xfm_pfr][:vato][tii][xfm]
+            # => vmtopfr = grd[:xfm_pfr][:vmto][tii][xfm]
+            # => vatopfr = grd[:xfm_pfr][:vato][tii][xfm]
 
             # xfm ratios
-            taupfr  = grd[:xfm_pfr][:tau][tii][xfm]
-            phipfr  = grd[:xfm_pfr][:phi][tii][xfm]
+            # => taupfr  = grd[:xfm_pfr][:tau][tii][xfm]
+            # => phipfr  = grd[:xfm_pfr][:phi][tii][xfm]
 
             # update the master grad -- pfr, at this bus and its corresponding "to" bus
-            mgd[:vm][tii][bus_fr]    += mgd_com*vmfrpfr
-            mgd[:va][tii][bus_fr]    += mgd_com*vafrpfr
-            mgd[:vm][tii][bus_to]    += mgd_com*vmtopfr
-            mgd[:va][tii][bus_to]    += mgd_com*vatopfr
-            mgd[:tau][tii][xfm]      += mgd_com*taupfr
-            mgd[:phi][tii][xfm]      += mgd_com*phipfr
-            mgd[:u_on_xfm][tii][xfm] += mgd_com*uonpfr
+            mgd[:vm][tii][bus_fr]    += mgd_com*grd[:xfm_pfr][:vmfr][tii][xfm]
+            mgd[:va][tii][bus_fr]    += mgd_com*grd[:xfm_pfr][:vafr][tii][xfm]
+            mgd[:vm][tii][bus_to]    += mgd_com*grd[:xfm_pfr][:vmto][tii][xfm]
+            mgd[:va][tii][bus_to]    += mgd_com*grd[:xfm_pfr][:vato][tii][xfm]
+            mgd[:tau][tii][xfm]      += mgd_com*grd[:xfm_pfr][:tau][tii][xfm]
+            mgd[:phi][tii][xfm]      += mgd_com*grd[:xfm_pfr][:phi][tii][xfm]
+            mgd[:u_on_xfm][tii][xfm] += mgd_com*grd[:xfm_pfr][:uon][tii][xfm]
         end
         # xfm injections -- "to" flows
         #
@@ -643,45 +664,45 @@ function master_grad_zp!(tii::Symbol, prm::quasiGrad.Param, idx::quasiGrad.Idx, 
             @assert bus_to == bus
 
             # gradients
-            vmtopto = grd[:xfm_pto][:vmto][tii][xfm]
-            vatopto = grd[:xfm_pto][:vato][tii][xfm]
-            uonpto  = grd[:xfm_pto][:uon][tii][xfm]
+            # => vmtopto = grd[:xfm_pto][:vmto][tii][xfm]
+            # => vatopto = grd[:xfm_pto][:vato][tii][xfm]
+            # => uonpto  = grd[:xfm_pto][:uon][tii][xfm]
 
             # "pto" is also a function of the fr bus voltages, so we need these
-            vmfrpto = grd[:xfm_pto][:vmfr][tii][xfm]
-            vafrpto = grd[:xfm_pto][:vafr][tii][xfm]
+            # => vmfrpto = grd[:xfm_pto][:vmfr][tii][xfm]
+            # => vafrpto = grd[:xfm_pto][:vafr][tii][xfm]
 
             # xfm ratios
-            taupto  = grd[:xfm_pto][:tau][tii][xfm]
-            phipto  = grd[:xfm_pto][:phi][tii][xfm]
+            # => taupto  = grd[:xfm_pto][:tau][tii][xfm]
+            # => phipto  = grd[:xfm_pto][:phi][tii][xfm]
 
             # update the master grad -- pto, at this bus and its corresponding "fr" bus
-            mgd[:vm][tii][bus_to]    += mgd_com*vmtopto
-            mgd[:va][tii][bus_to]    += mgd_com*vatopto
-            mgd[:vm][tii][bus_fr]    += mgd_com*vmfrpto
-            mgd[:va][tii][bus_fr]    += mgd_com*vafrpto
-            mgd[:tau][tii][xfm]      += mgd_com*taupto
-            mgd[:phi][tii][xfm]      += mgd_com*phipto
-            mgd[:u_on_xfm][tii][xfm] += mgd_com*uonpto
+            mgd[:vm][tii][bus_to]    += mgd_com*grd[:xfm_pto][:vmto][tii][xfm]
+            mgd[:va][tii][bus_to]    += mgd_com*grd[:xfm_pto][:vato][tii][xfm]
+            mgd[:vm][tii][bus_fr]    += mgd_com*grd[:xfm_pto][:vmfr][tii][xfm]
+            mgd[:va][tii][bus_fr]    += mgd_com*grd[:xfm_pto][:vafr][tii][xfm]
+            mgd[:tau][tii][xfm]      += mgd_com*grd[:xfm_pto][:tau][tii][xfm]
+            mgd[:phi][tii][xfm]      += mgd_com*grd[:xfm_pto][:phi][tii][xfm]
+            mgd[:u_on_xfm][tii][xfm] += mgd_com*grd[:xfm_pto][:uon][tii][xfm]
         end
 
         # skip dc lines if there are none
-        if !isempty(idx.bus_is_dc_frs[bus])
+        for dc_fr in idx.bus_is_dc_frs[bus]
             # dc injections -- "pfr" contributions # grd[:pb_slack][bus][:dc_pfr][tii][idx.bus_is_dc_frs[bus]]
-            mgd[:dc_pfr][tii][idx.bus_is_dc_frs[bus]] .+= mgd_com
+            mgd[:dc_pfr][tii][dc_fr] += mgd_com
         end
 
-        if !isempty(idx.bus_is_dc_tos[bus])
+        for dc_to in idx.bus_is_dc_tos[bus]
             # dc injections -- "pto" contributions
             #
             # note: "dc_pto" does not exist, as a "mgd" variable, so
             # we just leverage that dc_pto = -dc_pfr   ->  d(dc_pto)_d(dc_pfr) = -1 grd[:pb_slack][bus][:dc_pto][tii][idx.bus_is_dc_tos[bus]]
-            mgd[:dc_pfr][tii][idx.bus_is_dc_tos[bus]] .+= -mgd_com
+            mgd[:dc_pfr][tii][dc_to] += -mgd_com
         end
     end
 end
 
-function master_grad_zq!(tii::Symbol, prm::quasiGrad.Param, idx::quasiGrad.Idx, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+function master_grad_zq!(tii::Symbol, prm::quasiGrad.Param, idx::quasiGrad.Idx, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System; run_devs = true)
     # gradient chain: nzms => zbase => zt => zq => (all q injection variables)
     #
     # note: grd[:qb_slack][...] is negelected here, and all terms are trivially
@@ -697,25 +718,30 @@ function master_grad_zq!(tii::Symbol, prm::quasiGrad.Param, idx::quasiGrad.Idx, 
         #
         # regardless, we record "alpha" for both and deal with the partials later.
         #    
-        # consumers  
-        for dev in idx.cs[bus]
-            alpha = mgd_com
-            dq_alpha!(grd, dev, tii, alpha)
-        end
+        # run devices?
+        if run_devs
+            # consumers  
+            for dev in idx.cs[bus]
+                # => alpha = mgd_com
+                dq_alpha!(grd, dev, tii, mgd_com)
+            end
 
-        # producers
-        for dev in idx.pr[bus]
-            alpha = -mgd_com
-            dq_alpha!(grd, dev, tii, alpha)
+            # producers
+            for dev in idx.pr[bus]
+                # => alpha = -mgd_com
+                dq_alpha!(grd, dev, tii, -mgd_com)
+            end
         end
 
         # shunt injections -- bus voltage # grd[:qb_slack][bus][:sh_q][tii][idx.sh[bus]]
-        mgd[:vm][tii][bus] += sum(mgd_com*grd[:sh_q][:vm][tii][idx.sh[bus]]; init=0.0)
+        mgd[:vm][tii][bus] += sum(mgd_com*grd[:sh_q][:vm][tii][sh] for sh in idx.sh[bus]; init=0.0)
 
         # shunt injections -- shunt steps # grd[:qb_slack][bus][:sh_q][tii][idx.sh[bus]].*
-        mgd[:u_step_shunt][tii][idx.sh[bus]] += mgd_com*
-        grd[:sh_q][:b_tv_shunt][tii][idx.sh[bus]].*
-        prm.shunt.bs[idx.sh[bus]] # => grd[:b_tv_shunt][:u_step_shunt][idx.sh[bus]]
+        for sh in idx.sh[bus]
+            mgd[:u_step_shunt][tii][sh] += mgd_com*
+            grd[:sh_q][:b_tv_shunt][tii][sh].*
+            prm.shunt.bs[sh] # => grd[:b_tv_shunt][:u_step_shunt][idx.sh[bus]]
+        end
 
         # line injections -- "from" flows
         #
@@ -728,20 +754,20 @@ function master_grad_zq!(tii::Symbol, prm::quasiGrad.Param, idx::quasiGrad.Idx, 
             @assert bus_fr == bus
 
             # gradients
-            vmfrqfr = grd[:acline_qfr][:vmfr][tii][line]
-            vafrqfr = grd[:acline_qfr][:vafr][tii][line]
-            uonqfr  = grd[:acline_qfr][:uon][tii][line]
+            # => vmfrqfr = grd[:acline_qfr][:vmfr][tii][line]
+            # => vafrqfr = grd[:acline_qfr][:vafr][tii][line]
+            # => uonqfr  = grd[:acline_qfr][:uon][tii][line]
 
             # "qfr" is also a function of the to bus voltages, so we need these
-            vmtoqfr = grd[:acline_qfr][:vmto][tii][line]
-            vatoqfr = grd[:acline_qfr][:vato][tii][line]
+            # => vmtoqfr = grd[:acline_qfr][:vmto][tii][line]
+            # => vatoqfr = grd[:acline_qfr][:vato][tii][line]
 
             # update the master grad -- qfr, at this bus and its corresponding "to" bus
-            mgd[:vm][tii][bus_fr]        += mgd_com*vmfrqfr
-            mgd[:va][tii][bus_fr]        += mgd_com*vafrqfr
-            mgd[:vm][tii][bus_to]        += mgd_com*vmtoqfr
-            mgd[:va][tii][bus_to]        += mgd_com*vatoqfr
-            mgd[:u_on_acline][tii][line] += mgd_com*uonqfr
+            mgd[:vm][tii][bus_fr]        += mgd_com*grd[:acline_qfr][:vmfr][tii][line]
+            mgd[:va][tii][bus_fr]        += mgd_com*grd[:acline_qfr][:vafr][tii][line]
+            mgd[:vm][tii][bus_to]        += mgd_com*grd[:acline_qfr][:vmto][tii][line]
+            mgd[:va][tii][bus_to]        += mgd_com*grd[:acline_qfr][:vato][tii][line]
+            mgd[:u_on_acline][tii][line] += mgd_com*grd[:acline_qfr][:uon][tii][line]
         end
         # line injections -- "to" flows
         #
@@ -754,20 +780,20 @@ function master_grad_zq!(tii::Symbol, prm::quasiGrad.Param, idx::quasiGrad.Idx, 
             @assert bus_to == bus
 
             # gradients
-            vmtoqto = grd[:acline_qto][:vmto][tii][line]
-            vatoqto = grd[:acline_qto][:vato][tii][line]
-            uonqto  = grd[:acline_qto][:uon][tii][line]
+            # => vmtoqto = grd[:acline_qto][:vmto][tii][line]
+            # => vatoqto = grd[:acline_qto][:vato][tii][line]
+            # => uonqto  = grd[:acline_qto][:uon][tii][line]
 
             # "qto" is also a function of the fr bus voltages, so we need these
-            vmfrqto = grd[:acline_qto][:vmfr][tii][line]
-            vafrqto = grd[:acline_qto][:vafr][tii][line]
+            # => vmfrqto = grd[:acline_qto][:vmfr][tii][line]
+            # => vafrqto = grd[:acline_qto][:vafr][tii][line]
 
             # update the master grad -- qto, at this bus and its corresponding "fr" bus
-            mgd[:vm][tii][bus_to]        += mgd_com*vmtoqto
-            mgd[:va][tii][bus_to]        += mgd_com*vatoqto
-            mgd[:vm][tii][bus_fr]        += mgd_com*vmfrqto
-            mgd[:va][tii][bus_fr]        += mgd_com*vafrqto
-            mgd[:u_on_acline][tii][line] += mgd_com*uonqto
+            mgd[:vm][tii][bus_to]        += mgd_com*grd[:acline_qto][:vmto][tii][line]
+            mgd[:va][tii][bus_to]        += mgd_com*grd[:acline_qto][:vato][tii][line]
+            mgd[:vm][tii][bus_fr]        += mgd_com*grd[:acline_qto][:vmfr][tii][line]
+            mgd[:va][tii][bus_fr]        += mgd_com*grd[:acline_qto][:vafr][tii][line]
+            mgd[:u_on_acline][tii][line] += mgd_com*grd[:acline_qto][:uon][tii][line]
         end
         
         # xfm injections -- "from" flows
@@ -781,26 +807,26 @@ function master_grad_zq!(tii::Symbol, prm::quasiGrad.Param, idx::quasiGrad.Idx, 
             @assert bus_fr == bus
 
             # gradients
-            vmfrqfr = grd[:xfm_qfr][:vmfr][tii][xfm]
-            vafrqfr = grd[:xfm_qfr][:vafr][tii][xfm]
-            uonqfr  = grd[:xfm_qfr][:uon][tii][xfm]
+            # => vmfrqfr = grd[:xfm_qfr][:vmfr][tii][xfm]
+            # => vafrqfr = grd[:xfm_qfr][:vafr][tii][xfm]
+            # => uonqfr  = grd[:xfm_qfr][:uon][tii][xfm]
 
             # "qfr" is also a function of the to bus voltages, so we need these
-            vmtoqfr = grd[:xfm_qfr][:vmto][tii][xfm]
-            vatoqfr = grd[:xfm_qfr][:vato][tii][xfm]
+            # => vmtoqfr = grd[:xfm_qfr][:vmto][tii][xfm]
+            # => vatoqfr = grd[:xfm_qfr][:vato][tii][xfm]
 
             # xfm ratios
-            tauqfr  = grd[:xfm_qfr][:tau][tii][xfm]
-            phiqfr  = grd[:xfm_qfr][:phi][tii][xfm]
+            # => tauqfr  = grd[:xfm_qfr][:tau][tii][xfm]
+            # => phiqfr  = grd[:xfm_qfr][:phi][tii][xfm]
 
             # update the master grad -- qfr, at this bus and its corresponding "to" bus
-            mgd[:vm][tii][bus_fr]    += mgd_com*vmfrqfr
-            mgd[:va][tii][bus_fr]    += mgd_com*vafrqfr
-            mgd[:vm][tii][bus_to]    += mgd_com*vmtoqfr
-            mgd[:va][tii][bus_to]    += mgd_com*vatoqfr
-            mgd[:tau][tii][xfm]      += mgd_com*tauqfr
-            mgd[:phi][tii][xfm]      += mgd_com*phiqfr
-            mgd[:u_on_xfm][tii][xfm] += mgd_com*uonqfr
+            mgd[:vm][tii][bus_fr]    += mgd_com*grd[:xfm_qfr][:vmfr][tii][xfm]
+            mgd[:va][tii][bus_fr]    += mgd_com*grd[:xfm_qfr][:vafr][tii][xfm]
+            mgd[:vm][tii][bus_to]    += mgd_com*grd[:xfm_qfr][:vmto][tii][xfm]
+            mgd[:va][tii][bus_to]    += mgd_com*grd[:xfm_qfr][:vato][tii][xfm]
+            mgd[:tau][tii][xfm]      += mgd_com*grd[:xfm_qfr][:tau][tii][xfm]
+            mgd[:phi][tii][xfm]      += mgd_com*grd[:xfm_qfr][:phi][tii][xfm]
+            mgd[:u_on_xfm][tii][xfm] += mgd_com*grd[:xfm_qfr][:uon][tii][xfm]
         end
         # xfm injections -- "to" flows
         #
@@ -813,36 +839,36 @@ function master_grad_zq!(tii::Symbol, prm::quasiGrad.Param, idx::quasiGrad.Idx, 
             @assert bus_to == bus
 
             # gradients
-            vmtoqto = grd[:xfm_qto][:vmto][tii][xfm]
-            vatoqto = grd[:xfm_qto][:vato][tii][xfm]
-            uonqto  = grd[:xfm_qto][:uon][tii][xfm]
+            # => vmtoqto = grd[:xfm_qto][:vmto][tii][xfm]
+            # => vatoqto = grd[:xfm_qto][:vato][tii][xfm]
+            # => uonqto  = grd[:xfm_qto][:uon][tii][xfm]
 
             # "qto" is also a function of the fr bus voltages, so we need these
-            vmfrqto = grd[:xfm_qto][:vmfr][tii][xfm]
-            vafrqto = grd[:xfm_qto][:vafr][tii][xfm]
+            # => vmfrqto = grd[:xfm_qto][:vmfr][tii][xfm]
+            # => vafrqto = grd[:xfm_qto][:vafr][tii][xfm]
 
             # xfm ratios
-            tauqto  = grd[:xfm_qto][:tau][tii][xfm]
-            phiqto  = grd[:xfm_qto][:phi][tii][xfm]
+            # => tauqto  = grd[:xfm_qto][:tau][tii][xfm]
+            # => phiqto  = grd[:xfm_qto][:phi][tii][xfm]
 
             # update the master grad -- qto, at this bus and its corresponding "fr" bus
-            mgd[:vm][tii][bus_to]    += mgd_com*vmtoqto
-            mgd[:va][tii][bus_to]    += mgd_com*vatoqto
-            mgd[:vm][tii][bus_fr]    += mgd_com*vmfrqto
-            mgd[:va][tii][bus_fr]    += mgd_com*vafrqto
-            mgd[:tau][tii][xfm]      += mgd_com*tauqto
-            mgd[:phi][tii][xfm]      += mgd_com*phiqto
-            mgd[:u_on_xfm][tii][xfm] += mgd_com*uonqto
+            mgd[:vm][tii][bus_to]    += mgd_com*grd[:xfm_qto][:vmto][tii][xfm]
+            mgd[:va][tii][bus_to]    += mgd_com*grd[:xfm_qto][:vato][tii][xfm]
+            mgd[:vm][tii][bus_fr]    += mgd_com*grd[:xfm_qto][:vmfr][tii][xfm]
+            mgd[:va][tii][bus_fr]    += mgd_com*grd[:xfm_qto][:vafr][tii][xfm]
+            mgd[:tau][tii][xfm]      += mgd_com*grd[:xfm_qto][:tau][tii][xfm]
+            mgd[:phi][tii][xfm]      += mgd_com*grd[:xfm_qto][:phi][tii][xfm]
+            mgd[:u_on_xfm][tii][xfm] += mgd_com*grd[:xfm_qto][:uon][tii][xfm]
         end
 
-        if !isempty(idx.bus_is_dc_frs[bus])
+        for dc_fr in idx.bus_is_dc_frs[bus]
             # dc injections -- "qfr" contributions # grd[:qb_slack][bus][:dc_qfr][tii][idx.bus_is_dc_frs[bus]]
-            mgd[:dc_qfr][tii][idx.bus_is_dc_frs[bus]] .+= mgd_com
+            mgd[:dc_qfr][tii][dc_fr] += mgd_com
         end
 
-        if !isempty(idx.bus_is_dc_tos[bus])
+        for dc_to in idx.bus_is_dc_tos[bus]
             # dc injections -- "qto" contributions # grd[:qb_slack][bus][:dc_qto][tii][idx.bus_is_dc_tos[bus]]
-            mgd[:dc_qto][tii][idx.bus_is_dc_tos[bus]] .+= mgd_com
+            mgd[:dc_qto][tii][dc_to] += mgd_com
         end
     end
 end

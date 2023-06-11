@@ -509,6 +509,12 @@ function parse_json_device(json_data::Dict)
     q_lb         = Vector{Float64}.([ts_device[ind]["q_lb"]         for ind in ts_device_inds_adjusted])
     cost         = Vector{Vector{Vector{Float64}}}.([ts_device[ind]["cost"] for ind in ts_device_inds_adjusted])
 
+    # transpose for faster access
+    p_ub_tmdv = Vector{Float64}.(collect(eachrow(reduce(hcat, p_ub))))    
+    p_lb_tmdv = Vector{Float64}.(collect(eachrow(reduce(hcat, p_lb)))) 
+    q_ub_tmdv = Vector{Float64}.(collect(eachrow(reduce(hcat, q_ub)))) 
+    q_lb_tmdv = Vector{Float64}.(collect(eachrow(reduce(hcat, q_lb)))) 
+
     # time series inputs -- time series reserve attributes
     p_reg_res_up_cost            = Vector{Float64}.([ts_device[ind]["p_reg_res_up_cost"] for ind in ts_device_inds_adjusted])
     p_reg_res_down_cost          = Vector{Float64}.([ts_device[ind]["p_reg_res_down_cost"] for ind in ts_device_inds_adjusted])
@@ -520,6 +526,18 @@ function parse_json_device(json_data::Dict)
     p_ramp_res_down_offline_cost = Vector{Float64}.([ts_device[ind]["p_ramp_res_down_offline_cost"] for ind in ts_device_inds_adjusted])
     q_res_up_cost                = Vector{Float64}.([ts_device[ind]["q_res_up_cost"] for ind in ts_device_inds_adjusted])
     q_res_down_cost              = Vector{Float64}.([ts_device[ind]["q_res_down_cost"] for ind in ts_device_inds_adjusted])
+
+    # let's also get the transpose for faster access (tmdv = time; dev)
+    p_reg_res_up_cost_tmdv            = Vector{Float64}.(collect(eachrow(reduce(hcat,p_reg_res_up_cost           ))))           
+    p_reg_res_down_cost_tmdv          = Vector{Float64}.(collect(eachrow(reduce(hcat,p_reg_res_down_cost         ))))            
+    p_syn_res_cost_tmdv               = Vector{Float64}.(collect(eachrow(reduce(hcat,p_syn_res_cost              ))))                 
+    p_nsyn_res_cost_tmdv              = Vector{Float64}.(collect(eachrow(reduce(hcat,p_nsyn_res_cost             ))))                
+    p_ramp_res_up_online_cost_tmdv    = Vector{Float64}.(collect(eachrow(reduce(hcat,p_ramp_res_up_online_cost   ))))      
+    p_ramp_res_down_online_cost_tmdv  = Vector{Float64}.(collect(eachrow(reduce(hcat,p_ramp_res_down_online_cost ))))    
+    p_ramp_res_up_offline_cost_tmdv   = Vector{Float64}.(collect(eachrow(reduce(hcat,p_ramp_res_up_offline_cost  ))))     
+    p_ramp_res_down_offline_cost_tmdv = Vector{Float64}.(collect(eachrow(reduce(hcat,p_ramp_res_down_offline_cost))))   
+    q_res_up_cost_tmdv                = Vector{Float64}.(collect(eachrow(reduce(hcat,q_res_up_cost               ))))                  
+    q_res_down_cost_tmdv              = Vector{Float64}.(collect(eachrow(reduce(hcat,q_res_down_cost             ))))                
 
     # get the number of startup states for each device
     num_dev_sus = [length(dev_sus) for dev_sus in startup_states]
@@ -586,6 +604,10 @@ function parse_json_device(json_data::Dict)
         p_lb,
         q_ub,
         q_lb,
+        p_ub_tmdv,
+        p_lb_tmdv,
+        q_ub_tmdv,
+        q_lb_tmdv,
         cost,
         cum_cost_blocks,
         p_reg_res_up_cost,
@@ -597,7 +619,17 @@ function parse_json_device(json_data::Dict)
         p_ramp_res_up_offline_cost,
         p_ramp_res_down_offline_cost,
         q_res_up_cost,
-        q_res_down_cost)
+        q_res_down_cost,
+        p_reg_res_up_cost_tmdv,           
+        p_reg_res_down_cost_tmdv,         
+        p_syn_res_cost_tmdv,              
+        p_nsyn_res_cost_tmdv,             
+        p_ramp_res_up_online_cost_tmdv,   
+        p_ramp_res_down_online_cost_tmdv, 
+        p_ramp_res_up_offline_cost_tmdv,  
+        p_ramp_res_down_offline_cost_tmdv,
+        q_res_up_cost_tmdv,               
+        q_res_down_cost_tmdv)
 
     #= device_param = Dict(
         :device_inds                    => device_inds,

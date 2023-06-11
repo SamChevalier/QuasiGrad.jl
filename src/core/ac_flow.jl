@@ -1,5 +1,5 @@
 # ac line flows
-function acline_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+function acline_flows!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # line parameters
     g_sr = prm.acline.g_sr
     b_sr = prm.acline.b_sr
@@ -18,102 +18,175 @@ function acline_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float6
         # duration
         dt = prm.ts.duration[tii]
 
-        # call statuses
-        u_on_lines = stt[:u_on_acline][tii]
-
         # organize relevant line values
-        vm_fr = stt[:vm][tii][idx.acline_fr_bus]
-        va_fr = stt[:va][tii][idx.acline_fr_bus]
-        vm_to = stt[:vm][tii][idx.acline_to_bus]
-        va_to = stt[:va][tii][idx.acline_to_bus]
+        vm_fr = @view stt[:vm][tii][idx.acline_fr_bus]
+        va_fr = @view stt[:va][tii][idx.acline_fr_bus]
+        vm_to = @view stt[:vm][tii][idx.acline_to_bus]
+        va_to = @view stt[:va][tii][idx.acline_to_bus]
         
         # tools
-        cos_ftp  = cos.(va_fr - va_to)
-        sin_ftp  = sin.(va_fr - va_to)
-        vff      = vm_fr.^2
-        vtt      = vm_to.^2
-        vft      = vm_fr.*vm_to 
+        msc[:cos_ftp]  .= cos.(va_fr .- va_to)
+        msc[:sin_ftp]  .= sin.(va_fr .- va_to)
+        msc[:vff]      .= vm_fr.^2
+        msc[:vtt]      .= vm_to.^2
+        msc[:vft]      .= vm_fr.*vm_to
         
         # evaluate the function? we always need to in order to get the grd
         #
         # active power flow -- from -> to
-        pfr = (g_sr+g_fr).*vff + (-g_sr.*cos_ftp - b_sr.*sin_ftp).*vft
-        stt[:acline_pfr][tii] = u_on_lines.*pfr
+        msc[:pfr] .= (g_sr.+g_fr).*msc[:vff] .+ (.-g_sr.*msc[:cos_ftp] .- b_sr.*msc[:sin_ftp]).*msc[:vft]
+        stt[:acline_pfr][tii] .= stt[:u_on_acline][tii].*msc[:pfr]
         
         # reactive power flow -- from -> to
-        qfr = (-b_sr-b_fr-b_ch/2.0).*vff + (b_sr.*cos_ftp - g_sr.*sin_ftp).*vft
-        stt[:acline_qfr][tii] = u_on_lines.*qfr
+        msc[:qfr] .= (.-b_sr.-b_fr.-b_ch./2.0).*msc[:vff] .+ (b_sr.*msc[:cos_ftp] .- g_sr.*msc[:sin_ftp]).*msc[:vft]
+        stt[:acline_qfr][tii] .= stt[:u_on_acline][tii].*msc[:qfr]
         
         # apparent power flow -- to -> from
-        acline_sfr = sqrt.(stt[:acline_pfr][tii].^2 + stt[:acline_qfr][tii].^2)
+        msc[:acline_sfr] .= sqrt.(stt[:acline_pfr][tii].^2 .+ stt[:acline_qfr][tii].^2)
         
         # active power flow -- to -> from
-        pto = (g_sr+g_to).*vtt + (-g_sr.*cos_ftp + b_sr.*sin_ftp).*vft
-        stt[:acline_pto][tii] = u_on_lines.*pto
+        msc[:pto] .= (g_sr.+g_to).*msc[:vtt] .+ (.-g_sr.*msc[:cos_ftp] .+ b_sr.*msc[:sin_ftp]).*msc[:vft]
+        stt[:acline_pto][tii] .= stt[:u_on_acline][tii].*msc[:pto]
         
         # reactive power flow -- to -> from
-        qto = (-b_sr-b_to-b_ch/2.0).*vtt + (b_sr.*cos_ftp + g_sr.*sin_ftp).*vft
-        stt[:acline_qto][tii] = u_on_lines.*qto
+        msc[:qto] .= (.-b_sr.-b_to.-b_ch./2.0).*msc[:vtt] .+ (b_sr.*msc[:cos_ftp] .+ g_sr.*msc[:sin_ftp]).*msc[:vft]
+        stt[:acline_qto][tii] .= stt[:u_on_acline][tii].*msc[:qto]
 
         # apparent power flow -- to -> from
-        acline_sto = sqrt.(stt[:acline_pto][tii].^2 + stt[:acline_qto][tii].^2)
+        msc[:acline_sto] .= sqrt.(stt[:acline_pto][tii].^2 .+ stt[:acline_qto][tii].^2)
         
         # penalty functions and scores
-        acline_sfr_plus      = acline_sfr - prm.acline.mva_ub_nom
-        acline_sto_plus      = acline_sto - prm.acline.mva_ub_nom
-        stt[:zs_acline][tii] = dt*cs*max.(acline_sfr_plus, acline_sto_plus, 0.0)
+        msc[:acline_sfr_plus] .= msc[:acline_sfr] .- prm.acline.mva_ub_nom
+        msc[:acline_sto_plus] .= msc[:acline_sto] .- prm.acline.mva_ub_nom
+        stt[:zs_acline][tii]  .= (dt*cs).*max.(msc[:acline_sfr_plus], msc[:acline_sto_plus], 0.0)
         
         # ====================================================== #
         # ====================================================== #
         #
         # evaluate the grd?
         if qG.eval_grad
+
             # Gradients: active power flow -- from -> to
-            grd[:acline_pfr][:vmfr][tii] = u_on_lines.*(2.0*(g_sr+g_fr).*vm_fr + 
-                    (-g_sr.*cos_ftp - b_sr.*sin_ftp).*vm_to)
-            grd[:acline_pfr][:vmto][tii] = u_on_lines.*(
-                    (-g_sr.*cos_ftp - b_sr.*sin_ftp).*vm_fr)
-            grd[:acline_pfr][:vafr][tii] = u_on_lines.*(
-                    (g_sr.*sin_ftp - b_sr.*cos_ftp).*vft)
-            grd[:acline_pfr][:vato][tii] = u_on_lines.*(
-                    (-g_sr.*sin_ftp + b_sr.*cos_ftp).*vft)
-            grd[:acline_pfr][:uon][tii] = pfr   
+            grd[:acline_pfr][:vmfr][tii] .= stt[:u_on_acline][tii].*(2.0.*(g_sr.+g_fr).*vm_fr .+ 
+                    (.-g_sr.*msc[:cos_ftp] .- b_sr.*msc[:sin_ftp]).*vm_to)
+            grd[:acline_pfr][:vmto][tii] .= stt[:u_on_acline][tii].*(
+                    (.-g_sr.*msc[:cos_ftp] .- b_sr.*msc[:sin_ftp]).*vm_fr)
+            grd[:acline_pfr][:vafr][tii] .= stt[:u_on_acline][tii].*(
+                    (g_sr.*msc[:sin_ftp] .- b_sr.*msc[:cos_ftp]).*msc[:vft])
+            grd[:acline_pfr][:vato][tii] .= stt[:u_on_acline][tii].*(
+                    (.-g_sr.*msc[:sin_ftp] .+ b_sr.*msc[:cos_ftp]).*msc[:vft])
+            grd[:acline_pfr][:uon][tii] .= msc[:pfr]   
             # ====================================================== #
             # Gradients: reactive power flow -- from -> to
-            grd[:acline_qfr][:vmfr][tii] = u_on_lines.*(2.0*(-b_sr-b_fr-b_ch/2.0).*vm_fr +
-                    (b_sr.*cos_ftp - g_sr.*sin_ftp).*vm_to)
-            grd[:acline_qfr][:vmto][tii] = u_on_lines.*(
-                    (b_sr.*cos_ftp - g_sr.*sin_ftp).*vm_fr)
-            grd[:acline_qfr][:vafr][tii] = u_on_lines.*(
-                    (-b_sr.*sin_ftp - g_sr.*cos_ftp).*vft)
-            grd[:acline_qfr][:vato][tii] = u_on_lines.*(
-                    (b_sr.*sin_ftp + g_sr.*cos_ftp).*vft)
-            grd[:acline_qfr][:uon][tii]  = qfr 
+            
+            grd[:acline_qfr][:vmfr][tii] .= stt[:u_on_acline][tii].*(2.0.*(.-b_sr.-b_fr.-b_ch./2.0).*vm_fr .+
+                    (b_sr.*msc[:cos_ftp] .- g_sr.*msc[:sin_ftp]).*vm_to)
+            grd[:acline_qfr][:vmto][tii] .= stt[:u_on_acline][tii].*(
+                    (b_sr.*msc[:cos_ftp] .- g_sr.*msc[:sin_ftp]).*vm_fr)
+            grd[:acline_qfr][:vafr][tii] .= stt[:u_on_acline][tii].*(
+                    (.-b_sr.*msc[:sin_ftp] .- g_sr.*msc[:cos_ftp]).*msc[:vft])
+            grd[:acline_qfr][:vato][tii] .= stt[:u_on_acline][tii].*(
+                    (b_sr.*msc[:sin_ftp] .+ g_sr.*msc[:cos_ftp]).*msc[:vft])
+            grd[:acline_qfr][:uon][tii]  .= msc[:qfr] 
             # ====================================================== #
             # Gradients: apparent power flow -- from -> to
             # ...
             # ====================================================== #
             # Gradients: active power flow -- to -> from
-            grd[:acline_pto][:vmfr][tii] = u_on_lines.*( 
-                    (-g_sr.*cos_ftp + b_sr.*sin_ftp).*vm_to)
-            grd[:acline_pto][:vmto][tii] = u_on_lines.*(2.0*(g_sr+g_to).*vm_to +
-                    (-g_sr.*cos_ftp + b_sr.*sin_ftp).*vm_fr)
-            grd[:acline_pto][:vafr][tii] = u_on_lines.*(
-                    (g_sr.*sin_ftp + b_sr.*cos_ftp).*vft)
-            grd[:acline_pto][:vato][tii] = u_on_lines.*(
-                    (-g_sr.*sin_ftp - b_sr.*cos_ftp).*vft)
-            grd[:acline_pto][:uon][tii] = pto
+                           
+            grd[:acline_pto][:vmfr][tii] .= stt[:u_on_acline][tii].*( 
+                    (.-g_sr.*msc[:cos_ftp] .+ b_sr.*msc[:sin_ftp]).*vm_to)
+            grd[:acline_pto][:vmto][tii] .= stt[:u_on_acline][tii].*(2.0.*(g_sr.+g_to).*vm_to .+
+                    (.-g_sr.*msc[:cos_ftp] .+ b_sr.*msc[:sin_ftp]).*vm_fr)
+            grd[:acline_pto][:vafr][tii] .= stt[:u_on_acline][tii].*(
+                    (g_sr.*msc[:sin_ftp] .+ b_sr.*msc[:cos_ftp]).*msc[:vft])
+            grd[:acline_pto][:vato][tii] .= stt[:u_on_acline][tii].*(
+                    (.-g_sr.*msc[:sin_ftp] .- b_sr.*msc[:cos_ftp]).*msc[:vft])
+            grd[:acline_pto][:uon][tii] .= msc[:pto]
             # ====================================================== #
             # Gradients: reactive power flow -- to -> from
-            grd[:acline_qto][:vmfr][tii] = u_on_lines.*(
-                    (b_sr.*cos_ftp + g_sr.*sin_ftp).*vm_to)
-            grd[:acline_qto][:vmto][tii] = u_on_lines.*(2.0*(-b_sr-b_to-b_ch/2.0).*vm_to +
-                    (b_sr.*cos_ftp + g_sr.*sin_ftp).*vm_fr)
-            grd[:acline_qto][:vafr][tii] = u_on_lines.*(
-                    (-b_sr.*sin_ftp + g_sr.*cos_ftp).*vft)
-            grd[:acline_qto][:vato][tii] = u_on_lines.*(
-                    (b_sr.*sin_ftp - g_sr.*cos_ftp).*vft)
-            grd[:acline_qto][:uon][tii] = qto  
+            
+            grd[:acline_qto][:vmfr][tii] .= stt[:u_on_acline][tii].*(
+                    (b_sr.*msc[:cos_ftp] .+ g_sr.*msc[:sin_ftp]).*vm_to)
+            grd[:acline_qto][:vmto][tii] .= stt[:u_on_acline][tii].*(2.0.*(.-b_sr.-b_to.-b_ch./2.0).*vm_to .+
+                    (b_sr.*msc[:cos_ftp] .+ g_sr.*msc[:sin_ftp]).*vm_fr)
+            grd[:acline_qto][:vafr][tii] .= stt[:u_on_acline][tii].*(
+                    (.-b_sr.*msc[:sin_ftp] .+ g_sr.*msc[:cos_ftp]).*msc[:vft])
+            grd[:acline_qto][:vato][tii] .= stt[:u_on_acline][tii].*(
+                    (b_sr.*msc[:sin_ftp] .- g_sr.*msc[:cos_ftp]).*msc[:vft])
+            grd[:acline_qto][:uon][tii] .= msc[:qto] 
+
+            # apply gradients
+            grd[:zs_acline][:acline_pfr][tii] .= 0.0
+            grd[:zs_acline][:acline_qfr][tii] .= 0.0
+            grd[:zs_acline][:acline_pto][tii] .= 0.0
+            grd[:zs_acline][:acline_qto][tii] .= 0.0  
+
+            # indicators
+            quasiGrad.get_largest_indices(msc, bit, :acline_sfr_plus, :acline_sto_plus)
+            #
+            # slower alternative
+                # => max_sfst0 = [argmax([spfr, spto, 0.0]) for (spfr,spto) in zip(msc[:acline_sfr_plus], msc[:acline_sto_plus])]
+                # => ind_fr = max_sfst0 .== 1
+                # => ind_to = max_sfst0 .== 2
+
+            # flush -- set to 0 => [Not(ind_fr)] and [Not(ind_to)] was slow/memory inefficient
+            grd[:zs_acline][:acline_pfr][tii] .= 0.0
+            grd[:zs_acline][:acline_qfr][tii] .= 0.0
+            grd[:zs_acline][:acline_pto][tii] .= 0.0
+            grd[:zs_acline][:acline_qto][tii] .= 0.0
+
+            if qG.acflow_grad_is_soft_abs
+                # compute the scaled gradients
+                if sum(bit[:acline_sfr_plus]) > 0
+                    msc[:acline_scale_fr][bit[:acline_sfr_plus]] .= msc[:acline_sfr_plus][bit[:acline_sfr_plus]]./sqrt.(msc[:acline_sfr_plus][bit[:acline_sfr_plus]].^2 .+ qG.acflow_grad_eps2);
+                    grd[:zs_acline][:acline_pfr][tii][bit[:acline_sfr_plus]] .= msc[:acline_scale_fr][bit[:acline_sfr_plus]].*((dt*qG.acflow_grad_weight).*stt[:acline_pfr][tii][bit[:acline_sfr_plus]]./msc[:acline_sfr][bit[:acline_sfr_plus]])
+                    grd[:zs_acline][:acline_qfr][tii][bit[:acline_sfr_plus]] .= msc[:acline_scale_fr][bit[:acline_sfr_plus]].*((dt*qG.acflow_grad_weight).*stt[:acline_qfr][tii][bit[:acline_sfr_plus]]./msc[:acline_sfr][bit[:acline_sfr_plus]])
+                end
+                # compute the scaled gradients
+                if sum(bit[:acline_sto_plus]) > 0
+                    msc[:acline_scale_to][bit[:acline_sto_plus]]             .= msc[:acline_sto_plus][bit[:acline_sto_plus]]./sqrt.(msc[:acline_sto_plus][bit[:acline_sto_plus]].^2 .+ qG.acflow_grad_eps2);
+                    grd[:zs_acline][:acline_pto][tii][bit[:acline_sto_plus]] .= msc[:acline_scale_to][bit[:acline_sto_plus]].*((dt*qG.acflow_grad_weight).*stt[:acline_pto][tii][bit[:acline_sto_plus]]./msc[:acline_sto][bit[:acline_sto_plus]])
+                    grd[:zs_acline][:acline_qto][tii][bit[:acline_sto_plus]] .= msc[:acline_scale_to][bit[:acline_sto_plus]].*((dt*qG.acflow_grad_weight).*stt[:acline_qto][tii][bit[:acline_sto_plus]]./msc[:acline_sto][bit[:acline_sto_plus]])
+                end
+            else
+                # gradients
+                grd[:zs_acline][:acline_pfr][tii][bit[:acline_sfr_plus]] .= (dt*cs).*stt[:acline_pfr][tii][bit[:acline_sfr_plus]]./msc[:acline_sfr][bit[:acline_sfr_plus]]
+                grd[:zs_acline][:acline_qfr][tii][bit[:acline_sfr_plus]] .= (dt*cs).*stt[:acline_qfr][tii][bit[:acline_sfr_plus]]./msc[:acline_sfr][bit[:acline_sfr_plus]]
+                grd[:zs_acline][:acline_pto][tii][bit[:acline_sto_plus]] .= (dt*cs).*stt[:acline_pto][tii][bit[:acline_sto_plus]]./msc[:acline_sto][bit[:acline_sto_plus]]
+                grd[:zs_acline][:acline_qto][tii][bit[:acline_sto_plus]] .= (dt*cs).*stt[:acline_qto][tii][bit[:acline_sto_plus]]./msc[:acline_sto][bit[:acline_sto_plus]]
+            end
+
+            #= Previous gradient junk
+            # loop
+            if qG.acflow_grad_is_soft_abs
+                dtgw = dt*qG.acflow_grad_weight
+                for xx in 1:sys.nl
+                    if (msc[:acline_sfr_plus][xx] >= msc[:acline_sto_plus][xx]) && (msc[:acline_sfr_plus][xx] > 0.0)
+                        #msc[:pub][1] = quasiGrad.soft_abs_grad_ac(xx, msc, qG, :acline_sfr_plus)
+                        grd[:zs_acline][:acline_pfr][tii][xx] = msc[:pub][1]#*dtgw#*stt[:acline_pfr][tii][xx]/msc[:acline_sfr][xx]
+                        grd[:zs_acline][:acline_qfr][tii][xx] = msc[:pub][1]#*dtgw#*stt[:acline_qfr][tii][xx]/msc[:acline_sfr][xx]
+                    elseif (msc[:acline_sto_plus][xx] > 0.0)
+                        #msc[:pub][1] = quasiGrad.soft_abs_grad_ac(xx, msc, qG, :acline_sto_plus)
+                        grd[:zs_acline][:acline_pto][tii][xx] = msc[:pub][1]#*dtgw#*stt[:acline_pto][tii][xx]/msc[:acline_sto][xx]
+                        grd[:zs_acline][:acline_qto][tii][xx] = msc[:pub][1]#*dtgw#*stt[:acline_qto][tii][xx]/msc[:acline_sto][xx]
+                    end
+                end
+            # no softabs -- use standard
+            else
+                dtcs = dt*cs
+                for xx in 1:sys.nl
+                    if (msc[:acline_sfr_plus][xx] >= msc[:acline_sto_plus][xx]) && (msc[:acline_sfr_plus][xx] > 0.0)
+                        grd[:zs_acline][:acline_pfr][tii][xx] = dtcs*stt[:acline_pfr][tii][xx]/msc[:acline_sfr][xx]
+                        grd[:zs_acline][:acline_qfr][tii][xx] = dtcs*stt[:acline_qfr][tii][xx]/msc[:acline_sfr][xx]
+                    elseif (msc[:acline_sto_plus][xx] > 0.0)
+                        grd[:zs_acline][:acline_pto][tii][xx] = dtcs*stt[:acline_pto][tii][xx]/msc[:acline_sto][xx]
+                        grd[:zs_acline][:acline_qto][tii][xx] = dtcs*stt[:acline_qto][tii][xx]/msc[:acline_sto][xx]
+                    end
+                end
+            end
+            =#
+
             # ====================================================== #
             # Gradients: apparent power flow -- to -> from
             #
@@ -129,39 +202,13 @@ function acline_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float6
             grd[:zs_acline][:acline_sto_plus][tii] = zeros(length(max_sfst0))
             grd[:zs_acline][:acline_sto_plus][tii][max_sfst0 .== 2] .= dt*cs
             =#
-
-            # indicators
-            max_sfst0  = [argmax([spfr, spto, 0.0]) for (spfr,spto) in zip(acline_sfr_plus, acline_sto_plus)]
-            ind_fr = max_sfst0 .== 1
-            ind_to = max_sfst0 .== 2
-
-            # flush -- set to 0 => [Not(ind_fr)] and [Not(ind_to)] was slow/memory inefficient
-            grd[:zs_acline][:acline_pfr][tii] .= 0.0
-            grd[:zs_acline][:acline_qfr][tii] .= 0.0
-            grd[:zs_acline][:acline_pto][tii] .= 0.0
-            grd[:zs_acline][:acline_qto][tii] .= 0.0
-
-            if qG.acflow_grad_is_soft_abs
-                # the following grabs the largest elements (>0) and applies the softabs 
-                scale_fr = soft_abs_grad.(acline_sfr_plus[ind_fr], qG.acflow_grad_eps2)
-                scale_to = soft_abs_grad.(acline_sto_plus[ind_to], qG.acflow_grad_eps2)
-                grd[:zs_acline][:acline_pfr][tii][ind_fr] = scale_fr.*((dt*qG.acflow_grad_weight)*stt[:acline_pfr][tii][ind_fr]./acline_sfr[ind_fr])
-                grd[:zs_acline][:acline_qfr][tii][ind_fr] = scale_fr.*((dt*qG.acflow_grad_weight)*stt[:acline_qfr][tii][ind_fr]./acline_sfr[ind_fr])
-                grd[:zs_acline][:acline_pto][tii][ind_to] = scale_to.*((dt*qG.acflow_grad_weight)*stt[:acline_pto][tii][ind_to]./acline_sto[ind_to])
-                grd[:zs_acline][:acline_qto][tii][ind_to] = scale_to.*((dt*qG.acflow_grad_weight)*stt[:acline_qto][tii][ind_to]./acline_sto[ind_to])
-            end
-                # gradients
-                grd[:zs_acline][:acline_pfr][tii][ind_fr] = (dt*cs)*stt[:acline_pfr][tii][ind_fr]./acline_sfr[ind_fr]
-                grd[:zs_acline][:acline_qfr][tii][ind_fr] = (dt*cs)*stt[:acline_qfr][tii][ind_fr]./acline_sfr[ind_fr]
-                grd[:zs_acline][:acline_pto][tii][ind_to] = (dt*cs)*stt[:acline_pto][tii][ind_to]./acline_sto[ind_to]
-                grd[:zs_acline][:acline_qto][tii][ind_to] = (dt*cs)*stt[:acline_qto][tii][ind_to]./acline_sto[ind_to]
-            else
         end
     end
 end
 
+# xfm line flows
 # ac line flows
-function xfm_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+function xfm_flows!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     g_sr = prm.xfm.g_sr
     b_sr = prm.xfm.b_sr
     b_ch = prm.xfm.b_ch
@@ -172,177 +219,239 @@ function xfm_flows!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}
     
     # call penalty costs
     cs = prm.vio.s_flow
-
+    
     # loop over time
     for tii in prm.ts.time_keys
-        
         # duration
         dt = prm.ts.duration[tii]
-    
+
         # call stt
         phi      = stt[:phi][tii]
         tau      = stt[:tau][tii]
         u_on_xfm = stt[:u_on_xfm][tii]
-
+        
         # organize relevant line values
-        vm_fr      = stt[:vm][tii][idx.xfm_fr_bus]
-        va_fr      = stt[:va][tii][idx.xfm_fr_bus]
-        vm_to      = stt[:vm][tii][idx.xfm_to_bus]
-        va_to      = stt[:va][tii][idx.xfm_to_bus]
-    
+        vm_fr = @view stt[:vm][tii][idx.xfm_fr_bus]
+        va_fr = @view stt[:va][tii][idx.xfm_fr_bus]
+        vm_to = @view stt[:vm][tii][idx.xfm_to_bus]
+        va_to = @view stt[:va][tii][idx.xfm_to_bus]
+        
         # tools
-        cos_ftp  = cos.(va_fr - va_to - phi)
-        sin_ftp  = sin.(va_fr - va_to - phi)
-        vff      = vm_fr.^2
-        vtt      = vm_to.^2
-        vft      = vm_fr.*vm_to
-        vt_tau   = vm_to./tau
-        vf_tau   = vm_fr./tau
-        vf_tau2  = vf_tau./tau
-        vff_tau2 = vff./(tau.^2)
-        vft_tau  = vft./tau
-        vft_tau2 = vft_tau./tau
-        vff_tau3 = vff_tau2./tau
+        msc[:cos_ftp_x]  .= cos.(va_fr .- va_to .- phi)
+        msc[:sin_ftp_x]  .= sin.(va_fr .- va_to .- phi)
+        msc[:vff_x]      .= vm_fr.^2
+        msc[:vtt_x]      .= vm_to.^2
+        msc[:vft_x]      .= vm_fr.*vm_to
+        msc[:vt_tau_x]   .= vm_to./tau
+        msc[:vf_tau_x]   .= vm_fr./tau
+        msc[:vf_tau2_x]  .= msc[:vf_tau_x]./tau
+        msc[:vff_tau2_x] .= msc[:vff_x]./(tau.^2)
+        msc[:vft_tau_x]  .= msc[:vft_x]./tau
+        msc[:vft_tau2_x] .= msc[:vft_tau_x]./tau
+        msc[:vff_tau3_x] .= msc[:vff_tau2_x]./tau
         
         # evaluate the function? we always need to in order to get the grd
         #
         # active power flow -- from -> to
-        pfr = (g_sr+g_fr).*vff_tau2 + (-g_sr.*cos_ftp - b_sr.*sin_ftp).*vft_tau
-        stt[:xfm_pfr][tii] = u_on_xfm.*pfr
+        msc[:pfr_x] .= (g_sr.+g_fr).*msc[:vff_tau2_x] .+ (.-g_sr.*msc[:cos_ftp_x] .- b_sr.*msc[:sin_ftp_x]).*msc[:vft_tau_x]
+        stt[:xfm_pfr][tii] .= u_on_xfm.*msc[:pfr_x]
         
         # reactive power flow -- from -> to
-        qfr = (-b_sr-b_fr-b_ch/2.0).*vff_tau2 + (b_sr.*cos_ftp - g_sr.*sin_ftp).*vft_tau
-        stt[:xfm_qfr][tii] = u_on_xfm.*qfr
+        msc[:qfr_x] .= (.-b_sr.-b_fr.-b_ch./2.0).*msc[:vff_tau2_x] .+ (b_sr.*msc[:cos_ftp_x] .- g_sr.*msc[:sin_ftp_x]).*msc[:vft_tau_x]
+        stt[:xfm_qfr][tii] .= u_on_xfm.*msc[:qfr_x]
         
         # apparent power flow -- from -> to
-        xfm_sfr = sqrt.(stt[:xfm_pfr][tii].^2 + stt[:xfm_qfr][tii].^2)
+        msc[:xfm_sfr_x] .= sqrt.(stt[:xfm_pfr][tii].^2 .+ stt[:xfm_qfr][tii].^2)
         
         # active power flow -- to -> from
-        pto = (g_sr+g_to).*vtt + (-g_sr.*cos_ftp + b_sr.*sin_ftp).*vft_tau
-        stt[:xfm_pto][tii] = u_on_xfm.*pto
+        msc[:pto_x] .= (g_sr.+g_to).*msc[:vtt_x] .+ (.-g_sr.*msc[:cos_ftp_x] .+ b_sr.*msc[:sin_ftp_x]).*msc[:vft_tau_x]
+        stt[:xfm_pto][tii] .= u_on_xfm.*msc[:pto_x]
         
         # reactive power flow -- to -> from
-        qto = (-b_sr-b_to-b_ch/2.0).*vtt + (b_sr.*cos_ftp + g_sr.*sin_ftp).*vft_tau
-        stt[:xfm_qto][tii] = u_on_xfm.*qto
+        msc[:qto_x] .= (.-b_sr.-b_to.-b_ch./2.0).*msc[:vtt_x] .+ (b_sr.*msc[:cos_ftp_x] .+ g_sr.*msc[:sin_ftp_x]).*msc[:vft_tau_x]
+        stt[:xfm_qto][tii] .= u_on_xfm.*msc[:qto_x]
         
         # apparent power flow -- to -> from
-        xfm_sto = sqrt.(stt[:xfm_pto][tii].^2 + stt[:xfm_qto][tii].^2)
+        msc[:xfm_sto_x] .= sqrt.(stt[:xfm_pto][tii].^2 .+ stt[:xfm_qto][tii].^2)
         
         # penalty functions and scores
-        xfm_sfr_plus      = xfm_sfr - prm.xfm.mva_ub_nom
-        xfm_sto_plus      = xfm_sto - prm.xfm.mva_ub_nom
-        stt[:zs_xfm][tii] = dt*cs*max.(xfm_sfr_plus, xfm_sto_plus, 0.0)
-        
+        msc[:xfm_sfr_plus_x]  .= msc[:xfm_sfr_x] .- prm.xfm.mva_ub_nom
+        msc[:xfm_sto_plus_x]  .= msc[:xfm_sto_x] .- prm.xfm.mva_ub_nom
+        stt[:zs_xfm][tii]     .= dt*cs.*max.(msc[:xfm_sfr_plus_x], msc[:xfm_sto_plus_x], 0.0)
         # ====================================================== #
         # ====================================================== #
         
         # evaluate the grd?
-        if qG.eval_grad     
+        if qG.eval_grad    
             # Gradients: active power flow -- from -> to
-            grd[:xfm_pfr][:vmfr][tii] = u_on_xfm.*(2.0*(g_sr+g_fr).*vf_tau2 + 
-                    (-g_sr.*cos_ftp - b_sr.*sin_ftp).*vt_tau)
-            grd[:xfm_pfr][:vmto][tii] = u_on_xfm.*(
-                    (-g_sr.*cos_ftp - b_sr.*sin_ftp).*vf_tau)
-            grd[:xfm_pfr][:vafr][tii] = u_on_xfm.*(
-                    (g_sr.*sin_ftp - b_sr.*cos_ftp).*vft_tau)
-            grd[:xfm_pfr][:vato][tii] = u_on_xfm.*(
-                    (-g_sr.*sin_ftp + b_sr.*cos_ftp).*vft_tau)
-            grd[:xfm_pfr][:tau][tii] = u_on_xfm.*(-2.0*(g_sr+g_fr).*vff_tau3 + 
-                    -(-g_sr.*cos_ftp - b_sr.*sin_ftp).*vft_tau2)
-            grd[:xfm_pfr][:phi][tii] = grd[:xfm_pfr][:vato][tii]
-            grd[:xfm_pfr][:uon][tii] = pfr
-    
+            grd[:xfm_pfr][:vmfr][tii] .= u_on_xfm.*(2.0.*(g_sr.+g_fr).*msc[:vf_tau2_x] .+ 
+                    (.-g_sr.*msc[:cos_ftp_x] .- b_sr.*msc[:sin_ftp_x]).*msc[:vt_tau_x])
+            grd[:xfm_pfr][:vmto][tii] .= u_on_xfm.*(
+                    (.-g_sr.*msc[:cos_ftp_x] .- b_sr.*msc[:sin_ftp_x]).*msc[:vf_tau_x])
+            grd[:xfm_pfr][:vafr][tii] .= u_on_xfm.*(
+                    (g_sr.*msc[:sin_ftp_x] .- b_sr.*msc[:cos_ftp_x]).*msc[:vft_tau_x])
+            grd[:xfm_pfr][:vato][tii] .= u_on_xfm.*(
+                    (.-g_sr.*msc[:sin_ftp_x] .+ b_sr.*msc[:cos_ftp_x]).*msc[:vft_tau_x])
+            grd[:xfm_pfr][:tau][tii] .= u_on_xfm.*((-2.0).*(g_sr.+g_fr).*msc[:vff_tau3_x] .+ 
+                    .-(.-g_sr.*msc[:cos_ftp_x] .- b_sr.*msc[:sin_ftp_x]).*msc[:vft_tau2_x])
+            grd[:xfm_pfr][:phi][tii] .= grd[:xfm_pfr][:vato][tii]
+            grd[:xfm_pfr][:uon][tii] .= msc[:pfr_x]
+
             # ====================================================== #
             # Gradients: reactive power flow -- from -> to
-            grd[:xfm_qfr][:vmfr][tii] = u_on_xfm.*(2.0*(-b_sr-b_fr-b_ch/2.0).*vf_tau2 +
-                    (b_sr.*cos_ftp - g_sr.*sin_ftp).*vt_tau)
-            grd[:xfm_qfr][:vmto][tii] = u_on_xfm.*(
-                    (b_sr.*cos_ftp - g_sr.*sin_ftp).*vf_tau)
-            grd[:xfm_qfr][:vafr][tii] = u_on_xfm.*(
-                    (-b_sr.*sin_ftp - g_sr.*cos_ftp).*vft_tau)
-            grd[:xfm_qfr][:vato][tii] = u_on_xfm.*(
-                    (b_sr.*sin_ftp + g_sr.*cos_ftp).*vft_tau)
-            grd[:xfm_qfr][:tau][tii]  = u_on_xfm.*(-2.0*(-b_sr-b_fr-b_ch/2.0).*vff_tau3 +
-                    -(b_sr.*cos_ftp - g_sr.*sin_ftp).*vft_tau2)
-            grd[:xfm_qfr][:phi][tii]  = grd[:xfm_qfr][:vato][tii]
-            grd[:xfm_qfr][:uon][tii]  = qfr
-    
+            grd[:xfm_qfr][:vmfr][tii] .= u_on_xfm.*(2.0.*(.-b_sr.-b_fr.-b_ch./2.0).*msc[:vf_tau2_x] .+
+                    (b_sr.*msc[:cos_ftp_x] .- g_sr.*msc[:sin_ftp_x]).*msc[:vt_tau_x])
+            grd[:xfm_qfr][:vmto][tii] .= u_on_xfm.*(
+                    (b_sr.*msc[:cos_ftp_x] .- g_sr.*msc[:sin_ftp_x]).*msc[:vf_tau_x])
+            grd[:xfm_qfr][:vafr][tii] .= u_on_xfm.*(
+                    (.-b_sr.*msc[:sin_ftp_x] .- g_sr.*msc[:cos_ftp_x]).*msc[:vft_tau_x])
+            grd[:xfm_qfr][:vato][tii] .= u_on_xfm.*(
+                    (b_sr.*msc[:sin_ftp_x] .+ g_sr.*msc[:cos_ftp_x]).*msc[:vft_tau_x])
+            grd[:xfm_qfr][:tau][tii]  .= u_on_xfm.*(.-2.0.*(.-b_sr.-b_fr.-b_ch./2.0).*msc[:vff_tau3_x] .+
+                    .-(b_sr.*msc[:cos_ftp_x] .- g_sr.*msc[:sin_ftp_x]).*msc[:vft_tau2_x])
+            grd[:xfm_qfr][:phi][tii]  .= grd[:xfm_qfr][:vato][tii]
+            grd[:xfm_qfr][:uon][tii]  .= msc[:qfr_x]
+            
             # ====================================================== #
             # Gradients: apparent power flow -- from -> to
             # ...
             # ====================================================== #
             # Gradients: active power flow -- to -> from
-            grd[:xfm_pto][:vmfr][tii] = u_on_xfm.*( 
-                    (-g_sr.*cos_ftp + b_sr.*sin_ftp).*vt_tau)
-            grd[:xfm_pto][:vmto][tii] = u_on_xfm.*(2.0*(g_sr+g_to).*vm_to +
-                    (-g_sr.*cos_ftp + b_sr.*sin_ftp).*vf_tau)
-            grd[:xfm_pto][:vafr][tii] = u_on_xfm.*(
-                    (g_sr.*sin_ftp + b_sr.*cos_ftp).*vft_tau)
-            grd[:xfm_pto][:vato][tii] = u_on_xfm.*(
-                    (-g_sr.*sin_ftp - b_sr.*cos_ftp).*vft_tau)
-            grd[:xfm_pto][:tau][tii] = u_on_xfm.*(
-                    -(-g_sr.*cos_ftp + b_sr.*sin_ftp).*vft_tau2)
-            grd[:xfm_pto][:phi][tii] = grd[:xfm_pto][:vato][tii]
-            grd[:xfm_pto][:uon][tii] = pto
+            grd[:xfm_pto][:vmfr][tii] .= u_on_xfm.*( 
+                    (.-g_sr.*msc[:cos_ftp_x] .+ b_sr.*msc[:sin_ftp_x]).*msc[:vt_tau_x])
+            grd[:xfm_pto][:vmto][tii] .= u_on_xfm.*(2.0.*(g_sr.+g_to).*vm_to .+
+                    (.-g_sr.*msc[:cos_ftp_x] .+ b_sr.*msc[:sin_ftp_x]).*msc[:vf_tau_x])
+            grd[:xfm_pto][:vafr][tii] .= u_on_xfm.*(
+                    (g_sr.*msc[:sin_ftp_x] .+ b_sr.*msc[:cos_ftp_x]).*msc[:vft_tau_x])
+            grd[:xfm_pto][:vato][tii] .= u_on_xfm.*(
+                    (.-g_sr.*msc[:sin_ftp_x] .- b_sr.*msc[:cos_ftp_x]).*msc[:vft_tau_x])
+            grd[:xfm_pto][:tau][tii] .= u_on_xfm.*(
+                    .-(.-g_sr.*msc[:cos_ftp_x] .+ b_sr.*msc[:sin_ftp_x]).*msc[:vft_tau2_x])
+            grd[:xfm_pto][:phi][tii] .= grd[:xfm_pto][:vato][tii]
+            grd[:xfm_pto][:uon][tii] .= msc[:pto_x]
     
             # ====================================================== #
             # Gradients: reactive power flow -- to -> from
-            grd[:xfm_qto][:vmfr][tii] = u_on_xfm.*(
-                    (b_sr.*cos_ftp + g_sr.*sin_ftp).*vt_tau)
-            grd[:xfm_qto][:vmto][tii] = u_on_xfm.*(2.0*(-b_sr-b_to-b_ch/2.0).*vm_to +
-                    (b_sr.*cos_ftp + g_sr.*sin_ftp).*vf_tau)
-            grd[:xfm_qto][:vafr][tii] = u_on_xfm.*(
-                    (-b_sr.*sin_ftp + g_sr.*cos_ftp).*vft_tau)
-            grd[:xfm_qto][:vato][tii] = u_on_xfm.*(
-                    (b_sr.*sin_ftp - g_sr.*cos_ftp).*vft_tau)
-            grd[:xfm_qto][:tau][tii]  = u_on_xfm.*(
-                    -(b_sr.*cos_ftp + g_sr.*sin_ftp).*vft_tau2)
-            grd[:xfm_qto][:phi][tii] = grd[:xfm_qto][:vato][tii]
-            grd[:xfm_qto][:uon][tii] = qto
-    
-            # ====================================================== #
-            # Gradients: apparent power flow -- to -> from
-            #
-            # penalty function derivatives
-            #=
-            grd[:xfm_sfr_plus][:xfm_pfr][tii] = stt[:xfm_pfr][tii]./xfm_sfr
-            grd[:xfm_sfr_plus][:xfm_qfr][tii] = stt[:xfm_qfr][tii]./xfm_sfr
-            grd[:xfm_sto_plus][:xfm_pto][tii] = stt[:xfm_pto][tii]./xfm_sto
-            grd[:xfm_sto_plus][:xfm_qto][tii] = stt[:xfm_qto][tii]./xfm_sto
-    
-            max_sfst0  = [argmax([spfr,spto,0]) for (spfr,spto) in zip(xfm_sfr_plus,xfm_sto_plus)]
-            grd[:zs_xfm][:xfm_sfr_plus][tii] = zeros(length(max_sfst0))
-            grd[:zs_xfm][:xfm_sfr_plus][tii][max_sfst0 .== 1] .= dt*cs
-            grd[:zs_xfm][:xfm_sto_plus][tii] = zeros(length(max_sfst0))
-            grd[:zs_xfm][:xfm_sto_plus][tii][max_sfst0 .== 2] .= dt*cs
-            =#
+            grd[:xfm_qto][:vmfr][tii] .= u_on_xfm.*(
+                    (b_sr.*msc[:cos_ftp_x] .+ g_sr.*msc[:sin_ftp_x]).*msc[:vt_tau_x])
+            grd[:xfm_qto][:vmto][tii] .= u_on_xfm.*(2.0.*(.-b_sr.-b_to.-b_ch./2.0).*vm_to .+
+                    (b_sr.*msc[:cos_ftp_x] .+ g_sr.*msc[:sin_ftp_x]).*msc[:vf_tau_x])
+            grd[:xfm_qto][:vafr][tii] .= u_on_xfm.*(
+                    (.-b_sr.*msc[:sin_ftp_x] .+ g_sr.*msc[:cos_ftp_x]).*msc[:vft_tau_x])
+            grd[:xfm_qto][:vato][tii] .= u_on_xfm.*(
+                    (b_sr.*msc[:sin_ftp_x] .- g_sr.*msc[:cos_ftp_x]).*msc[:vft_tau_x])
+            grd[:xfm_qto][:tau][tii]  .= u_on_xfm.*(
+                    .-(b_sr.*msc[:cos_ftp_x] .+ g_sr.*msc[:sin_ftp_x]).*msc[:vft_tau2_x])
+            grd[:xfm_qto][:phi][tii] .= grd[:xfm_qto][:vato][tii]
+            grd[:xfm_qto][:uon][tii] .= msc[:qto_x]
 
             # indicators
-            max_sfst0  = [argmax([spfr, spto, 0.0]) for (spfr,spto) in zip(xfm_sfr_plus,xfm_sto_plus)]
-            ind_fr = max_sfst0 .== 1
-            ind_to = max_sfst0 .== 2
-
+            quasiGrad.get_largest_indices(msc, bit, :xfm_sfr_plus_x, :xfm_sto_plus_x)
+            #
+            # slow alternative:
+                # => max_sfst0 = [argmax([spfr, spto, 0.0]) for (spfr,spto) in zip(msc[:xfm_sfr_plus_x],msc[:xfm_sto_plus_x])]
+                # => ind_fr = max_sfst0 .== 1
+                # => ind_to = max_sfst0 .== 2
+    
             # flush -- set to 0 => [Not(ind_fr)] and [Not(ind_to)] was slow/memory inefficient
             grd[:zs_xfm][:xfm_pfr][tii] .= 0.0
             grd[:zs_xfm][:xfm_qfr][tii] .= 0.0
             grd[:zs_xfm][:xfm_pto][tii] .= 0.0
             grd[:zs_xfm][:xfm_qto][tii] .= 0.0
-
+    
             if qG.acflow_grad_is_soft_abs
-                # the following grabs the largest elements (>0) and applies the softabs 
-                scale_fr = soft_abs_grad.(xfm_sfr_plus[ind_fr], qG.acflow_grad_eps2)
-                scale_to = soft_abs_grad.(xfm_sto_plus[ind_to], qG.acflow_grad_eps2)
-                grd[:zs_xfm][:xfm_pfr][tii][ind_fr] = scale_fr.*((dt*qG.acflow_grad_weight)*stt[:xfm_pfr][tii][ind_fr]./xfm_sfr[ind_fr])
-                grd[:zs_xfm][:xfm_qfr][tii][ind_fr] = scale_fr.*((dt*qG.acflow_grad_weight)*stt[:xfm_qfr][tii][ind_fr]./xfm_sfr[ind_fr])
-                grd[:zs_xfm][:xfm_pto][tii][ind_to] = scale_to.*((dt*qG.acflow_grad_weight)*stt[:xfm_pto][tii][ind_to]./xfm_sto[ind_to])
-                grd[:zs_xfm][:xfm_qto][tii][ind_to] = scale_to.*((dt*qG.acflow_grad_weight)*stt[:xfm_qto][tii][ind_to]./xfm_sto[ind_to])
-            end
-                # gradients
-                grd[:zs_xfm][:xfm_pfr][tii][ind_fr] = (dt*cs)*stt[:xfm_pfr][tii][ind_fr]./xfm_sfr[ind_fr]
-                grd[:zs_xfm][:xfm_qfr][tii][ind_fr] = (dt*cs)*stt[:xfm_qfr][tii][ind_fr]./xfm_sfr[ind_fr]
-                grd[:zs_xfm][:xfm_pto][tii][ind_to] = (dt*cs)*stt[:xfm_pto][tii][ind_to]./xfm_sto[ind_to]
-                grd[:zs_xfm][:xfm_qto][tii][ind_to] = (dt*cs)*stt[:xfm_qto][tii][ind_to]./xfm_sto[ind_to]
+                # compute the scaled gradients
+                if sum(bit[:xfm_sfr_plus_x]) > 0
+                    msc[:scale_fr_x][bit[:xfm_sfr_plus_x]] .= msc[:xfm_sfr_plus_x][bit[:xfm_sfr_plus_x]]./sqrt.(msc[:xfm_sfr_plus_x][bit[:xfm_sfr_plus_x]].^2 .+ qG.acflow_grad_eps2);
+                    grd[:zs_xfm][:xfm_pfr][tii][bit[:xfm_sfr_plus_x]] .= msc[:scale_fr_x][bit[:xfm_sfr_plus_x]].*((dt*qG.acflow_grad_weight).*stt[:xfm_pfr][tii][bit[:xfm_sfr_plus_x]]./msc[:xfm_sfr_x][bit[:xfm_sfr_plus_x]])
+                    grd[:zs_xfm][:xfm_qfr][tii][bit[:xfm_sfr_plus_x]] .= msc[:scale_fr_x][bit[:xfm_sfr_plus_x]].*((dt*qG.acflow_grad_weight).*stt[:xfm_qfr][tii][bit[:xfm_sfr_plus_x]]./msc[:xfm_sfr_x][bit[:xfm_sfr_plus_x]])
+                end
+
+                # compute the scaled gradients
+                if sum(bit[:xfm_sto_plus_x]) > 0
+                    msc[:scale_to_x][bit[:xfm_sto_plus_x]] .= msc[:xfm_sto_plus_x][bit[:xfm_sto_plus_x]]./sqrt.(msc[:xfm_sto_plus_x][bit[:xfm_sto_plus_x]].^2 .+ qG.acflow_grad_eps2);
+                    grd[:zs_xfm][:xfm_pto][tii][bit[:xfm_sto_plus_x]] .= msc[:scale_to_x][bit[:xfm_sto_plus_x]].*((dt*qG.acflow_grad_weight).*stt[:xfm_pto][tii][bit[:xfm_sto_plus_x]]./msc[:xfm_sto_x][bit[:xfm_sto_plus_x]])
+                    grd[:zs_xfm][:xfm_qto][tii][bit[:xfm_sto_plus_x]] .= msc[:scale_to_x][bit[:xfm_sto_plus_x]].*((dt*qG.acflow_grad_weight).*stt[:xfm_qto][tii][bit[:xfm_sto_plus_x]]./msc[:xfm_sto_x][bit[:xfm_sto_plus_x]])
+                end
             else
+                # gradients
+                grd[:zs_xfm][:xfm_pfr][tii][bit[:xfm_sfr_plus_x]] .= (dt*cs).*stt[:xfm_pfr][tii][bit[:xfm_sfr_plus_x]]./msc[:xfm_sfr_x][bit[:xfm_sfr_plus_x]]
+                grd[:zs_xfm][:xfm_qfr][tii][bit[:xfm_sfr_plus_x]] .= (dt*cs).*stt[:xfm_qfr][tii][bit[:xfm_sfr_plus_x]]./msc[:xfm_sfr_x][bit[:xfm_sfr_plus_x]]
+                grd[:zs_xfm][:xfm_pto][tii][bit[:xfm_sto_plus_x]] .= (dt*cs).*stt[:xfm_pto][tii][bit[:xfm_sto_plus_x]]./msc[:xfm_sto_x][bit[:xfm_sto_plus_x]]
+                grd[:zs_xfm][:xfm_qto][tii][bit[:xfm_sto_plus_x]] .= (dt*cs).*stt[:xfm_qto][tii][bit[:xfm_sto_plus_x]]./msc[:xfm_sto_x][bit[:xfm_sto_plus_x]]
+            end
+
+            #= Previous gradient junk!
+            # apply gradients
+            if qG.acflow_grad_is_soft_abs
+                dtgw = dt*qG.acflow_grad_weight
+                for xx in 1:sys.nx
+                    if (msc[:xfm_sfr_plus_x][xx] >= msc[:xfm_sto_plus_x][xx]) && (msc[:xfm_sfr_plus_x][xx] > 0.0)
+                        sc = soft_abs_grad_ac(msc[:xfm_sfr_plus_x][xx], qG)
+                        grd[:zs_xfm][:xfm_pfr][tii][xx] = sc*(dtgw*stt[:xfm_pfr][tii][xx]/msc[:xfm_sfr_x][xx])
+                        grd[:zs_xfm][:xfm_qfr][tii][xx] = sc*(dtgw*stt[:xfm_qfr][tii][xx]/msc[:xfm_sfr_x][xx])
+                    elseif (msc[:xfm_sto_plus_x][xx] > 0.0)
+                        sc = soft_abs_grad_ac(msc[:xfm_sto_plus_x][xx], qG)
+                        grd[:zs_xfm][:xfm_pto][tii][xx] = sc*(dtgw*stt[:xfm_pto][tii][xx]/msc[:xfm_sto_x][xx])
+                        grd[:zs_xfm][:xfm_qto][tii][xx] = sc*(dtgw*stt[:xfm_qto][tii][xx]/msc[:xfm_sto_x][xx])
+                    else
+                        grd[:zs_xfm][:xfm_pfr][tii][xx] = 0.0
+                        grd[:zs_xfm][:xfm_qfr][tii][xx] = 0.0
+                        grd[:zs_xfm][:xfm_pto][tii][xx] = 0.0
+                        grd[:zs_xfm][:xfm_qto][tii][xx] = 0.0  
+                    end
+                end
+            # no softabs -- use standard
+            else
+                dtcs = dt*cs
+                for xx in 1:sys.nx
+                    if (msc[:xfm_sfr_plus_x][xx] >= msc[:xfm_sto_plus_x][xx]) && (msc[:xfm_sfr_plus_x][xx] > 0.0)
+                        grd[:zs_xfm][:xfm_pfr][tii][xx] = dtcs*stt[:xfm_pfr][tii][xx]/msc[:xfm_sfr_x][xx]
+                        grd[:zs_xfm][:xfm_qfr][tii][xx] = dtcs*stt[:xfm_qfr][tii][xx]/msc[:xfm_sfr_x][xx]
+                    elseif (msc[:xfm_sto_plus_x][xx] > 0.0)
+                        grd[:zs_xfm][:xfm_pto][tii][xx] = dtcs*stt[:xfm_pto][tii][xx]/msc[:xfm_sto_x][ind_to]
+                        grd[:zs_xfm][:xfm_qto][tii][xx] = dtcs*stt[:xfm_qto][tii][xx]/msc[:xfm_sto_x][ind_to]
+                    else
+                        grd[:zs_xfm][:xfm_pfr][tii][xx] = 0.0
+                        grd[:zs_xfm][:xfm_qfr][tii][xx] = 0.0
+                        grd[:zs_xfm][:xfm_pto][tii][xx] = 0.0
+                        grd[:zs_xfm][:xfm_qto][tii][xx] = 0.0  
+                    end
+                end
+            end
+=#
+
+            # ====================================================== #
+            # Gradients: apparent power flow -- to -> from
+            #
+            # penalty function derivatives
+            #=
+            grd[:msc[:xfm_sfr_plus_x]][:xfm_pfr][tii] = stt[:xfm_pfr][tii]./msc[:xfm_sfr_x]
+            grd[:msc[:xfm_sfr_plus_x]][:xfm_qfr][tii] = stt[:xfm_qfr][tii]./msc[:xfm_sfr_x]
+            grd[:msc[:xfm_sto_plus_x]][:xfm_pto][tii] = stt[:xfm_pto][tii]./msc[:xfm_sto_x]
+            grd[:msc[:xfm_sto_plus_x]][:xfm_qto][tii] = stt[:xfm_qto][tii]./msc[:xfm_sto_x]
+    
+            max_sfst0  = [argmax([spfr,spto,0]) for (spfr,spto) in zip(msc[:xfm_sfr_plus_x],msc[:xfm_sto_plus_x])]
+            grd[:zs_xfm][:msc[:xfm_sfr_plus_x]][tii] = zeros(length(max_sfst0))
+            grd[:zs_xfm][:msc[:xfm_sfr_plus_x]][tii][max_sfst0 .== 1] .= dt*cs
+            grd[:zs_xfm][:msc[:xfm_sto_plus_x]][tii] = zeros(length(max_sfst0))
+            grd[:zs_xfm][:msc[:xfm_sto_plus_x]][tii][max_sfst0 .== 2] .= dt*cs
+            =#
+        end
+    end
+end   
+
+function get_largest_indices(msc::Dict{Symbol, Vector{Float64}}, bit::Dict{Symbol, BitVector}, s1::Symbol, s2::Symbol)
+    for ii in 1:length(msc[s1])
+        if (msc[s1][ii] >= msc[s2][ii]) && (msc[s1][ii] > 0.0)
+            bit[s1][ii] = 1
+            bit[s2][ii] = 0
+        elseif msc[s2][ii] > 0.0 # no need to check v2[ii] > v1[ii]
+            bit[s2][ii] = 1
+            bit[s1][ii] = 0
+        else
+            bit[s1][ii] = 0  
+            bit[s2][ii] = 0
         end
     end
 end

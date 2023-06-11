@@ -9,11 +9,11 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 jsn = quasiGrad.load_json(path)
 
 # %% init
-adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
+adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
 stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # solve
-quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # run an ED
 ED = quasiGrad.solve_economic_dispatch(GRB, idx, prm, qG, scr, stt, sys, upd);
@@ -23,10 +23,10 @@ quasiGrad.apply_economic_dispatch_projection!(ED, idx, prm, qG, stt, sys);
 quasiGrad.dcpf_initialization!(flw, idx, msc, ntk, prm, qG, stt, sys)
 
 # %%
-quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # %% let's go!
-quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
 
 # %% intialize lbfgs
 #dpf0, pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, zpf = quasiGrad.initialize_pf_lbfgs(mgd, prm, stt, sys, upd);
@@ -54,7 +54,7 @@ for ii in 1:10000
     end
 
     # compute all states and grads
-    quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+    quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 
     # print
     zp = round(sum(sum([zpf[:zp][tii] for tii in prm.ts.time_keys])); sigdigits = 3)
@@ -136,7 +136,7 @@ if test_pf == true
     tii = :t1
     stt[:phi][tii] =        0.1*randn(sys.nx)
     stt[:tau][tii] = 1.0 .+ 0.1*randn(sys.nx)
-    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
     # compute the admittance
     Ybus_real, Ybus_imag = quasiGrad.update_Ybus(idx, ntk, prm, stt, sys, tii)
@@ -192,7 +192,7 @@ if test_pf == true
         eps       = 1e-6
 
         stt[:vm][tii][ind] = stt[:vm][tii][ind] + eps
-        quasiGrad.update_states_for_distributed_slack_pf!(grd, idx, prm, qG, stt)
+        quasiGrad.update_states_for_distributed_slack_pf!(bit, grd, idx, prm, qG, stt)
         quasiGrad.power_flow_residual!(idx, residual, stt, sys, tii)
 
         # test
@@ -253,7 +253,7 @@ else
     stt[:va][tii][2:end] = x[2:end]
 
     # update the flows and residual and such
-    quasiGrad.update_states_for_distributed_slack_pf!(grd, idx, prm, qG, stt)
+    quasiGrad.update_states_for_distributed_slack_pf!(bit, grd, idx, prm, qG, stt)
 end
 
 
@@ -299,7 +299,7 @@ else
     stt[:va][tii][2:end] = x[sys.nb+2:end]
 
     # update the flows and residual and such
-    quasiGrad.update_states_for_distributed_slack_pf!(grd, idx, prm, qG, stt)
+    quasiGrad.update_states_for_distributed_slack_pf!(bit, grd, idx, prm, qG, stt)
 end
 
 
@@ -353,7 +353,7 @@ else
     stt[:va][tii][2:end] = x[(nPQ+2):end]
 
     # update the flows and residual and such
-    quasiGrad.update_states_for_distributed_slack_pf!(grd, idx, prm, qG, stt)
+    quasiGrad.update_states_for_distributed_slack_pf!(bit, grd, idx, prm, qG, stt)
 end
 
 #println(x)
@@ -407,7 +407,7 @@ stt[:vm][tii][2:end] = x[2:sys.nb]
 KP = x[sys.nb+1]
 stt[:va][tii][2:end] = x[sys.nb+2:end]
 
-quasiGrad.update_states_for_distributed_slack_pf!(grd, idx, prm, qG, stt)
+quasiGrad.update_states_for_distributed_slack_pf!(bit, grd, idx, prm, qG, stt)
 
 # %%
 
@@ -431,7 +431,7 @@ x = copy([stt[:vm][tii]; stt[:va][tii][2:end]])
 x = x - (Jac\residual[2:end])
 stt[:vm][tii]        = x[1:sys.nb]
 stt[:va][tii][2:end] = x[(sys.nb+1):end]
-quasiGrad.update_states_for_distributed_slack_pf!(grd, idx, prm, qG, stt)
+quasiGrad.update_states_for_distributed_slack_pf!(bit, grd, idx, prm, qG, stt)
 
 quasiGrad.power_flow_residual!(idx, 0.0, pi_p, residual, stt, sys, tii)
 println(quasiGrad.norm(residual[2:end]))
@@ -632,10 +632,10 @@ while run_pf == true
     @variable(model, dev_q_vars[1:sys.ndev])
 
     # call the bounds
-    dev_plb = stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind)
-    dev_pub = stt[:u_on_dev][tii].*getindex.(prm.dev.p_ub,t_ind)
-    dev_qlb = stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind)
-    dev_qub = stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind)
+    dev_plb = stt[:u_on_dev][tii].*prm.dev.p_lb_tmdv[t_ind]
+    dev_pub = stt[:u_on_dev][tii].*prm.dev.p_ub_tmdv[t_ind]
+    dev_qlb = stt[:u_sum][tii].*prm.dev.q_lb_tmdv[t_ind]
+    dev_qub = stt[:u_sum][tii].*prm.dev.q_ub_tmdv[t_ind]
 
     # first, define p_on at this time
     p_on = dev_p_vars - stt[:p_su][tii] - stt[:p_sd][tii]
@@ -791,13 +791,13 @@ qG.pqbal_grad_eps2     = 1e-8
 #  1. transformer phase shift (phi) =======================================================================
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nx)); (ind == 0 ? ind = 1 : ind = ind)
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 z0      = sum(stt[:zp][tii]) + sum(stt[:zq][tii])
 dzdx    = copy(mgd[:phi][tii][ind])
 
 # perturb and test
 stt[:phi][tii][ind] += epsilon
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 zp = sum(stt[:zp][tii]) + sum(stt[:zq][tii])
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -806,13 +806,13 @@ println(dzdx_num)
 # %% 2. transformer turns ratio (tau) =======================================================================
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nx)); (ind == 0 ? ind = 1 : ind = ind)
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 z0      = sum(stt[:zp][tii]) + sum(stt[:zq][tii])
 dzdx    = copy(mgd[:tau][tii][ind])
 
 # perturb and test
 stt[:tau][tii][ind] += epsilon
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 zp = sum(stt[:zp][tii]) + sum(stt[:zq][tii])
 
 println("========")
@@ -823,13 +823,13 @@ println(dzdx_num)
 # %% 3. voltage magnitude =======================================================================
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nb)); (ind == 0 ? ind = 1 : ind = ind)
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 z0      = sum(stt[:zp][tii]) + sum(stt[:zq][tii])
 dzdx    = mgd[:vm][tii][ind]
 
 # perturb and test
 stt[:vm][tii][ind] += epsilon 
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 zp = sum(stt[:zp][tii]) + sum(stt[:zq][tii])
 dzdx_num = (zp - z0)/epsilon
 
@@ -839,13 +839,13 @@ println(dzdx_num)
 # %% 4. voltage phase =======================================================================
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nb)); (ind == 0 ? ind = 1 : ind = ind)
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 z0      = sum(stt[:zp][tii]) + sum(stt[:zq][tii])
 dzdx    = mgd[:va][tii][ind]
 
 # perturb and test
 stt[:va][tii][ind] += epsilon 
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 zp      = sum(stt[:zp][tii]) + sum(stt[:zq][tii])
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -858,13 +858,13 @@ ind     = Int64(round(rand(1)[1]*sys.nsh)) # -- most have a 0-bs/gs value, so ch
 
 # to ensure we're not tipping over into some new space
 stt[:u_step_shunt][tii][ind] = 0.4
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 z0      = sum(stt[:zp][tii]) + sum(stt[:zq][tii])
 dzdx  = copy(mgd[:u_step_shunt][tii][ind])
 
 # perturb and test
 stt[:u_step_shunt][tii][ind] += epsilon 
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 zp      = sum(stt[:zp][tii]) + sum(stt[:zq][tii])
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -873,13 +873,13 @@ println(dzdx_num)
 # %% 11. p_on
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.ndev)); (ind == 0 ? ind = 1 : ind = ind)
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 z0      = sum(stt[:zp][tii]) + sum(stt[:zq][tii])
 dzdx    = copy(mgd[:p_on][tii][ind])
 
 # perturb and test
 stt[:p_on][tii][ind] += epsilon 
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 zp      = sum(stt[:zp][tii]) + sum(stt[:zq][tii])
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -888,13 +888,13 @@ println(dzdx_num)
 # %% 11. dev_q
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.ndev)); (ind == 0 ? ind = 1 : ind = ind)
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 z0      = sum(stt[:zp][tii]) + sum(stt[:zq][tii])
 dzdx    = copy(mgd[:dev_q][tii][ind])
 
 # perturb and test
 stt[:dev_q][tii][ind] += epsilon 
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 zp      = sum(stt[:zp][tii]) + sum(stt[:zq][tii])
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)

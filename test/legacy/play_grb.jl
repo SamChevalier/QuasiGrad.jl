@@ -1,413 +1,424 @@
-# loop over each device and solve individually -- not clear if this is faster
-# than solving one big optimization problem all at once. see legacy code for
-# a (n unfinished) version where all devices are solved at once!
-model = Model(quasiGrad.Gurobi.Optimizer)
 
-dev = 250
+@btime quasiGrad.flush_gradients!(grd, mgd, prm, sys);
 
-# empty the model!
-empty!(model)
+# %%
+@btime quasiGrad.clip_all!(prm, qG, stt)
 
-# quiet down!!!
-quasiGrad.set_optimizer_attribute(model, "OutputFlag", qG.GRB_output_flag)
+# %%
+@btime sum(bit[:acline_sfr_plus])
 
-# set model properties
-quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-quasiGrad.set_optimizer_attribute(model, "MIPGap",         qG.mip_gap)
-quasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
+# %%
+@btime bit[:acline_sfr_plus][end] in bit[:acline_sfr_plus];
 
-# define local time keys
-tkeys = prm.ts.time_keys
+# %%
+@btime quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
 
-# define the minimum set of variables we will need to solve the constraints                                                       -- round() the int?
-u_on_dev  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "u_on_dev_t$(ii)",  start=stt[:u_on_dev][tkeys[ii]][dev],  binary=true)       for ii in 1:(sys.nT))
-p_on      = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_on_t$(ii)",      start=stt[:p_on][tkeys[ii]][dev])                         for ii in 1:(sys.nT))
-dev_q     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "dev_q_t$(ii)",     start=stt[:dev_q][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-p_rgu     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rgu_t$(ii)",     start=stt[:p_rgu][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-p_rgd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rgd_t$(ii)",     start=stt[:p_rgd][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-p_scr     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_scr_t$(ii)",     start=stt[:p_scr][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-p_nsc     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_nsc_t$(ii)",     start=stt[:p_nsc][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-p_rru_on  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rru_on_t$(ii)",  start=stt[:p_rru_on][tkeys[ii]][dev],  lower_bound = 0.0) for ii in 1:(sys.nT))
-p_rru_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rru_off_t$(ii)", start=stt[:p_rru_off][tkeys[ii]][dev], lower_bound = 0.0) for ii in 1:(sys.nT))
-p_rrd_on  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rrd_on_t$(ii)",  start=stt[:p_rrd_on][tkeys[ii]][dev],  lower_bound = 0.0) for ii in 1:(sys.nT))
-p_rrd_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "p_rrd_off_t$(ii)", start=stt[:p_rrd_off][tkeys[ii]][dev], lower_bound = 0.0) for ii in 1:(sys.nT))
-q_qru     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "q_qru_t$(ii)",     start=stt[:q_qru][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
-q_qrd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "q_qrd_t$(ii)",     start=stt[:q_qrd][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT))
+# %%
+@time quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys);
 
-# add a few more (implicit) variables which are necessary for solving this system
-u_su_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "u_su_dev_t$(ii)", start=stt[:u_su_dev][tkeys[ii]][dev], binary=true) for ii in 1:(sys.nT))
-u_sd_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, base_name = "u_sd_dev_t$(ii)", start=stt[:u_sd_dev][tkeys[ii]][dev], binary=true) for ii in 1:(sys.nT))
 
-# we have the affine "AffExpr" expressions (whose values are specified)
-dev_p = Dict(tkeys[ii] => AffExpr(0.0) for ii in 1:(sys.nT))
-p_su  = Dict(tkeys[ii] => AffExpr(0.0) for ii in 1:(sys.nT))
-p_sd  = Dict(tkeys[ii] => AffExpr(0.0) for ii in 1:(sys.nT))
+# %%
+@time quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
 
-# == define active power constraints ==
-for (t_ind, tii) in enumerate(prm.ts.time_keys[1:1])
-    # first, get the startup power
-    T_supc     = idx.Ts_supc[dev][t_ind]     # T_set, p_supc_set = get_supc(tii, dev, prm)
-    p_supc_set = idx.ps_supc_set[dev][t_ind] # T_set, p_supc_set = get_supc(tii, dev, prm)
-    quasiGrad.add_to_expression!(p_su[tii], sum(p_supc_set[ii]*u_su_dev[tii_inst] for (ii,tii_inst) in enumerate(T_supc); init=0.0))
+# %%
+@btime quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
 
-    # second, get the shutdown power
-    T_sdpc     = idx.Ts_sdpc[dev][t_ind]     # T_set, p_sdpc_set = get_sdpc(tii, dev, prm)
-    p_sdpc_set = idx.ps_sdpc_set[dev][t_ind] # T_set, p_sdpc_set = get_sdpc(tii, dev, prm)
-    quasiGrad.add_to_expression!(p_sd[tii], sum(p_sdpc_set[ii]*u_sd_dev[tii_inst] for (ii,tii_inst) in enumerate(T_sdpc); init=0.0))
+# %%
+@time msc[:scale_fr_x][bit[:xfm_sfr_plus_x]] .= msc[:xfm_sfr_plus_x][bit[:xfm_sfr_plus_x]]./sqrt.(msc[:xfm_sfr_plus_x][bit[:xfm_sfr_plus_x]].^2 .+ qG.acflow_grad_eps2);
 
-    # finally, get the total power balance
-    dev_p[tii] = p_on[tii] + p_su[tii] + p_sd[tii]
+
+# %%
+quasiGrad.power_balance_old!(grd, idx, msc, prm, qG, stt, sys)
+
+zp0 = deepcopy(stt[:zp])
+zq0 = deepcopy(stt[:zq])
+
+quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
+
+zp1 = deepcopy(stt[:zp])
+zq1 = deepcopy(stt[:zq])
+
+
+# %%
+f1(t::Float64, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, idx::quasiGrad.Idx, v::Vector{Float64}) = t = sum(stt[:dev_p][tii][cs] for cs in [@view idx.cs[bus]])
+f2(t::Float64, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, idx::quasiGrad.Idx, v::Vector{Float64}) = t = sum(stt[:dev_p][tii][idx.cs[bus]] for cs in idx.cs[bus])
+
+f3(t::Float64, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, idx::quasiGrad.Idx, v::Vector{Float64}) = t += v[ii] for ii in [1,2,3]
+
+# %%
+@time f1(t, stt, idx)
+@time f2(t, stt, idx)
+
+@time f3(t, stt, idx, v)
+
+# %% ===========
+function f4(t::Float64, v::Vector{Float64}, vv::Vector{Int64})
+    for idx in vv
+        t += v[idx]
+    end
 end
 
-# == define reactive power constraints ==
-for (t_ind, tii) in enumerate(prm.ts.time_keys[1:1])
-    # only a subset of devices will have a reactive power equality constraint
-    if dev in idx.J_pqe
+# %%
+t = 0.0
+v = randn(1000)
+vv = [1,2,3,4,5,6]
 
-        # the following (pr vs cs) are equivalent
-        if dev in idx.pr_devs
-            # producer?
-            #T_supc = idx.Ts_supc[dev][t_ind] # T_supc, ~ = get_supc(tii, dev, prm)
-            #T_sdpc = idx.Ts_sdpc[dev][t_ind] # T_sdpc, ~ = get_sdpc(tii, dev, prm)
-            #u_sum  = u_on_dev[tii] + sum(u_su_dev[tii_inst] for tii_inst in T_supc; init=0.0) + sum(u_sd_dev[tii_inst] for tii_inst in T_sdpc; init=0.0)
-            #=
-            # compute q -- this might be the only equality constraint (and below)
-            @constraint(model, dev_q[tii] == prm.dev.q_0[dev]*u_sum + prm.dev.beta[dev]*dev_p[tii])
-            =#
-        else
-            # the device must be a consumer :)
-            #T_supc = idx.Ts_supc[dev][t_ind] # T_supc, ~ = get_supc(tii, dev, prm) T_supc     = idx.Ts_supc[dev][t_ind] #T_supc, ~ = get_supc(tii, dev, prm)
-            #T_sdpc = idx.Ts_sdpc[dev][t_ind] # T_sdpc, ~ = get_sdpc(tii, dev, prm) T_sdpc, ~ = get_sdpc(tii, dev, prm)
-            #u_sum  = u_on_dev[tii] + sum(u_su_dev[tii_inst] for tii_inst in T_supc; init=0.0) + sum(u_sd_dev[tii_inst] for tii_inst in T_sdpc; init=0.0)
+@time f4(t,v,vv)
 
-            # compute q -- this might be the only equality constraint (and above)
-            #=
-            @constraint(model, dev_q[tii] == prm.dev.q_0[dev]*u_sum + prm.dev.beta[dev]*dev_p[tii])
-            =#
+# %%
+bus = 1299
+tii = :t15
+@time quasiGrad.pq_sums!(bus, idx, msc, stt, tii)
+
+@time sum(stt[:dev_p][tii][idx.cs[bus]]; init=0.0)
+
+# %%
+
+
+@time sum(stt[:dev_p][tii][cs] for cs in idx.cs[bus])
+
+t = 0.0
+@time @view stt[:dev_p][tii][idx.cs[bus]]
+
+@time sum(stt[:dev_p][tii][idx.cs[bus]]; init=0.0)
+
+# %%
+#ind_fr = [1,2,3]
+
+# %%
+quasiGrad.soft_abs_grad_ac_new(msc, qG, :acline_sfr_plus, 1)
+
+# %%
+@time quasiGrad.soft_abs_grad_vec!(v, qG.acflow_grad_eps2, x);
+
+# %%
+ind_fr = 1:143
+
+@time quasiGrad.soft_abs_grad_vec!(msc[:xfm_sfr_plus_x][ind_fr], 0.01, msc[:scale_fr_x][ind_fr])
+
+# %%
+@time quasiGrad.soft_abs_grad_vec!(v1, 0.01, msc[:scale_fr_x][ind_fr])
+
+# %%
+f(vv::Vector{Float64}, v1::Vector{Float64}, v2::Vector{Float64}) = vv .= 2.0*(v1 .+ v2)
+# %%
+@btime f(vv, v1, v2);
+
+# %%
+
+f(v::Vector{Float64}, x::Vector{Float64}, qG::quasiGrad.QG) = v.= x./qG.acflow_grad_eps2
+
+# %%
+@btime f(x, v, qG);
+
+# %%
+
+# %%
+quasiGrad.get_largest_indices(msc, bit, :xfm_sfr_plus_x, :xfm_sto_plus_x);
+
+
+max_sfst0 = [argmax([spfr, spto, 0.0]) for (spfr,spto) in zip(msc[:xfm_sfr_plus_x],msc[:xfm_sto_plus_x])]
+ind_fr = max_sfst0 .== 1
+ind_to = max_sfst0 .== 2
+
+# %%
+
+@time quasiGrad.soft_abs_grad_vec!(bit, msc[:xfm_sfr_plus_x], msc[:scale_fr_x], qG, :xfm_sfr_plus_x);
+@time quasiGrad.soft_abs_grad_vec!(bit, msc[:xfm_sto_plus_x], msc[:scale_to_x], qG, :xfm_sto_plus_x);
+
+
+# %%
+@time quasiGrad.soft_abs_grad_vec!(bit, msc, qG, :xfm_sfr_plus_x, :xfm_sfr_plus_x, :scale_fr_x);
+
+# %%
+
+@time [argmax([spfr, spto, 0.0]) for (spfr,spto) in zip(msc[:xfm_sfr_plus_x],msc[:xfm_sto_plus_x])];
+
+f(x::Vector{Float64}, v::Vector{Float64}, vv::Vector{Int64}) = x[vv] .= v[vv];
+
+# %%
+
+@time f(x,v,vv);
+
+# %%
+function f(x::Vector{Float64}, v::Vector{Float64}, vv::Vector{Int64})
+    for ii in vv
+        x[ii] = v[ii]
+    end
+end
+
+# %%
+@btime quasiGrad.device_reserve_costs!(prm, stt)
+
+# %%
+@btime quasiGrad.device_reserve_costs_new!(prm, stt)
+
+# %%
+
+@btime quasiGrad.device_reserve_costs_new!(prm, stt, sys)
+
+V2 = collect(eachrow(reduce(hcat, prm.dev.p_reg_res_up_cost)))
+
+# %%
+
+@time dt.*prm.dev.p_reg_res_up_cost_tmdv[t_ind].*stt[:p_rgu][tii]
+
+f(stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, tii::Symbol, dt::Float64, V2::Vector{Vector{Float64}}, t_ind::Int64) = stt[:p_rgd][tii] .= dt.*V2[t_ind].*stt[:p_rgu][tii];
+f0(stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, tii::Symbol, dt::Float64, V2::Vector{Vector{Float64}}, t_ind::Int64, prm::quasiGrad.Param) = stt[:p_rgd][tii] .= dt.*prm.dev.p_reg_res_up_cost_tmdv[t_ind].*stt[:p_rgu][tii];
+
+# %%
+dt = 0.5
+@btime f(stt, tii, dt, V2, 1);
+# %%
+@btime f0(stt, tii, dt, V2, 1, prm);
+
+# %%
+@time stt[:p_rgu][tii] .= dt.*stt[:p_rgu][tii];
+
+# %%
+@btime quasiGrad.reserve_balance!(idx, msc, prm, stt, sys)
+
+# %%
+@btime quasiGrad.reserve_p_max!(idx, msc, stt, tii, zone)
+
+# %%
+
+@btime quasiGrad.reserve_balance_old!(idx, msc, prm, stt, sys)
+
+# %%
+
+@btime quasiGrad.reserve_balance!(idx, msc, prm, stt, sys)
+
+# %%
+
+reserve_type = :p_rgu 
+tii = :t1
+zone = 1
+zone_type = :Pz
+
+@btime quasiGrad.reserve_sum!(idx, msc, reserve_type, stt, tii, zone, zone_type)
+
+# %%
+@time quasiGrad.score_zt!(idx, prm, qG, scr, stt) 
+
+# %%
+@btime quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
+
+# %%
+
+
+@btime quasiGrad.ideal_dispatch!(idx, msc, stt, sys, tii)
+@btime quasiGrad.ideal_dispatch_faster!(idx, msc, stt, sys, tii)
+
+# %%
+@btime quasiGrad.device_reactive_powers!(idx, prm, stt, sys)
+
+# %%
+@btime quasiGrad.all_device_statuses_and_costs!(grd, prm, qG, stt)
+
+# %%
+
+@btime quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
+
+# %%
+@btime quasiGrad.batch_fix!(pct_round, prm, stt, sys, upd)
+
+# %%
+quasiGrad.batch_fix!(pct_round, prm, stt, sys, upd)
+
+# %% 
+@btime quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
+
+# %%
+@btime quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
+
+# %%
+dev = 1
+t_ind = 1
+dt = 0.2
+cst = prm.dev.cum_cost_blocks[dev][t_ind][1]  # cost for each block (leading with 0)
+pbk = prm.dev.cum_cost_blocks[dev][t_ind][2]  # power in each block (leading with 0)
+pcm = prm.dev.cum_cost_blocks[dev][t_ind][3]  # accumulated power for each block!
+nbk = length(pbk)
+
+# get the cost!
+@time dt*sum(cst[ii]*max(min(stt[:dev_p][tii][dev] - pcm[ii-1], pbk[ii]), 0.0)  for ii in 2:nbk; init=0.0)
+
+@time dt*sum(cst_i*max(min(stt[:dev_p][tii][dev] - pcm_i, pbk_i), 0.0)  for (cst_i,pcm_i,pbk_i) in zip(cst[2:end],pcm[1:end-1],pbk[2:end]); init=0.0)
+
+# %%
+for (cst_i,pcm_i,pbk_i) in zip(cst[2:end],pcm[1:end-1],pbk[2:end])
+    cst_i
+    pcm_i
+    pbk_i
+end
+
+
+# %%
+# loop over each time period
+tii = :t4
+t_ind = 1
+dt = prm.ts.duration[tii]
+
+    # devices
+    for dev in 1:sys.ndev
+        cst = prm.dev.cum_cost_blocks[dev][t_ind][1]  # cost for each block (leading with 0)
+        pbk = prm.dev.cum_cost_blocks[dev][t_ind][2]  # power in each block (leading with 0)
+        pcm = prm.dev.cum_cost_blocks[dev][t_ind][3]  # accumulated power for each block!
+        nbk = length(pbk)
+
+        # get the cost!
+        stt[:zen_dev][tii][dev] = dt*sum(cst[ii]*max(min(stt[:dev_p][tii][dev] - pcm[ii-1], pbk[ii]), 0.0)  for ii in 2:nbk; init=0.0)
+            # fancy alternative => stt[:zen_dev][tii][dev] = dt*sum(cst_i*max(min(stt[:dev_p][tii][dev] - pcm_i, pbk_i), 0.0)  for (cst_i,pcm_i,pbk_i) in zip(cst[2:end],pcm[1:end-1],pbk[2:end]); init=0.0)
+        # evaluate the grd? 
+        #
+        # WARNING -- this will break if stt[:dev_p] > pcm[end]! It will
+        #            mean the device power is out of bounds, and this will
+        #            call a price curve which does not exist.
+        #                  ~ clipping will fix ~
+        if qG.eval_grad
+            # what is the index of the "active" block?
+            # easier to understand:
+            del = stt[:dev_p][tii][dev] .- pcm
+            active_block_ind = argmin(del[del .>= 0.0])
+            g1 = dt*cst[active_block_ind + 1] # where + 1 is due to the leading 0
+            if stt[:dev_p][tii][dev] == 0.0
+                g2 = dt*cst[2]
+            else
+                g2 = dt*cst[findfirst(stt[:dev_p][tii][dev] .< pcm)] # no +1 needed, because we find the upper block
+            end
+            println(dev)
+            @assert(g1 == g2)
         end
     end
-end
 
-# loop over each time period and define the hard constraints
-for (t_ind, tii) in enumerate(prm.ts.time_keys[1:1])
-    # duration
-    dt = prm.ts.duration[tii]
-#=
-    # 1. Minimum downtime: zhat_mndn
-    T_mndn = idx.Ts_mndn[dev][t_ind] # t_set = get_tmindn(tii, dev, prm)
-    @constraint(model, u_su_dev[tii] + sum(u_sd_dev[tii_inst] for tii_inst in T_mndn; init=0.0) - 1.0 <= 0)
+# %%
+adm_step    = 0
+beta1       = qG.beta1
+beta2       = qG.beta2
+beta1_decay = 1.0
+beta2_decay = 1.0
+run_adam    = true
+beta1_decay = beta1_decay*beta1
+beta2_decay = beta2_decay*beta2
 
-    # 2. Minimum uptime: zhat_mnup
-    T_mnup = idx.Ts_mnup[dev][t_ind] # t_set = get_tminup(tii, dev, prm)
-    @constraint(model, u_sd_dev[tii] + sum(u_su_dev[tii_inst] for tii_inst in T_mnup; init=0.0) - 1.0 <= 0)
+@btime quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
 
-    =#
-    # define the previous power value (used by both up and down ramping!)
-    if tii == :t1
-        # note: p0 = prm.dev.init_p[dev]
-        dev_p_previous = prm.dev.init_p[dev]
-    else
-        # grab previous time
-        tii_m1 = prm.ts.time_keys[t_ind-1]
-        dev_p_previous = dev_p[tii_m1]
-    end
+# %%
+@btime quasiGrad.quadratic_distance!(dpf0, mgd, prm, qG, stt)
 
-    
-    # 3. Ramping limits (up): zhat_rup
-    #=
-    @constraint(model, dev_p[tii] - dev_p_previous
-            - dt*(prm.dev.p_ramp_up_ub[dev]     *(u_on_dev[tii] - u_su_dev[tii])
-            +     prm.dev.p_startup_ramp_ub[dev]*(u_su_dev[tii] + 1.0 - u_on_dev[tii])) <= 0)
-=#
-    # 4. Ramping limits (down): zhat_rd
-    @constraint(model,  dev_p_previous - dev_p[tii]
-            - dt*(prm.dev.p_ramp_down_ub[dev]*u_on_dev[tii]
-            +     prm.dev.p_shutdown_ramp_ub[dev]*(1.0-u_on_dev[tii])) <= 0)
-   #=
-    # 5. Regulation up: zhat_rgu
-    @constraint(model, p_rgu[tii] - prm.dev.p_reg_res_up_ub[dev]*u_on_dev[tii] <= 0)
-    
-    # 6. Regulation down: zhat_rgd
-    @constraint(model, p_rgd[tii] - prm.dev.p_reg_res_down_ub[dev]*u_on_dev[tii] <= 0)
+# %%
+dpf0, pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, zpf = quasiGrad.initialize_pf_lbfgs(mgd, prm, qG, stt, sys, upd);
 
-    # 7. Synchronized reserve: zhat_scr
-    @constraint(model, p_rgu[tii] + p_scr[tii] - prm.dev.p_syn_res_ub[dev]*u_on_dev[tii] <= 0)
-    
-    # 8. Synchronized reserve: zhat_nsc
-    @constraint(model, p_nsc[tii] - prm.dev.p_nsyn_res_ub[dev]*(1.0 - u_on_dev[tii]) <= 0)
-    
-    # 9. Ramping reserve up (on): zhat_rruon
-    @constraint(model, p_rgu[tii] + p_scr[tii] + p_rru_on[tii] - prm.dev.p_ramp_res_up_online_ub[dev]*u_on_dev[tii] <= 0)
+# %%
+@btime emergency_stop = quasiGrad.solve_pf_lbfgs!(pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, mgd, prm, qG, stt, upd, zpf)
 
-    # 10. Ramping reserve up (off): zhat_rruoff
-    @constraint(model, p_nsc[tii] + p_rru_off[tii] - prm.dev.p_ramp_res_up_offline_ub[dev]*(1.0-u_on_dev[tii]) <= 0)
-    
-    # 11. Ramping reserve down (on): zhat_rrdon
-    @constraint(model, p_rgd[tii] + p_rrd_on[tii] - prm.dev.p_ramp_res_down_online_ub[dev]*u_on_dev[tii] <= 0)
+# %%
+dpf0, pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, zpf = quasiGrad.initialize_pf_lbfgs(mgd, prm, qG, stt, sys, upd);
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 
-    # 12. Ramping reserve down (off): zhat_rrdoff
-    @constraint(model, p_rrd_off[tii] - prm.dev.p_ramp_res_down_offline_ub[dev]*(1-u_on_dev[tii]) <= 0)
-    =#
-    # Now, we must separate: producers vs consumers
-    if dev in idx.pr_devs
-        #=
-        # 13p. Maximum reserve limits (producers): zhat_pmax
-        @constraint(model, p_on[tii] + p_rgu[tii] + p_scr[tii] + p_rru_on[tii] - prm.dev.p_ub[dev][t_ind]*u_on_dev[tii] <= 0)
-    
-        # 14p. Minimum reserve limits (producers): zhat_pmin
-        @constraint(model, prm.dev.p_lb[dev][t_ind]*u_on_dev[tii] + p_rrd_on[tii] + p_rgd[tii] - p_on[tii] <= 0)
-        
-        # 15p. Off reserve limits (producers): zhat_pmaxoff
-        @constraint(model, p_su[tii] + p_sd[tii] + p_nsc[tii] + p_rru_off[tii] - prm.dev.p_ub[dev][t_ind]*(1.0 - u_on_dev[tii]) <= 0)
+@time emergency_stop = quasiGrad.solve_pf_lbfgs!(pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, mgd, prm, qG, stt, upd, zpf)
 
-        # get common "u_sum" terms that will be used in the subsequent four equations 
-        T_supc = idx.Ts_supc[dev][t_ind] # T_supc, ~ = get_supc(tii, dev, prm) T_supc     = idx.Ts_supc[dev][t_ind] # T_supc, ~ = get_supc(tii, dev, prm)
-        T_sdpc = idx.Ts_sdpc[dev][t_ind] # T_sdpc, ~ = get_sdpc(tii, dev, prm) T_sdpc, ~ = get_sdpc(tii, dev, prm)
-        u_sum     = u_on_dev[tii] + sum(u_su_dev[tii_inst] for tii_inst in T_supc; init=0.0) + sum(u_sd_dev[tii_inst] for tii_inst in T_sdpc; init=0.0)
+# %%
+@time pf_lbfgs[:x_prev][tii]     .= copy.(pf_lbfgs[:x_now][tii]);
 
-        # 16p. Maximum reactive power reserves (producers): zhat_qmax
-        @constraint(model, dev_q[tii] + q_qru[tii] - prm.dev.q_ub[dev][t_ind]*u_sum <= 0)
+# %%
 
-        # 17p. Minimum reactive power reserves (producers): zhat_qmin
-        @constraint(model, q_qrd[tii] + prm.dev.q_lb[dev][t_ind]*u_sum - dev_q[tii] <= 0)
+@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys);
 
-        # 18p. Linked maximum reactive power reserves (producers): zhat_qmax_beta
-        if dev in idx.J_pqmax
-            @constraint(model, dev_q[tii] + q_qru[tii] - prm.dev.q_0_ub[dev]*u_sum
-            - prm.dev.beta_ub[dev]*dev_p[tii] <= 0)
-        end 
-        
-        # 19p. Linked minimum reactive power reserves (producers): zhat_qmin_beta
-        if dev in idx.J_pqmin
-            @constraint(model, prm.dev.q_0_lb[dev]*u_sum
-            + prm.dev.beta_lb[dev]*dev_p[tii]
-            + q_qrd[tii] - dev_q[tii] <= 0)
-        end
-    =#
-    # consumers
-    else  # => dev in idx.cs_devs
-    
-        # 13c. Maximum reserve limits (consumers): zhat_pmax
-        @constraint(model, p_on[tii] + p_rgd[tii] + p_rrd_on[tii] - prm.dev.p_ub[dev][t_ind]*u_on_dev[tii] <= 0)
+# %%
+@time quasiGrad.master_grad_zs_acline!(tii, idx, stt, grd, mgd, sys)
 
-        # 14c. Minimum reserve limits (consumers): zhat_pmin
-        #@constraint(model, prm.dev.p_lb[dev][t_ind]*u_on_dev[tii] + p_rru_on[tii] + p_scr[tii] + p_rgu[tii] - p_on[tii] <= 0)
-        
-        # 15c. Off reserve limits (consumers): zhat_pmaxoff
-        @constraint(model, p_su[tii] + p_sd[tii] + p_rrd_off[tii] - prm.dev.p_ub[dev][t_ind]*(1.0 - u_on_dev[tii]) <= 0)
+# %%
+@time quasiGrad.master_grad_zs_acline_fastesttt!(tii, idx, stt, grd, mgd, msc, sys)
 
-        # get common "u_sum" terms that will be used in the subsequent four equations 
-        #T_supc = idx.Ts_supc[dev][t_ind] # T_supc, ~ = get_supc(tii, dev, prm) T_supc     = idx.Ts_supc[dev][t_ind] #T_supc, ~ = get_supc(tii, dev, prm)
-        #T_sdpc = idx.Ts_sdpc[dev][t_ind] # T_sdpc, ~ = get_sdpc(tii, dev, prm) T_sdpc, ~ = get_sdpc(tii, dev, prm)
-        #u_sum  = u_on_dev[tii] + sum(u_su_dev[tii_inst] for tii_inst in T_supc; init=0.0) + sum(u_sd_dev[tii_inst] for tii_inst in T_sdpc; init=0.0)
+# %%
+@time quasiGrad.master_grad_zs_acline!(tii, idx, stt, grd, mgd, sys)
 
-        #=
-        # 16c. Maximum reactive power reserves (consumers): zhat_qmax
-        @constraint(model, dev_q[tii] + q_qrd[tii] - prm.dev.q_ub[dev][t_ind]*u_sum <= 0)
+# %%
+@time quasiGrad.master_grad_zs_xfm!(tii, idx, stt, grd, mgd, sys)
 
-        # 17c. Minimum reactive power reserves (consumers): zhat_qmin
-        @constraint(model, q_qru[tii] + prm.dev.q_lb[dev][t_ind]*u_sum - dev_q[tii] <= 0)
-        
-        # 18c. Linked maximum reactive power reserves (consumers): zhat_qmax_beta
-        if dev in idx.J_pqmax
-            @constraint(model, dev_q[tii] + q_qrd[tii] - prm.dev.q_0_ub[dev]*u_sum
-            - prm.dev.beta_ub[dev]*dev_p[tii] <= 0)
-        end 
+# %%
 
-        # 19c. Linked minimum reactive power reserves (consumers): zhat_qmin_beta
-        if dev in idx.J_pqmin
-            @constraint(model, prm.dev.q_0_lb[dev]*u_sum
-            + prm.dev.beta_lb[dev]*dev_p[tii]
-            + q_qru[tii] - dev_q[tii] <= 0)
-        end
-        =#
-    end
+@time master_grad_zs_xfm_fastesttt!(tii, idx, stt, grd, mgd, msc, sys)
 
-end
-#=
-# misc penalty: maximum starts over multiple periods
-for (w_ind, w_params) in enumerate(prm.dev.startups_ub[dev])
-    # get the time periods: zhat_mxst
-    T_su_max = idx.Ts_su_max[dev][w_ind] #get_tsumax(w_params, prm)
-    @constraint(model, sum(u_su_dev[tii] for tii in T_su_max; init=0.0) - w_params[3] <= 0.0)
-end
-=#
-# now, we need to add two other sorts of constraints:
-# 1. "evolutionary" constraints which link startup and shutdown variables
-for (t_ind, tii) in enumerate(prm.ts.time_keys[1:1])
-    if tii == :t1
-        @constraint(model, u_on_dev[tii] - prm.dev.init_on_status[dev] == u_su_dev[tii] - u_sd_dev[tii])
-    else
-        tii_m1 = prm.ts.time_keys[t_ind-1]
-        @constraint(model, u_on_dev[tii] - u_on_dev[tii_m1] == u_su_dev[tii] - u_sd_dev[tii])
-    end
-    # only one can be nonzero
-    @constraint(model, u_su_dev[tii] + u_sd_dev[tii] <= 1)
-end
+# %%
+@time quasiGrad.master_grad_zs_acline!(tii, idx, stt, grd, mgd, sys)
+@time quasiGrad.master_grad_zs_xfm!(tii, idx, stt, grd, mgd, sys)
+@time quasiGrad.master_grad_zp!(tii, prm, idx, grd, mgd, sys)
+@time quasiGrad.master_grad_zq!(tii, prm, idx, grd, mgd, sys)
 
-# 2. constraints which hold constant variables from moving
-    # a. must run
-    # b. planned outages
-    # c. pre-defined fixed values (e.g., q_qru = 0 for devs in J_pqe)
-    # d. other states which are fixed from previous IBR rounds
-    #       note: all of these are relfected in "upd"
-# upd = update states
-#
-# note -- in this loop, we also build the objective function!
-# now, let's define an objective function and solve this mf.
-# our overall objective is to round and fix some subset of 
-# integer variables. Here is our approach: find a feasible
-# solution which is as close to our Adam solution as possible.
-# next, we process the results: we identify the x% of variables
-# which had to move "the least". We fix these values and remove
-# their associated indices from upd. the end.
-#
-# afterwards, we initialize adam with the closest feasible
-# solution variable values.
-obj = AffExpr(0.0)
+# %%
+@btime sum(mgd_com*grd[:sh_p][:vm][tii][sh] for sh in idx.sh[bus]; init=0.0)
+@btime sum(mgd_com*grd[:sh_p][:vm][tii][idx.sh[bus]]; init=0.0)
 
-for (t_ind, tii) in enumerate(prm.ts.time_keys[1:1])
-    # if a device is *not* in the set of variables,
-    # then it must be held constant! -- otherwise, try to hold it
-    # close to its initial value
-    if dev ∉ upd[:u_on_dev][tii]
-        @constraint(model, u_on_dev[tii] == stt[:u_on_dev][tii][dev])
-    else
-        # add it to the objective function
-        tmp = @variable(model)
-        @constraint(model, u_on_dev[tii]  - stt[:u_on_dev][tii][dev] <= tmp)
-        @constraint(model, stt[:u_on_dev][tii][dev] - u_on_dev[tii]  <= tmp)
-        quasiGrad.add_to_expression!(obj, tmp, qG.binary_projection_weight)
-    end
+# %%
+print("t15: ")
 
-    if dev ∉ upd[:p_rrd_off][tii]
-        @constraint(model, p_rrd_off[tii] == stt[:p_rrd_off][tii][dev])
-    else
-        # add it to the objective function
-        tmp = @variable(model)
-        @constraint(model, p_rrd_off[tii] - stt[:p_rrd_off][tii][dev] <= tmp)
-        @constraint(model, stt[:p_rrd_off][tii][dev] - p_rrd_off[tii] <= tmp)
-        quasiGrad.add_to_expression!(obj, tmp)
-    end
+@time quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 
-    if dev ∉ upd[:p_nsc][tii]
-        @constraint(model, p_nsc[tii] == stt[:p_nsc][tii][dev])
-    else
-        # add it to the objective function
-        tmp = @variable(model)
-        @constraint(model, p_nsc[tii]  - stt[:p_nsc][tii][dev] <= tmp)
-        @constraint(model, stt[:p_nsc][tii][dev] - p_nsc[tii] <= tmp)
-        quasiGrad.add_to_expression!(obj, tmp)
-    end
+# %%
 
-    if dev ∉ upd[:p_rru_off][tii]
-        @constraint(model, p_rru_off[tii] == stt[:p_rru_off][tii][dev])
-    else
-        # add it to the objective function
-        tmp = @variable(model)
-        @constraint(model, p_rru_off[tii]  - stt[:p_rru_off][tii][dev] <= tmp)
-        @constraint(model, stt[:p_rru_off][tii][dev] - p_rru_off[tii]  <= tmp)
-        quasiGrad.add_to_expression!(obj, tmp)
-    end
+@time _, ch = quasiGrad.cg!(ctb[9], ntk.Ybr, flw[:c], abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = false)
 
-    if dev ∉ upd[:q_qru][tii]
-        @constraint(model, q_qru[tii] == stt[:q_qru][tii][dev])
-    else
-        # add it to the objective function
-        tmp = @variable(model)
-        @constraint(model, q_qru[tii]  - stt[:q_qru][tii][dev] <= tmp)
-        @constraint(model, stt[:q_qru][tii][dev] - q_qru[tii]  <= tmp)
-        quasiGrad.add_to_expression!(obj, tmp)
-    end
-    if dev ∉ upd[:q_qrd][tii]
-        @constraint(model, q_qrd[tii] == stt[:q_qrd][tii][dev])
-    else
-        # add it to the objective function
-        tmp = @variable(model)
-        @constraint(model, q_qrd[tii]  - stt[:q_qrd][tii][dev] <= tmp)
-        @constraint(model, stt[:q_qrd][tii][dev] - q_qrd[tii]  <= tmp)
-        quasiGrad.add_to_expression!(obj, tmp)
-    end
 
-    # now, deal with reactive powers, some of which are specified with equality
-    # only a subset of devices will have a reactive power equality constraint
-    if dev ∉ idx.J_pqe
+# %%
 
-        # add it to the objective function
-        tmp = @variable(model)
-        @constraint(model, dev_q[tii]  - stt[:dev_q][tii][dev] <= tmp)
-        @constraint(model, stt[:dev_q][tii][dev] - dev_q[tii]  <= tmp)
-        quasiGrad.add_to_expression!(obj, tmp)
-    end
+println(sum(sum(stt[:zhat_mndn][tii]) for tii in prm.ts.time_keys[2:end]))
+println(sum(sum(stt[:zhat_mnup][tii])  for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_rup][tii])  for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_rd][tii])   for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_rgu][tii])  for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_rgd][tii])  for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_scr][tii])  for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_nsc][tii])  for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_rruon][tii])    for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_rruoff][tii])  for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_rrdon][tii])   for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_rrdoff][tii])  for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_pmax][tii])      for tii in prm.ts.time_keys[2:end]))  
+println(sum(sum(stt[:zhat_pmin][tii])       for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_pmaxoff][tii])    for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_qmax][tii])       for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_qmin][tii])       for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_qmax_beta][tii])  for tii in prm.ts.time_keys[2:end])) 
+println(sum(sum(stt[:zhat_qmin_beta][tii]) for tii in prm.ts.time_keys[2:end])) 
 
-    # and now the rest -- none of which are in fixed sets
-    #
-    # p_on
-    tmp = @variable(model)
-    @constraint(model, p_on[tii]  - stt[:p_on][tii][dev] <= tmp)
-    @constraint(model, stt[:p_on][tii][dev] - p_on[tii]  <= tmp)
-    quasiGrad.add_to_expression!(obj, tmp)
-    
-    # p_rgu 
-    tmp = @variable(model)
-    @constraint(model, p_rgu[tii]  - stt[:p_rgu][tii][dev] <= tmp)
-    @constraint(model, stt[:p_rgu][tii][dev] - p_rgu[tii]  <= tmp)
-    quasiGrad.add_to_expression!(obj, tmp)
-    
-    # p_rgd
-    tmp = @variable(model)
-    @constraint(model, p_rgd[tii]  - stt[:p_rgd][tii][dev] <= tmp)
-    @constraint(model, stt[:p_rgd][tii][dev] - p_rgd[tii]  <= tmp)
-    quasiGrad.add_to_expression!(obj, tmp)
+# %%
 
-    # p_scr
-    tmp = @variable(model)
-    @constraint(model, p_scr[tii]  - stt[:p_scr][tii][dev] <= tmp)
-    @constraint(model, stt[:p_scr][tii][dev] - p_scr[tii]  <= tmp)
-    quasiGrad.add_to_expression!(obj, tmp)
+dev = 373
+tii = :t6
+dev_p_previous = stt[:dev_p][prm.ts.tmin1[tii]][dev] 
+dt = prm.ts.duration[tii]
 
-    # p_rru_on
-    tmp = @variable(model)
-    @constraint(model, p_rru_on[tii]  - stt[:p_rru_on][tii][dev] <= tmp)
-    @constraint(model, stt[:p_rru_on][tii][dev] - p_rru_on[tii]  <= tmp)
-    quasiGrad.add_to_expression!(obj, tmp)
+cvio = stt[:dev_p][tii][dev] - dev_p_previous - dt*(prm.dev.p_ramp_up_ub[dev]     *(stt[:u_on_dev][tii][dev] - stt[:u_su_dev][tii][dev]) +     prm.dev.p_startup_ramp_ub[dev]*(stt[:u_su_dev][tii][dev] + 1.0 - stt[:u_on_dev][tii][dev]))
 
-    # p_rrd_on
-    tmp = @variable(model)
-    @constraint(model, p_rrd_on[tii]  - stt[:p_rrd_on][tii][dev] <= tmp)
-    @constraint(model, stt[:p_rrd_on][tii][dev] - p_rrd_on[tii]  <= tmp)
-    quasiGrad.add_to_expression!(obj, tmp)
-end
+println(cvio)
 
-# set the objective
-@objective(model, Min, obj)
+# %%
 
-# solve
-quasiGrad.optimize!(model)
-println("========================================================")
-println(quasiGrad.termination_status(model),". ",quasiGrad.primal_status(model),". objective value: ", quasiGrad.objective_value(model))
-println("========================================================")
+prm.dev.q_lb_tmdv[t_ind]
 
-# solve, and then return the solution
-#=
-for tii in prm.ts.time_keys
-    GRB[:u_on_dev][tii][dev]  = quasiGrad.value(u_on_dev[tii])
-    GRB[:p_on][tii][dev]      = quasiGrad.value(p_on[tii])
-    GRB[:dev_q][tii][dev]     = quasiGrad.value(dev_q[tii])
-    GRB[:p_rgu][tii][dev]     = quasiGrad.value(p_rgu[tii])
-    GRB[:p_rgd][tii][dev]     = quasiGrad.value(p_rgd[tii])
-    GRB[:p_scr][tii][dev]     = quasiGrad.value(p_scr[tii])
-    GRB[:p_nsc][tii][dev]     = quasiGrad.value(p_nsc[tii])
-    GRB[:p_rru_on][tii][dev]  = quasiGrad.value(p_rru_on[tii])
-    GRB[:p_rru_off][tii][dev] = quasiGrad.value(p_rru_off[tii])
-    GRB[:p_rrd_on][tii][dev]  = quasiGrad.value(p_rrd_on[tii])
-    GRB[:p_rrd_off][tii][dev] = quasiGrad.value(p_rrd_off[tii])
-    GRB[:q_qru][tii][dev]     = quasiGrad.value(q_qru[tii])
-    GRB[:q_qrd][tii][dev]     = quasiGrad.value(q_qrd[tii])
-end
-=#
+# %%
+@btime quasiGrad.clip_pq!(prm, qG, stt)
 
-# %% ==========
-for (t_ind, tii) in enumerate(prm.ts.time_keys[1:1])
-    println(quasiGrad.value.(p_su[tii]) + quasiGrad.value.(p_sd[tii]) + quasiGrad.value.(p_rrd_off[tii]) - prm.dev.p_ub[dev][t_ind]*(1.0 - quasiGrad.value.(u_on_dev[tii])))
-end
+# %%
+prm.dev.p_lb_tmdv[t_ind] => prm.dev.p_lb_tmdv[t_ind]
+prm.dev.p_ub_tmdv[t_ind] => prm.dev.p_ub_tmdv[t_ind]
+
+prm.dev.q_lb_tmdv[t_ind] => prm.dev.q_lb_tmdv[t_ind]
+prm.dev.q_ub_tmdv[t_ind] => prm.dev.q_ub_tmdv[t_ind]
+
+# %%    
+t_ind = 18
+
+println(prm.dev.p_reg_res_up_cost_tmdv[t_ind]              - prm.dev.p_reg_res_up_cost_tmdv[t_ind])
+println(prm.dev.p_reg_res_down_cost_tmdv[t_ind]            - prm.dev.p_reg_res_down_cost_tmdv[t_ind])
+println(prm.dev.p_syn_res_cost_tmdv[t_ind]                 - prm.dev.p_syn_res_cost_tmdv[t_ind])
+println(prm.dev.p_nsyn_res_cost_tmdv[t_ind]                - prm.dev.p_nsyn_res_cost_tmdv[t_ind])
+println(prm.dev.p_ramp_res_up_online_cost_tmdv[t_ind]      - prm.dev.p_ramp_res_up_online_cost_tmdv[t_ind])
+println(prm.dev.p_ramp_res_up_offline_cost_tmdv[t_ind]     - prm.dev.p_ramp_res_up_offline_cost_tmdv[t_ind])
+println(prm.dev.p_ramp_res_down_online_cost_tmdv[t_ind]    - prm.dev.p_ramp_res_down_online_cost_tmdv[t_ind])
+println(prm.dev.p_ramp_res_down_offline_cost_tmdv[t_ind]   - prm.dev.p_ramp_res_down_offline_cost_tmdv[t_ind] )
+println(prm.dev.q_res_up_cost_tmdv[t_ind]                  - prm.dev.q_res_up_cost_tmdv[t_ind])
+println(prm.dev.q_res_down_cost_tmdv[t_ind]                - prm.dev.q_res_down_cost_tmdv[t_ind])

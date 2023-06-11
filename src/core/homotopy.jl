@@ -6,15 +6,15 @@ function update_penalties!(prm::quasiGrad.Param, qG::quasiGrad.QG, tnow::Float64
     # depending on where we are between t0 and tf, compute a normalized
     # scalar value beta which acts as a homotopy parameter
     tnorm = 2.0*(tnow-t0)/(tf - t0) - 1.0 # scale between -1 and 1
-    beta  = exp.(8.0*tnorm)./(3.0 .+ exp.(8.0*tnorm))
+    beta  = exp(8.0*tnorm)/(3.0 + exp(8.0*tnorm))
     
     # plot it:
     #   x = -1:0.01:1
     #   Plots.plot(x,exp.(8.0*x)./(2.5 .+ exp.(8.0*x)))
 
     # now, update the constraint penalties!
-    qG.pqbal_grad_weight_p    = (1e-4*prm.vio.p_bus)*(1.0-beta)  + beta*prm.vio.p_bus
-    qG.pqbal_grad_weight_q    = (1e-4*prm.vio.q_bus)*(1.0-beta)  + beta*prm.vio.q_bus
-    qG.constraint_grad_weight = (1e-4*prm.vio.p_bus)*(1.0-beta)  + beta*prm.vio.p_bus
-    qG.acflow_grad_weight     = (1e-1*prm.vio.s_flow)*(1.0-beta) + beta*prm.vio.s_flow
+    qG.pqbal_grad_weight_p    = (2.5e-4*prm.vio.p_bus)*(1.0-beta) + beta*prm.vio.p_bus
+    qG.pqbal_grad_weight_q    = (2.5e-4*prm.vio.q_bus)*(1.0-beta) + beta*prm.vio.q_bus
+    qG.constraint_grad_weight = (2.5e-4*prm.vio.p_bus)*(1.0-beta) + beta*prm.vio.p_bus
+    qG.acflow_grad_weight     = (1e-2*prm.vio.s_flow)*(1.0-beta)  + beta*prm.vio.s_flow
 end

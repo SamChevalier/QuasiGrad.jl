@@ -58,45 +58,45 @@ function solve_ctgs!(
 
         # get the slack at this time
         p_slack = 
-            sum(stt[:dev_p][tii][idx.pr_devs]) -
-            sum(stt[:dev_p][tii][idx.cs_devs]) - 
+            sum(stt[:dev_p][tii][pr] for pr in idx.pr_devs) -
+            sum(stt[:dev_p][tii][cs] for cs in idx.cs_devs) - 
             sum(stt[:sh_p][tii])
 
         # loop over each bus
         for bus in 1:sys.nb
             # active power balance
             flw[:p_inj][bus] = 
-                sum(stt[:dev_p][tii][idx.pr[bus]]; init=0.0) - 
-                sum(stt[:dev_p][tii][idx.cs[bus]]; init=0.0) - 
-                sum(stt[:sh_p][tii][idx.sh[bus]]; init=0.0) - 
-                sum(stt[:dc_pfr][tii][idx.bus_is_dc_frs[bus]]; init=0.0) - 
-                sum(stt[:dc_pto][tii][idx.bus_is_dc_tos[bus]]; init=0.0) - 
+                sum(stt[:dev_p][tii][pr] for pr in idx.pr[bus]; init=0.0) - 
+                sum(stt[:dev_p][tii][cs] for cs in idx.cs[bus]; init=0.0) - 
+                sum(stt[:sh_p][tii][sh] for sh in idx.sh[bus]; init=0.0) - 
+                sum(stt[:dc_pfr][tii][dc_fr] for dc_fr in idx.bus_is_dc_frs[bus]; init=0.0) - 
+                sum(stt[:dc_pto][tii][dc_to] for dc_to in idx.bus_is_dc_tos[bus]; init=0.0) - 
                 ntk.alpha*p_slack
         end
 
         # also, we need to update the flows on all lines! and the phase shift
-        flw[:ac_qfr][idx.ac_line_flows] = stt[:acline_qfr][tii]
-        flw[:ac_qfr][idx.ac_xfm_flows]  = stt[:xfm_qfr][tii]
-        flw[:ac_qto][idx.ac_line_flows] = stt[:acline_qto][tii]
-        flw[:ac_qto][idx.ac_xfm_flows]  = stt[:xfm_qto][tii]
-        flw[:ac_phi][idx.ac_phi]        = stt[:phi][tii]
+        flw[:ac_qfr][idx.ac_line_flows] .= stt[:acline_qfr][tii]
+        flw[:ac_qfr][idx.ac_xfm_flows]  .= stt[:xfm_qfr][tii]
+        flw[:ac_qto][idx.ac_line_flows] .= stt[:acline_qto][tii]
+        flw[:ac_qto][idx.ac_xfm_flows]  .= stt[:xfm_qto][tii]
+        flw[:ac_phi][idx.ac_phi]        .= stt[:phi][tii]
 
         # compute square flows
-        qfr2 = flw[:ac_qfr].^2
-        qto2 = flw[:ac_qto].^2
+        flw[:qfr2] .= flw[:ac_qfr].^2
+        flw[:qto2] .= flw[:ac_qto].^2
 
         # solve for the flows across each ctg
         #   p  =  @view flw[:p_inj][2:end]
-        bt = -flw[:ac_phi].*ntk.b
+        flw[:bt] .= .-flw[:ac_phi].*ntk.b
         # now, we have flw[:p_inj] = Yb*theta + E'*bt
         #   c = p - ntk.Er'*bt
         #
         # simplified:
-        c = (@view flw[:p_inj][2:end]) - ntk.Er'*bt
+        flw[:c] .= (@view flw[:p_inj][2:end]) .- ntk.Er'*flw[:bt]
 
         # solve the base case with pcg
         if qG.base_solver == "lu"
-            ctb[t_ind]  = ntk.Ybr\c
+            ctb[t_ind]  .= ntk.Ybr\flw[:c]
 
         # error with this type !!!
         # elseif qG.base_solver == "cholesky"
@@ -105,18 +105,18 @@ function solve_ctgs!(
         elseif qG.base_solver == "pcg"
             if sys.nb <= qG.min_buses_for_krylov
                 # too few buses -- just use LU
-                ctb[t_ind] = ntk.Ybr\c
+                ctb[t_ind] .= ntk.Ybr\flw[:c]
             else
                 # solve with a hot start!
                 #
                 # note: ctg[:ctb][tii][end] is modified in place,
                 # and it represents the base case solution
-                _, ch = quasiGrad.cg!(ctb[t_ind], ntk.Ybr, c, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
+                _, ch = quasiGrad.cg!(ctb[t_ind], ntk.Ybr, flw[:c], abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
                 
                 # test the krylov solution
                 if ~(ch.isconverged)
                     @info "Krylov failed -- using LU backup (ctg flows)!"
-                    ctb[t_ind] = ntk.Ybr\c
+                    ctb[t_ind] = ntk.Ybr\flw[:c]
                 end
             end
         else
@@ -136,10 +136,10 @@ function solve_ctgs!(
             ###########################################################
             for ctg_ii in 1:sys.nctg
                 # see the "else" case for comments and details
-                theta_k = special_wmi_update(ctb[t_ind], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], c)
-                pflow_k = ntk.Yfr*theta_k  + bt
-                sfr     = sqrt.(qfr2 + pflow_k.^2)
-                sto     = sqrt.(qto2 + pflow_k.^2)
+                theta_k = special_wmi_update(ctb[t_ind], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], flw[:c])
+                pflow_k = ntk.Yfr*theta_k  + flw[:bt]
+                sfr     = sqrt.(flw[:qfr2] + pflow_k.^2)
+                sto     = sqrt.(flw[:qto2] + pflow_k.^2)
                 sfr_vio = sfr - ntk.s_max
                 sto_vio = sto - ntk.s_max
                 sfr_vio[ntk.ctg_out_ind[ctg_ii]] .= 0.0
@@ -164,14 +164,14 @@ function solve_ctgs!(
                 #
                 # wmi :)
                 # explicit version => theta_k = ctb[t_ind] - Vector(ntk.u_k[ctg_ii]*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii],c)))
-                theta_k = special_wmi_update(ctb[t_ind], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], c)
+                theta_k = special_wmi_update(ctb[t_ind], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], flw[:c])
                 # compute flows
                 #
                 # NOTE: ctg[:pflow_k][tii][ctg_ii] contains the flow on the outaged line --
                 #       -- this will be dealt with when computing the flows and gradients
-                pflow_k = ntk.Yfr*theta_k  + bt
-                sfr     = sqrt.(qfr2 + pflow_k.^2)
-                sto     = sqrt.(qto2 + pflow_k.^2)
+                pflow_k = ntk.Yfr*theta_k  + flw[:bt]
+                sfr     = sqrt.(flw[:qfr2] + pflow_k.^2)
+                sto     = sqrt.(flw[:qto2] + pflow_k.^2)
                 sfr_vio = sfr - ntk.s_max
                 sto_vio = sto - ntk.s_max
 
@@ -297,7 +297,7 @@ function lowrank_update_single_ctg_gradient(ctd::Vector{Vector{Float64}}, ctg_ii
     # i.e., the previous time solutions implicitly hot-starts the solution
     # solve the base case with pcg
     if qG.base_solver == "lu"
-        ctd[ctg_ii] = ntk.Ybr\rhs
+        ctd[ctg_ii] .= ntk.Ybr\rhs
 
         # error with this type !!!
     # elseif qG.base_solver == "cholesky"
@@ -306,7 +306,7 @@ function lowrank_update_single_ctg_gradient(ctd::Vector{Vector{Float64}}, ctg_ii
     elseif qG.base_solver == "pcg"
         if sys.nb <= qG.min_buses_for_krylov
             # too few buses -- just use LU
-            ctd[ctg_ii] = ntk.Ybr\rhs
+            ctd[ctg_ii] .= ntk.Ybr\rhs
             
         else
             # solve with a hot start!
@@ -464,12 +464,14 @@ function zctgs_grad_pinj!(alpha::Vector{Float64}, grd::Dict{Symbol, Dict{Symbol,
         end
 
         # shunt injections
-        mgd[:vm][tii][bus] += sum(-alpha[bus-1]*grd[:sh_p][:vm][tii][idx.sh[bus]]; init=0.0)
+        mgd[:vm][tii][bus] += sum(-alpha[bus-1]*grd[:sh_p][:vm][tii][sh] for sh in idx.sh[bus]; init=0.0)
 
         # shunt injections -- shunt steps # grd[:pb_slack][bus][:sh_p][tii][idx.sh[bus]].*
-        mgd[:u_step_shunt][tii][idx.sh[bus]] += -alpha[bus-1]*
-        grd[:sh_p][:g_tv_shunt][tii][idx.sh[bus]].*
-        prm.shunt.gs[idx.sh[bus]] # => grd[:g_tv_shunt][:u_step_shunt][idx.sh[bus]]
+        for sh in idx.sh[bus]
+            mgd[:u_step_shunt][tii][sh] += -alpha[bus-1]*
+            grd[:sh_p][:g_tv_shunt][tii][sh]*
+            prm.shunt.gs[sh] # => grd[:g_tv_shunt][:u_step_shunt][idx.sh[bus]]
+        end
         
         # skip dc lines if there are none
         if !isempty(idx.bus_is_dc_frs[bus])

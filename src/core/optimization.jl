@@ -1,29 +1,39 @@
 # adam solver -- take steps for every element in the master_grad list
 #
 # only two states are tracked here (m and v)
-function adam!(adm::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, alpha::Float64, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
+function adam!(adm::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}; standard_adam = true)
+    #
+    # note: for "adam_pf", just set standard_adam = false
+    #
     # loop over the keys in mgd
     for var_key in keys(mgd)
-        # loop over all time
-        for tii in prm.ts.time_keys
-            # states to update                                            
-            if var_key in keys(upd)
-                # => (var_key in keys(upd)) ? (update = upd[var_key][tii]) : (update = Colon())
-                #    the above caused weird type instability, so we just copy and paste
-                update_subset = upd[var_key][tii]
+        # so, only progress if, either, this is standard adam (not in the pf stepper),
+        # or the variable is a power flow variable!
+        if (var_key in qG.adam_pf_variables) || standard_adam
+            # loop over all time
+            for tii in prm.ts.time_keys
+                # states to update                                            
+                if var_key in keys(upd)
+                    # => (var_key in keys(upd)) ? (update = upd[var_key][tii]) : (update = Colon())
+                    #    the above caused weird type instability, so we just copy and paste
+                    update_subset = upd[var_key][tii]
 
-                # update adam moments
-                clipped_grad                         = clamp.(mgd[var_key][tii][update_subset], -qG.grad_max, qG.grad_max)
-                adm[var_key][:m][tii][update_subset] = beta1.*adm[var_key][:m][tii][update_subset] + (1.0-beta1).*clipped_grad
-                adm[var_key][:v][tii][update_subset] = beta2.*adm[var_key][:v][tii][update_subset] + (1.0-beta2).*clipped_grad.^2.0
-                stt[var_key][tii][update_subset]     = stt[var_key][tii][update_subset] - alpha*(adm[var_key][:m][tii][update_subset]/(1.0-beta1_decay))./(sqrt.(adm[var_key][:v][tii][update_subset]/(1.0-beta2_decay)) .+ qG.eps)
-                
-            else 
-                # update adam moments
-                clipped_grad          = clamp.(mgd[var_key][tii], -qG.grad_max, qG.grad_max)
-                adm[var_key][:m][tii] = beta1.*adm[var_key][:m][tii] + (1.0-beta1).*clipped_grad
-                adm[var_key][:v][tii] = beta2.*adm[var_key][:v][tii] + (1.0-beta2).*clipped_grad.^2.0
-                stt[var_key][tii]     = stt[var_key][tii] - alpha*(adm[var_key][:m][tii]/(1.0-beta1_decay))./(sqrt.(adm[var_key][:v][tii]/(1.0-beta2_decay)) .+ qG.eps)
+                    # note -- it isn't clear how best to use @view -- it seems to be helpful when calling
+                    # an array subset when adding/subtracting, but now when taking products, etc.
+
+                    # update adam moments
+                        # => clipped_grad                 = clamp.(mgd[var_key][tii][update_subset], -qG.grad_max, qG.grad_max)
+                    adm[var_key][:m][tii][update_subset] .= beta1.*(@view adm[var_key][:m][tii][update_subset]) .+ (1.0-beta1).*clamp.(mgd[var_key][tii][update_subset], -qG.grad_max, qG.grad_max)
+                    adm[var_key][:v][tii][update_subset] .= beta2.*(@view adm[var_key][:v][tii][update_subset]) .+ (1.0-beta2).*clamp.(mgd[var_key][tii][update_subset], -qG.grad_max, qG.grad_max).^2.0
+                    stt[var_key][tii][update_subset]     .= (@view stt[var_key][tii][update_subset]) .- qG.alpha_0[var_key].*(adm[var_key][:m][tii][update_subset]./(1.0-beta1_decay))./(sqrt.(adm[var_key][:v][tii][update_subset]./(1.0-beta2_decay)) .+ qG.eps)
+                    
+                else 
+                    # update adam moments
+                        # => clipped_grad  = clamp.(mgd[var_key][tii], -qG.grad_max, qG.grad_max)
+                    adm[var_key][:m][tii] .= beta1.*adm[var_key][:m][tii] .+ (1.0-beta1).*clamp.(mgd[var_key][tii], -qG.grad_max, qG.grad_max)
+                    adm[var_key][:v][tii] .= beta2.*adm[var_key][:v][tii] .+ (1.0-beta2).*clamp.(mgd[var_key][tii], -qG.grad_max, qG.grad_max).^2.0
+                    stt[var_key][tii]     .= stt[var_key][tii] .- qG.alpha_0[var_key].*(adm[var_key][:m][tii]./(1.0-beta1_decay))./(sqrt.(adm[var_key][:v][tii]./(1.0-beta2_decay)) .+ qG.eps)
+                end
             end
         end
     end
@@ -38,19 +48,17 @@ function flush_adam!(adm::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}
         for tii in prm.ts.time_keys
             # states to update                 
             if var_key in keys(upd)
-                update_subset = upd[var_key][tii]
-
                 # flush the adam moments
-                adm[var_key][:m][tii][update_subset]    .= 0.0
-                adm[var_key][:v][tii][update_subset]    .= 0.0
-                adm[var_key][:mhat][tii][update_subset] .= 0.0
-                adm[var_key][:vhat][tii][update_subset] .= 0.0
+                adm[var_key][:m][tii][upd[var_key][tii]]    .= 0.0
+                adm[var_key][:v][tii][upd[var_key][tii]]    .= 0.0
+                # => adm[var_key][:mhat][tii][update_subset] .= 0.0
+                # => adm[var_key][:vhat][tii][update_subset] .= 0.0
             else
                 # flush the adam moments
                 adm[var_key][:m][tii]    .= 0.0
                 adm[var_key][:v][tii]    .= 0.0
-                adm[var_key][:mhat][tii] .= 0.0
-                adm[var_key][:vhat][tii] .= 0.0
+                # => adm[var_key][:mhat][tii] .= 0.0
+                # => adm[var_key][:vhat][tii] .= 0.0
             end
         end
     end
@@ -58,6 +66,7 @@ end
 
 function run_adam!(
         adm::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}},
+        bit::Dict{Symbol, BitVector},
         cgd::quasiGrad.Cgd,
         ctb::Vector{Vector{Float64}},
         ctd::Vector{Vector{Float64}},
@@ -84,8 +93,8 @@ function run_adam!(
     run_adam    = true
     
     # flush adam at each restart ?
-    println("adam NOT flushed")
-    # quasiGrad.flush_adam!(adm, mgd, prm, upd)
+    # println("adam NOT flushed")
+    quasiGrad.flush_adam!(adm, mgd, prm, upd)
 
     # start the timer!
     adam_start = time()
@@ -95,15 +104,8 @@ function run_adam!(
         # increment
         adm_step += 1
 
-        # what type of step decay should we employ?
-        if qG.decay_type == "cos"
-            alpha = qG.alpha_min + 0.5*(qG.alpha_max - qG.alpha_min)*(1+cos((adm_step/qG.Ti)*pi))
-        elseif qG.decay_type == "exponential"
-            alpha = qG.alpha_0*(qG.step_decay^adm_step)
-        else
-            @assert qG.decay_type == "none"
-            alpha = copy(qG.alpha_0)
-        end
+        # step decay
+        # alpha = step_decay(adm_step, qG)
 
         # decay beta
         beta1_decay = beta1_decay*beta1
@@ -111,43 +113,42 @@ function run_adam!(
 
         # update weight parameters?
         if qG.apply_grad_weight_homotopy == true
-            update_penalties!(prm, qG, time(), adam_start, qG.adam_max_time)
+            update_penalties!(prm, qG, time(), adam_start, adam_start+qG.adam_max_time)
         end
 
         # compute all states and grads
-        quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+        quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
         # take an adam step
-        quasiGrad.adam!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
-
+        quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
         # experiments!
             # => quasiGrad.adaGrad!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
             # => quasiGrad.the_quasiGrad!(adm, mgd, prm, qG, stt, upd)
             # => quasiGrad.adam_with_ls!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd, cgd, ctb, ctd, flw, grd, idx, msc, ntk, scr, sys, wct)
 
-        # stopping criteria
-        if qG.adam_stopper == "time"
-            if time() - adam_start >= qG.adam_max_time
-                run_adam = false
+        # take intermediate pf steps?
+        if qG.take_adam_pf_steps == true
+            for _ in 1:qG.num_adam_pf_step
+                # update the power injection-associated gradients
+                quasiGrad.update_states_and_grads_for_adam_pf!(bit, grd, idx, mgd, msc, prm, qG, stt, sys)
+
+                # take an adam pf step (standard_adam=false)
+                quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd, standard_adam = false)
             end
-        elseif qG.adam_stopper == "iterations"
-            if adm_step >= qG.adam_max_its
-                run_adam = false
-            end
-        else
-            # uh-oh -- no stopper!
         end
+
+        # stop?
+        run_adam = adam_termination(adam_start, adm_step, qG, run_adam)
     end
 
     # one last clip + state computation -- no grad needed!
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
-
-    # turn it back on
+    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
     qG.eval_grad = true
 end
 
 function update_states_and_grads!(
+    bit::Dict{Symbol, BitVector},
     cgd::quasiGrad.Cgd, 
     ctb::Vector{Vector{Float64}},
     ctd::Vector{Vector{Float64}}, 
@@ -177,9 +178,9 @@ function update_states_and_grads!(
     quasiGrad.clip_all!(prm, qG, stt)
     
     # compute network flows and injections
-    quasiGrad.acline_flows!(grd, idx, prm, qG, stt)
-    quasiGrad.xfm_flows!(grd, idx, prm, qG, stt)
-    quasiGrad.shunts!(grd, idx, prm, qG, stt)
+    quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
 
     # device powers
     quasiGrad.all_device_statuses_and_costs!(grd, prm, qG, stt)
@@ -215,7 +216,7 @@ function update_states_and_grads!(
     quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 end
 
-function update_states_for_distributed_slack_pf!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+function update_states_for_distributed_slack_pf!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
     # in this function, we only update the flow, xfm, and shunt states
     #
     # clip voltage
@@ -224,13 +225,34 @@ function update_states_for_distributed_slack_pf!(grd::Dict{Symbol, Dict{Symbol, 
 
     # compute network flows and injections
     qG.eval_grad = false
-    quasiGrad.acline_flows!(grd, idx, prm, qG, stt)
-    quasiGrad.xfm_flows!(grd, idx, prm, qG, stt)
-    quasiGrad.shunts!(grd, idx, prm, qG, stt)
+    quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
     qG.eval_grad = true
 end
 
-function update_states_and_grads_for_solve_pf_lbfgs!(cgd::quasiGrad.Cgd, dpf0::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, zpf::Dict{Symbol, Dict{Symbol, Float64}})
+function update_states_and_grads_for_adam_pf!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+    # update the non-device states which affect power balance
+    #
+    # flush the gradient -- both master grad and some of the gradient terms
+    quasiGrad.flush_gradients!(grd, mgd, prm, sys)
+
+    # clip all basic states (i.e., the states which are iterated on)
+    quasiGrad.clip_for_adam_pf!(prm, stt)
+    
+    # compute network flows and injections
+    quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
+
+    # now, we can compute the power balances
+    quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
+
+    # compute the master grad
+    quasiGrad.master_grad_adam_pf!(grd, idx, mgd, prm, sys)
+end
+
+function update_states_and_grads_for_solve_pf_lbfgs!(bit::Dict{Symbol, BitVector}, cgd::quasiGrad.Cgd, dpf0::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, zpf::Dict{Symbol, Dict{Symbol, Float64}})
     # in this function, we only update the states and gradients needed
     # to solve a single-time-period ACOPF with lbfgs:
     # 1) flush
@@ -253,9 +275,9 @@ function update_states_and_grads_for_solve_pf_lbfgs!(cgd::quasiGrad.Cgd, dpf0::D
     quasiGrad.clip_all!(prm, qG, stt)
     
     # compute network flows and injections
-    quasiGrad.acline_flows!(grd, idx, prm, qG, stt)
-    quasiGrad.xfm_flows!(grd, idx, prm, qG, stt)
-    quasiGrad.shunts!(grd, idx, prm, qG, stt)
+    quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
 
     # device powers
     quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
@@ -287,15 +309,15 @@ function batch_fix!(pct_round::Float64, prm::quasiGrad.Param, stt::Dict{Symbol, 
 
     for tii in prm.ts.time_keys
         bin_inds              = (1:sys.ndev) .+ (prm.ts.time_key_ind[tii]-1)*sys.ndev
-        bin_vec_del[bin_inds] = stt[:u_on_dev][tii] - stt[:u_on_dev_GRB][tii]
+        bin_vec_del[bin_inds] = stt[:u_on_dev][tii] .- stt[:u_on_dev_GRB][tii]
     end
 
     # sort and find the binaries that are closest to Gurobi's solution
-    most_sim_to_least_sim = sortperm(abs.(bin_vec_del))
 
     # which ones do we fix?
     num_bin_fix = Int64(round(sys.nT*sys.ndev*pct_round/100.0))
-    bins_to_fix = most_sim_to_least_sim[1:num_bin_fix]
+    bins_to_fix = sortperm(abs.(bin_vec_del))[1:num_bin_fix]
+    # FYI!!! => most_sim_to_least_sim = sortperm(abs.(bin_vec_del))
 
     # now, we loop over time and check for each binary in "bins_to_fix"
     for tii in prm.ts.time_keys
@@ -372,7 +394,7 @@ function lbfgs!(lbfgs::Dict{Symbol, Vector{Float64}}, lbfgs_diff::Dict{Symbol, V
         lbfgs[:rho][idx_km1]    = 1/(quasiGrad.dot(lbfgs_diff[:s][idx_km1],lbfgs_diff[:y][idx_km1]))
 
         # now, double-loop and compute lbfgs values
-        q = copy(lbfgs[:gradf_now])
+        q = copy.(lbfgs[:gradf_now])
         for ii in lbfgs_idx[lbfgs_idx .!= 0] # k-1, k-2, ..., k-m
             lbfgs[:alpha][ii] = lbfgs[:rho][ii]*quasiGrad.dot(lbfgs_diff[:s][ii], q)
             q                -= lbfgs[:alpha][ii]*lbfgs_diff[:y][ii]
@@ -462,11 +484,11 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
         for tii in prm.ts.time_keys
             # states to update
             if var_key in keys(upd)
-                pf_lbfgs[:x_now][tii][pf_lbfgs_map[var_key]]     = copy(stt[var_key][tii][upd[var_key][tii]]) # no update_subset needed on lbfgs side
-                pf_lbfgs[:gradf_now][tii][pf_lbfgs_map[var_key]] = copy(mgd[var_key][tii][upd[var_key][tii]]) # no update_subset needed on lbfgs side
+                pf_lbfgs[:x_now][tii][pf_lbfgs_map[var_key]]     .= copy.(stt[var_key][tii][upd[var_key][tii]]) # no update_subset needed on lbfgs side
+                pf_lbfgs[:gradf_now][tii][pf_lbfgs_map[var_key]] .= copy.(mgd[var_key][tii][upd[var_key][tii]]) # no update_subset needed on lbfgs side
             else
-                pf_lbfgs[:x_now][tii][pf_lbfgs_map[var_key]]     = copy(stt[var_key][tii])
-                pf_lbfgs[:gradf_now][tii][pf_lbfgs_map[var_key]] = copy(mgd[var_key][tii])
+                pf_lbfgs[:x_now][tii][pf_lbfgs_map[var_key]]     .= copy.(stt[var_key][tii])
+                pf_lbfgs[:gradf_now][tii][pf_lbfgs_map[var_key]] .= copy.(mgd[var_key][tii])
             end
         end
     end
@@ -476,7 +498,7 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
         # we solve pf at each instant, so loop over all time!
         for tii in prm.ts.time_keys
             # if this is the very first iteration, just take a gradient step
-            pf_lbfgs[:x_new][tii] = pf_lbfgs[:x_now][tii] - 1e-11*pf_lbfgs[:gradf_now][tii]
+            pf_lbfgs[:x_new][tii] .= pf_lbfgs[:x_now][tii] .- 1e-11*pf_lbfgs[:gradf_now][tii]
         end
 
         # pass x back into the state vector
@@ -484,17 +506,17 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
             for tii in prm.ts.time_keys
                 # states to update
                 if var_key in keys(upd)
-                    stt[var_key][tii][upd[var_key][tii]] = pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key]] # no update_subset needed
+                    stt[var_key][tii][upd[var_key][tii]] .= pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key]] # no update_subset needed
                 else
-                    stt[var_key][tii]                    = pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key]]
+                    stt[var_key][tii]                    .= pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key]]
                 end
             end
         end
 
         # update the lbfgs states and grads
         for tii in prm.ts.time_keys
-            pf_lbfgs[:x_prev][tii]     = copy(pf_lbfgs[:x_now][tii])
-            pf_lbfgs[:gradf_prev][tii] = copy(pf_lbfgs[:gradf_now][tii])
+            pf_lbfgs[:x_prev][tii]     .= copy.(pf_lbfgs[:x_now][tii])
+            pf_lbfgs[:gradf_prev][tii] .= copy.(pf_lbfgs[:gradf_now][tii])
         end
 
         # now, let's initialize lbfgs_idx
@@ -505,8 +527,8 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
 
             # udpdate the state difference
             idx_km1 = pf_lbfgs_idx[1]
-            pf_lbfgs_diff[:s][tii][idx_km1] = pf_lbfgs[:x_now][tii]     - pf_lbfgs[:x_prev][tii]
-            pf_lbfgs_diff[:y][tii][idx_km1] = pf_lbfgs[:gradf_now][tii] - pf_lbfgs[:gradf_prev][tii]
+            pf_lbfgs_diff[:s][tii][idx_km1] .= pf_lbfgs[:x_now][tii]     .- pf_lbfgs[:x_prev][tii]
+            pf_lbfgs_diff[:y][tii][idx_km1] .= pf_lbfgs[:gradf_now][tii] .- pf_lbfgs[:gradf_prev][tii]
             rho                             = quasiGrad.dot(pf_lbfgs_diff[:s][tii][idx_km1], pf_lbfgs_diff[:y][tii][idx_km1])
             if abs(rho) < 1e-6
                 # in this case, lbfgs is stalling out and might return a NaN if we're not careful
@@ -515,22 +537,23 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
                 break # this breaks from everything 
             end
             
+            # if not y^T * s is not too small, go and ahead and take its inverse: rho === 1/(y^T * s)
             pf_lbfgs[:rho][tii][idx_km1] = 1.0/rho
 
             # now, double-loop and compute lbfgs values
-            q = copy(pf_lbfgs[:gradf_now][tii])
+            pf_lbfgs[:q][tii] .= copy.(pf_lbfgs[:gradf_now][tii])
             for ii in pf_lbfgs_idx[pf_lbfgs_idx .!= 0] # k-1, k-2, ..., k-m
-                pf_lbfgs[:alpha][tii][ii] = pf_lbfgs[:rho][tii][ii]*quasiGrad.dot(pf_lbfgs_diff[:s][tii][ii], q)
-                q                        -= pf_lbfgs[:alpha][tii][ii]*pf_lbfgs_diff[:y][tii][ii]
+                pf_lbfgs[:alpha][tii][ii] = pf_lbfgs[:rho][tii][ii]*quasiGrad.dot(pf_lbfgs_diff[:s][tii][ii], pf_lbfgs[:q][tii])
+                pf_lbfgs[:q][tii]       .-= pf_lbfgs[:alpha][tii][ii].*pf_lbfgs_diff[:y][tii][ii]
             end
             
             # set "r", which will be H*grad
-            r = q*quasiGrad.dot(pf_lbfgs_diff[:s][tii][idx_km1], pf_lbfgs_diff[:y][tii][idx_km1])/quasiGrad.dot(pf_lbfgs_diff[:y][tii][idx_km1], pf_lbfgs_diff[:y][tii][idx_km1])
+            pf_lbfgs[:r][tii] .= pf_lbfgs[:q][tii].*(quasiGrad.dot(pf_lbfgs_diff[:s][tii][idx_km1], pf_lbfgs_diff[:y][tii][idx_km1])/quasiGrad.dot(pf_lbfgs_diff[:y][tii][idx_km1], pf_lbfgs_diff[:y][tii][idx_km1]))
             
             # compute H*grad
             for ii in reverse(pf_lbfgs_idx[pf_lbfgs_idx .!= 0]) # k-m, k-m+1, ..., k-1
                 # skip beta -- defined implicitly below
-                r += pf_lbfgs_diff[:s][tii][ii]*(pf_lbfgs[:alpha][tii][ii] - pf_lbfgs[:rho][tii][ii]*quasiGrad.dot(pf_lbfgs_diff[:y][tii][ii], r))
+                pf_lbfgs[:r][tii] .+= pf_lbfgs_diff[:s][tii][ii].*(pf_lbfgs[:alpha][tii][ii] - pf_lbfgs[:rho][tii][ii]*quasiGrad.dot(pf_lbfgs_diff[:y][tii][ii], pf_lbfgs[:r][tii]))
             end
 
             # step size: let adam control?
@@ -552,7 +575,7 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
             end
 
             # lbfgs step
-            pf_lbfgs[:x_new][tii] = pf_lbfgs[:x_now][tii] - pf_lbfgs_step[:step][tii]*r
+            pf_lbfgs[:x_new][tii] .= pf_lbfgs[:x_now][tii] .- pf_lbfgs_step[:step][tii].*pf_lbfgs[:r][tii]
         end
 
         # pass x back into the state vector
@@ -560,17 +583,17 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
             for tii in prm.ts.time_keys
                 # states to update
                 if var_key in keys(upd)
-                    stt[var_key][tii][upd[var_key][tii]] = copy(pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key]]) # no update_subset needed
+                    stt[var_key][tii][upd[var_key][tii]] .= copy.(pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key]]) # no update_subset needed
                 else
-                    stt[var_key][tii]                    = copy(pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key]])
+                    stt[var_key][tii]                    .= copy.(pf_lbfgs[:x_new][tii][pf_lbfgs_map[var_key]])
                 end
             end
         end
 
         # update the lbfgs states and grads
         for tii in prm.ts.time_keys
-            pf_lbfgs[:x_prev][tii]     = copy(pf_lbfgs[:x_now][tii])
-            pf_lbfgs[:gradf_prev][tii] = copy(pf_lbfgs[:gradf_now][tii])
+            pf_lbfgs[:x_prev][tii]     .= copy.(pf_lbfgs[:x_now][tii])
+            pf_lbfgs[:gradf_prev][tii] .= copy.(pf_lbfgs[:gradf_now][tii])
         end
 
         # finally, update the lbfgs indices -- rule: lbfgs_idx[1] is where 
@@ -607,10 +630,10 @@ function quadratic_distance!(dpf0::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
         # grab the distance between p_on and its initial value -- this is something we 
         # minimize, so the regularization function is positive valued
         # => value not needed: zdist      =   qG.cdist_psolve*(stt[:p_on][tii] - dpf0[:p_on][tii]).^2
-        zdist_grad = 2*qG.cdist_psolve*(stt[:p_on][tii] - dpf0[:p_on][tii])
+            # => zdist_grad = 2.0.*qG.cdist_psolve*(stt[:p_on][tii] .- dpf0[:p_on][tii])
 
         # now, apply the gradients directly (no need to use dp_alpha!())
-        mgd[:p_on][tii] .+= zdist_grad
+        mgd[:p_on][tii] .+= (2.0*qG.cdist_psolve).*(stt[:p_on][tii] .- dpf0[:p_on][tii])
     end
 end
 
@@ -760,7 +783,7 @@ function power_flow_residual!(idx::quasiGrad.Idx, residual::Vector{Float64}, stt
     end
 end
 
-function solve_power_flow!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
+function solve_power_flow!(bit::Dict{Symbol, BitVector}, cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
     # 1. fire up lbfgs, as controlled by adam, WITH regularization + OPF
     # 2. after a short period, use Gurobi to solve successive power flows
     # 3. pass solution back to lbfgs to clean up, WITHOUT regularization + OPF -- not needed yet
@@ -782,7 +805,7 @@ function solve_power_flow!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Di
     zt0       = 0.0
 
     # initialize: compute all states and grads
-    quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+    quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 
     # loop -- lbfgs
     while run_lbfgs == true
@@ -795,7 +818,7 @@ function solve_power_flow!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Di
         end
 
         # compute all states and grads
-        quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+        quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 
         # store the first value
         zp = sum(sum([zpf[:zp][tii] for tii in prm.ts.time_keys]))
@@ -835,7 +858,6 @@ function solve_power_flow!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Di
     qG.pqbal_grad_type = "soft_abs"
 end
 
-# compute ideal dispatch
 function ideal_dispatch!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
     # here, we compute the "ideal" dipatch point (after a few steps of LBFGS)
     #
@@ -843,18 +865,32 @@ function ideal_dispatch!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}},
     #
     # loop over each bus
     for bus in 1:sys.nb
+        # active power
         msc[:pinj_ideal][bus] = 
             # consumers (positive)
-            -sum(stt[:dev_p][tii][idx.cs[bus]]; init=0.0) +
+            -sum(stt[:dev_p][tii][cs] for cs in idx.cs[bus]; init=0.0) +
             # dcline
-            -sum(stt[:dc_pfr][tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
-            -sum(stt[:dc_pto][tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
+            -sum(stt[:dc_pfr][tii][dc_fr] for dc_fr in idx.bus_is_dc_frs[bus]; init=0.0) + 
+            -sum(stt[:dc_pto][tii][dc_to] for dc_to in idx.bus_is_dc_tos[bus]; init=0.0) +
             # producer (negative)
-            sum(stt[:dev_p][tii][idx.pr[bus]]; init=0.0)
+            sum(stt[:dev_p][tii][pr] for pr in idx.pr[bus]; init=0.0)
+    
+        # also, find the reactive power point
+        msc[:qinj_ideal][bus] = 
+            # consumers (positive)
+            -sum(stt[:dev_q][tii][cs] for cs in idx.cs[bus]; init=0.0) +
+            # dcline
+            -sum(stt[:dc_qfr][tii][dc_fr] for dc_fr in idx.bus_is_dc_frs[bus]; init=0.0) + 
+            -sum(stt[:dc_qto][tii][dc_to] for dc_to in idx.bus_is_dc_tos[bus] ; init=0.0) +
+            # producer (negative)
+            sum(stt[:dev_q][tii][pr] for pr in idx.pr[bus]; init=0.0)
     end
 end
 
-# solve power flow (to some degree of accuracy)
+"""
+Solve linearized power flow with Gurobi -- use margin tinkering to guarentee convergence. Only consinder upper 
+and lower bounds on the p/q production (no other limits).
+"""
 function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # ask Gurobi to solve a linearize power flow. two options here:
     #   1) define device variables which are bounded, and then insert them into the power balance expression
@@ -995,17 +1031,20 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
             set_start_value.(dev_p_vars, stt[:dev_p][tii])
             set_start_value.(dev_q_vars, stt[:dev_q][tii])
 
-            # call the bounds
-            dev_plb = stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind)
-            dev_pub = stt[:u_on_dev][tii].*getindex.(prm.dev.p_ub,t_ind)
-            dev_qlb = stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind)
-            dev_qub = stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind)
+            # call the bounds -- note: this is fairly approximate,
+            # since these bounds do not include, e.g., ramp rate constraints
+            # between the various time windows -- this will be addressed in the
+            # final, constrained power flow solve
+            dev_plb = stt[:u_on_dev][tii].*prm.dev.p_lb_tmdv[t_ind]
+            dev_pub = stt[:u_on_dev][tii].*prm.dev.p_ub_tmdv[t_ind]
+            dev_qlb = stt[:u_sum][tii].*prm.dev.q_lb_tmdv[t_ind]
+            dev_qub = stt[:u_sum][tii].*prm.dev.q_ub_tmdv[t_ind]
 
             # ignore binaries?
-            # => dev_plb = getindex.(prm.dev.p_lb,t_ind)
-            # => dev_pub = getindex.(prm.dev.p_ub,t_ind)
-            # => dev_qlb = getindex.(prm.dev.q_lb,t_ind)
-            # => dev_qub = getindex.(prm.dev.q_ub,t_ind)
+            # => dev_plb = prm.dev.p_lb_tmdv[t_ind]
+            # => dev_pub = prm.dev.p_ub_tmdv[t_ind]
+            # => dev_qlb = prm.dev.q_lb_tmdv[t_ind]
+            # => dev_qub = prm.dev.q_ub_tmdv[t_ind]
 
             # first, define p_on at this time
             # => p_on = dev_p_vars - stt[:p_su][tii] - stt[:p_sd][tii]
@@ -1168,16 +1207,16 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
                     # valid solution, and no margins needed!
                     #
                     # take the norm of dv
-                    max_dx = maximum(value.(x_in))
+                    max_dx = maximum(abs.(value.(x_in)))
                     
                     # println("========================================================")
                     if qG.print_linear_pf_iterations == true
-                        println(termination_status(model),". ",primal_status(model),". objective value: ", round(objective_value(model), sigdigits = 5), ". max dx: ", round(max_dx, sigdigits = 5))
+                        println(termination_status(model), ". time: $(tii). ","objective value: ", round(objective_value(model), sigdigits = 5), ". max dx: ", round(max_dx, sigdigits = 5))
                     end
                     # println("========================================================")
                     #
                     # shall we terminate?
-                    if (maximum(value.(x_in)) < qG.max_pf_dx) || (pf_cnt == qG.max_linear_pfs)
+                    if (max_dx < qG.max_pf_dx) || (pf_cnt == qG.max_linear_pfs)
                         run_pf = false
 
                         # now, apply the updated injections to the devices
@@ -1194,6 +1233,7 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
                 end
             else
                 # the solution is NOT valid, so we should increase bounds and try again
+                @warn "Linearized power flow failed at time ($tii) -- increasing margins."
                 if first_fail == true
                     first_fail = false
                     q_margin = 0.01
@@ -1239,9 +1279,47 @@ function solution_status(model::quasiGrad.Model)
     if soln_status in [1, 4, 7] # optimal, locally solved, or almost optimal
         soln_valid = true
     else
-        soln_valid = false
+        if Int(primal_status(model)) == 1
+            @warn "Projection solution not optimal, but it is feasible."
+            soln_valid = true
+        else
+            soln_valid = false
+        end
     end
 
     # output
     return soln_valid
+end
+
+function step_decay(adm_step::Int64, qG::quasiGrad.QG)
+    # what type of step decay should we employ?
+    if qG.decay_type == "cos"
+        alpha = qG.alpha_min + 0.5*(qG.alpha_max - qG.alpha_min)*(1+cos((adm_step/qG.Ti)*pi))
+    elseif qG.decay_type == "exponential"
+        alpha = qG.alpha_0*(qG.step_decay^adm_step)
+    else
+        @assert qG.decay_type == "none"
+        alpha = copy(qG.alpha_0)
+    end
+
+    # output
+    return alpha
+end
+
+function adam_termination(adam_start::Float64, adm_step::Int64, qG::quasiGrad.QG, run_adam::Bool)
+    # stopping criteria
+    if qG.adam_stopper == "time"
+        if time() - adam_start >= qG.adam_max_time
+            run_adam = false
+        end
+    elseif qG.adam_stopper == "iterations"
+        if adm_step >= qG.adam_max_its
+            run_adam = false
+        end
+    else
+        # uh-oh -- no stopper!
+    end
+
+    # output
+    return run_adam
 end

@@ -13,6 +13,16 @@ function clip_all!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dic
     clip_pq!(prm, qG, stt)
 end
 
+function clip_for_adam_pf!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+    # sequentially clip -- order does not matter
+    #
+    # note: "clamp" is much faster than the alternatives!
+    clip_dc!(prm, stt)
+    clip_xfm!(prm, stt)
+    clip_shunts!(prm, stt)
+    clip_voltage!(prm, stt)
+end
+
 function clip_dc!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
     for tii in prm.ts.time_keys
 
@@ -20,12 +30,12 @@ function clip_dc!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Fl
             # stt[:dc_qfr][tii] = min.(max.(stt[:dc_qfr][tii],  prm.dc.qdc_fr_lb), prm.dc.qdc_fr_ub)
             # stt[:dc_qto][tii] = min.(max.(stt[:dc_qto][tii],  prm.dc.qdc_to_lb), prm.dc.qdc_to_ub)
             # stt[:dc_qto][tii] = min.(max.(stt[:dc_qto][tii], -prm.dc.pdc_ub ),    prm.dc.pdc_ub )
-        stt[:dc_qfr][tii] = clamp.(stt[:dc_qfr][tii],  prm.dc.qdc_fr_lb, prm.dc.qdc_fr_ub)
-        stt[:dc_qto][tii] = clamp.(stt[:dc_qto][tii],  prm.dc.qdc_to_lb, prm.dc.qdc_to_ub)
-        stt[:dc_pfr][tii] = clamp.(stt[:dc_pfr][tii], -prm.dc.pdc_ub,    prm.dc.pdc_ub )
+        stt[:dc_qfr][tii] .= clamp.(stt[:dc_qfr][tii],  prm.dc.qdc_fr_lb, prm.dc.qdc_fr_ub)
+        stt[:dc_qto][tii] .= clamp.(stt[:dc_qto][tii],  prm.dc.qdc_to_lb, prm.dc.qdc_to_ub)
+        stt[:dc_pfr][tii] .= clamp.(stt[:dc_pfr][tii], .-prm.dc.pdc_ub,    prm.dc.pdc_ub )
 
         # equate from and to end powers -- dc_pfr is the reference, or default
-        stt[:dc_pto][tii] = -stt[:dc_pfr][tii]
+        stt[:dc_pto][tii] .= .-stt[:dc_pfr][tii]
     end
 end
 
@@ -33,15 +43,15 @@ function clip_xfm!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{F
     for tii in prm.ts.time_keys
         # stt[:phi][tii] = min.(max.(stt[:phi][tii], prm.xfm.ta_lb), prm.xfm.ta_ub)
         # stt[:tau][tii] = min.(max.(stt[:tau][tii], prm.xfm.tm_lb), prm.xfm.tm_ub)
-        stt[:phi][tii] = clamp.(stt[:phi][tii], prm.xfm.ta_lb, prm.xfm.ta_ub)
-        stt[:tau][tii] = clamp.(stt[:tau][tii], prm.xfm.tm_lb, prm.xfm.tm_ub)
+        stt[:phi][tii] .= clamp.(stt[:phi][tii], prm.xfm.ta_lb, prm.xfm.ta_ub)
+        stt[:tau][tii] .= clamp.(stt[:tau][tii], prm.xfm.tm_lb, prm.xfm.tm_ub)
     end
 end
 
 function clip_shunts!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
     for tii in prm.ts.time_keys
         #stt[:u_step_shunt][tii] = min.(max.(stt[:u_step_shunt][tii], prm.shunt.step_lb), prm.shunt.step_ub)
-        stt[:u_step_shunt][tii] = clamp.(stt[:u_step_shunt][tii], prm.shunt.step_lb, prm.shunt.step_ub)
+        stt[:u_step_shunt][tii] .= clamp.(stt[:u_step_shunt][tii], prm.shunt.step_lb, prm.shunt.step_ub)
     end
 end
 
@@ -52,30 +62,30 @@ function clip_voltage!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vect
         #stt[:vm][tii] = stt[:vm][tii] - del
         # save the amount clipped? add to intialization!
             # -> stt[:vm][:amount_clipped][tii] = del
-        stt[:vm][tii] = clamp.(stt[:vm][tii], prm.bus.vm_lb, prm.bus.vm_ub)
+        stt[:vm][tii] .= clamp.(stt[:vm][tii], prm.bus.vm_lb, prm.bus.vm_ub)
     end
 end
 
 function clip_reserves!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
     for (t_ind, tii) in enumerate(prm.ts.time_keys)
-        stt[:p_rgu][tii]     = max.(stt[:p_rgu][tii],0.0)
-        stt[:p_rgd][tii]     = max.(stt[:p_rgd][tii],0.0)
-        stt[:p_scr][tii]     = max.(stt[:p_scr][tii],0.0)
-        stt[:p_nsc][tii]     = max.(stt[:p_nsc][tii],0.0)
-        stt[:p_rru_on][tii]  = max.(stt[:p_rru_on][tii],0.0)
-        stt[:p_rru_off][tii] = max.(stt[:p_rru_off][tii],0.0)
-        stt[:p_rrd_on][tii]  = max.(stt[:p_rrd_on][tii],0.0)
-        stt[:p_rrd_off][tii] = max.(stt[:p_rrd_off][tii],0.0)
-        stt[:q_qru][tii]     = max.(stt[:q_qru][tii],0.0)
-        stt[:q_qrd][tii]     = max.(stt[:q_qrd][tii],0.0)
+        stt[:p_rgu][tii]     .= max.(stt[:p_rgu][tii],0.0)
+        stt[:p_rgd][tii]     .= max.(stt[:p_rgd][tii],0.0)
+        stt[:p_scr][tii]     .= max.(stt[:p_scr][tii],0.0)
+        stt[:p_nsc][tii]     .= max.(stt[:p_nsc][tii],0.0)
+        stt[:p_rru_on][tii]  .= max.(stt[:p_rru_on][tii],0.0)
+        stt[:p_rru_off][tii] .= max.(stt[:p_rru_off][tii],0.0)
+        stt[:p_rrd_on][tii]  .= max.(stt[:p_rrd_on][tii],0.0)
+        stt[:p_rrd_off][tii] .= max.(stt[:p_rrd_off][tii],0.0)
+        stt[:q_qru][tii]     .= max.(stt[:q_qru][tii],0.0)
+        stt[:q_qrd][tii]     .= max.(stt[:q_qrd][tii],0.0)
     end
 end
 
 function clip_onoff_binaries!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
     for tii in prm.ts.time_keys
-        stt[:u_on_dev][tii]    = clamp.(stt[:u_on_dev][tii],    0.0, 1.0)
-        stt[:u_on_acline][tii] = clamp.(stt[:u_on_acline][tii], 0.0, 1.0)
-        stt[:u_on_xfm ][tii]   = clamp.(stt[:u_on_xfm ][tii],   0.0, 1.0)
+        stt[:u_on_dev][tii]    .= clamp.(stt[:u_on_dev][tii],    0.0, 1.0)
+        stt[:u_on_acline][tii] .= clamp.(stt[:u_on_acline][tii], 0.0, 1.0)
+        stt[:u_on_xfm ][tii]   .= clamp.(stt[:u_on_xfm ][tii],   0.0, 1.0)
         #
         # there is no need to clip startup or shutdown variables, since if
         # the on/off variables are clipped, then su and sd variables will 
@@ -89,10 +99,10 @@ end
 function snap_shunts!(fix::Bool, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
     for tii in prm.ts.time_keys
         # clamp, to be safe
-        stt[:u_step_shunt][tii] = clamp.(stt[:u_step_shunt][tii], prm.shunt.step_lb, prm.shunt.step_ub)
+        stt[:u_step_shunt][tii] .= clamp.(stt[:u_step_shunt][tii], prm.shunt.step_lb, prm.shunt.step_ub)
 
         # now round -- no need for Int
-        stt[:u_step_shunt][tii] = round.(stt[:u_step_shunt][tii])
+        stt[:u_step_shunt][tii] .= round.(stt[:u_step_shunt][tii])
 
         # don't let adam make any more updates in this case
         if fix == true
@@ -108,30 +118,30 @@ function clip_pq!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict
     for (t_ind, tii) in enumerate(prm.ts.time_keys)
         # we also clip p_on, even though its value isn't explicitly set \ge 0
             # for justification, see (254) and (110)
-            # note: stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind) \ge 0, since p_lb \ge 0
+            # note: stt[:u_on_dev][tii].*prm.dev.p_lb_tmdv[t_ind] \ge 0, since p_lb \ge 0
             # we also clip p_on to its maximum value (see 109)
         if qG.clip_pq_based_on_bins == true
-            stt[:p_on][tii] = max.(stt[:p_on][tii], stt[:u_on_dev][tii].*getindex.(prm.dev.p_lb,t_ind))
-            stt[:p_on][tii] = min.(stt[:p_on][tii], stt[:u_on_dev][tii].*getindex.(prm.dev.p_ub,t_ind))
+            stt[:p_on][tii] .= max.(stt[:p_on][tii], stt[:u_on_dev][tii].*prm.dev.p_lb_tmdv[t_ind])
+            stt[:p_on][tii] .= min.(stt[:p_on][tii], stt[:u_on_dev][tii].*prm.dev.p_ub_tmdv[t_ind])
         else
             # watch out!! 
             # => the absolute bounds are given by 0 < p < p_ub, so this is how we clip!
-            stt[:p_on][tii] = max.(stt[:p_on][tii], 0.0)
-            stt[:p_on][tii] = min.(stt[:p_on][tii], getindex.(prm.dev.p_ub,t_ind))
+            stt[:p_on][tii] .= max.(stt[:p_on][tii], 0.0)
+            stt[:p_on][tii] .= min.(stt[:p_on][tii], prm.dev.p_ub_tmdv[t_ind])
         end
 
         # clip q -- we clip very simply based on (112), (113), (122), (123), where q_qru is negelcted!
         #
         if qG.clip_pq_based_on_bins == true
-            stt[:dev_q][tii] = max.(stt[:dev_q][tii], stt[:u_sum][tii].*getindex.(prm.dev.q_lb,t_ind))
-            stt[:dev_q][tii] = min.(stt[:dev_q][tii], stt[:u_sum][tii].*getindex.(prm.dev.q_ub,t_ind))
+            stt[:dev_q][tii] .= max.(stt[:dev_q][tii], stt[:u_sum][tii].*prm.dev.q_lb_tmdv[t_ind])
+            stt[:dev_q][tii] .= min.(stt[:dev_q][tii], stt[:u_sum][tii].*prm.dev.q_ub_tmdv[t_ind])
         else
             # watch out!! 
             # => the absolute bounds are given by q_lb < q < q_ub, but
             # we don't know if q_lb is positive or negative, so to include 0,
-            # we take min.(q_lb, 0.0). the upper bound is fine.
-            stt[:dev_q][tii] = max.(stt[:dev_q][tii], min.(getindex.(prm.dev.q_lb,t_ind), 0.0))
-            stt[:dev_q][tii] = min.(stt[:dev_q][tii], getindex.(prm.dev.q_ub,t_ind))
+            # we take min.(q_lb, 0.0). same for upper bound -- I think :)
+            stt[:dev_q][tii] .= max.(stt[:dev_q][tii], min.(prm.dev.q_lb_tmdv[t_ind], 0.0))
+            stt[:dev_q][tii] .= min.(stt[:dev_q][tii], max.(prm.dev.q_ub_tmdv[t_ind], 0.0))
         end
     end
 end
@@ -151,10 +161,10 @@ function clip_for_feasibility!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::qua
     # note: "clamp" is much faster than the alternatives!
     clip_onoff_binaries!(prm, stt)
     clip_reserves!(prm, stt)
-    clip_pq!(prm, qG, stt)
+    #clip_pq!(prm, qG, stt)
 
     # target the problematic one
-    clip_17c!(idx, prm, qG, stt, sys)
+    #clip_17c!(idx, prm, qG, stt, sys)
 end
 
 function clip_17c!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)

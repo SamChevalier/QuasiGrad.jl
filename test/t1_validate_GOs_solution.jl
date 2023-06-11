@@ -106,9 +106,9 @@ end
 include("../src/quasiGrad_dual.jl")
 sys = quasiGrad.build_sys(jsn)
 
-quasiGrad.acline_flows!(grd, idx, prm, qG, stt)
-quasiGrad.xfm_flows!(grd, idx, prm, qG, stt)
-quasiGrad.shunts!(grd, idx, prm, qG, stt)
+quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
 quasiGrad.all_device_statuses_and_costs!(grd, prm, qG, stt)
 quasiGrad.device_startup_states!(prm, idx, stt, grd, qG, sys)
 quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)

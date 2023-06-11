@@ -9,7 +9,7 @@ function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGra
     set_silent(model)
 
     # set model properties
-    set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+    # set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
 
     # loop over each time period and define the hard constraints
     for (t_ind, tii) in enumerate(prm.ts.time_keys)
@@ -21,9 +21,9 @@ function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGra
         empty!(model)
 
         # set model properties
-        quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-        quasiGrad.set_optimizer_attribute(model, "IntFeasTol",     qG.IntFeasTol)
-        quasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
+            #quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+            #quasiGrad.set_optimizer_attribute(model, "IntFeasTol",     qG.IntFeasTol)
+        quasiGrad.set_optimizer_attribute(model, "TimeLimit", qG.time_lim)
 
         # affine aggregation terms
         zt = AffExpr(0.0)
@@ -249,7 +249,6 @@ function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGra
             end
         end
         
-
         # loop over the zones (reactive power) -- gradients are computed in the master grad
         for zone in 1:sys.nzQ
             # we want to safely avoid sum(...; init=0.0)
@@ -271,26 +270,26 @@ function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGra
         # add up
         zt_temp = 
             # local reserve penalties
-            sum(dt*getindex.(prm.dev.p_reg_res_up_cost,t_ind).*p_rgu) -   # zrgu
-            sum(dt*getindex.(prm.dev.p_reg_res_down_cost,t_ind).*p_rgd) - # zrgd
-            sum(dt*getindex.(prm.dev.p_syn_res_cost,t_ind).*p_scr) -      # zscr
-            sum(dt*getindex.(prm.dev.p_nsyn_res_cost,t_ind).*p_nsc) -     # znsc
-            sum(dt*(getindex.(prm.dev.p_ramp_res_up_online_cost,t_ind).*p_rru_on +
-                    getindex.(prm.dev.p_ramp_res_up_offline_cost,t_ind).*p_rru_off)) -   # zrru
-            sum(dt*(getindex.(prm.dev.p_ramp_res_down_online_cost,t_ind).*p_rrd_on +
-                    getindex.(prm.dev.p_ramp_res_down_offline_cost,t_ind).*p_rrd_off)) - # zrrd
-            sum(dt*getindex.(prm.dev.q_res_up_cost,t_ind).*q_qru) -   # zqru      
-            sum(dt*getindex.(prm.dev.q_res_down_cost,t_ind).*q_qrd) - # zqrd
+            -sum(dt.*prm.dev.p_reg_res_up_cost_tmdv[t_ind].*p_rgu) -   # zrgu
+            sum(dt.*prm.dev.p_reg_res_down_cost_tmdv[t_ind].*p_rgd) - # zrgd
+            sum(dt.*prm.dev.p_syn_res_cost_tmdv[t_ind].*p_scr) -      # zscr
+            sum(dt.*prm.dev.p_nsyn_res_cost_tmdv[t_ind].*p_nsc) -     # znsc
+            sum(dt.*(prm.dev.p_ramp_res_up_online_cost_tmdv[t_ind].*p_rru_on +
+                    prm.dev.p_ramp_res_up_offline_cost_tmdv[t_ind].*p_rru_off)) -   # zrru
+            sum(dt.*(prm.dev.p_ramp_res_down_online_cost_tmdv[t_ind].*p_rrd_on +
+                    prm.dev.p_ramp_res_down_offline_cost_tmdv[t_ind].*p_rrd_off)) - # zrrd
+            sum(dt.*prm.dev.q_res_up_cost_tmdv[t_ind].*q_qru) -   # zqru      
+            sum(dt.*prm.dev.q_res_down_cost_tmdv[t_ind].*q_qrd) - # zqrd
             # zonal reserve penalties (P)
-            sum(dt*prm.vio.rgu_zonal.*p_rgu_zonal_penalty) -
-            sum(dt*prm.vio.rgd_zonal.*p_rgd_zonal_penalty) -
-            sum(dt*prm.vio.scr_zonal.*p_scr_zonal_penalty) -
-            sum(dt*prm.vio.nsc_zonal.*p_nsc_zonal_penalty) -
-            sum(dt*prm.vio.rru_zonal.*p_rru_zonal_penalty) -
-            sum(dt*prm.vio.rrd_zonal.*p_rrd_zonal_penalty) -
+            sum(dt.*prm.vio.rgu_zonal.*p_rgu_zonal_penalty) -
+            sum(dt.*prm.vio.rgd_zonal.*p_rgd_zonal_penalty) -
+            sum(dt.*prm.vio.scr_zonal.*p_scr_zonal_penalty) -
+            sum(dt.*prm.vio.nsc_zonal.*p_nsc_zonal_penalty) -
+            sum(dt.*prm.vio.rru_zonal.*p_rru_zonal_penalty) -
+            sum(dt.*prm.vio.rrd_zonal.*p_rrd_zonal_penalty) -
             # zonal reserve penalties (Q)
-            sum(dt*prm.vio.qru_zonal.*q_qru_zonal_penalty) -
-            sum(dt*prm.vio.qrd_zonal.*q_qrd_zonal_penalty)
+            sum(dt.*prm.vio.qru_zonal.*q_qru_zonal_penalty) -
+            sum(dt.*prm.vio.qrd_zonal.*q_qrd_zonal_penalty)
 
         # update zt
         add_to_expression!(zt, zt_temp)
@@ -306,21 +305,19 @@ function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGra
 
         # did Gurobi find something valid?
         if soln_valid == true
-            println("========================================================")
-            println(termination_status(model),". ",primal_status(model),". objective value: ", objective_value(model))
-            println("========================================================")
+            println("Reserve cleanup at $(tii). ", termination_status(model),". objective value: ", objective_value(model))
 
             # return the solution
-            stt[:p_rgu][tii]     = copy(value.(p_rgu))
-            stt[:p_rgd][tii]     = copy(value.(p_rgd))
-            stt[:p_scr][tii]     = copy(value.(p_scr))
-            stt[:p_nsc][tii]     = copy(value.(p_nsc))
-            stt[:p_rru_on][tii]  = copy(value.(p_rru_on))
-            stt[:p_rru_off][tii] = copy(value.(p_rru_off))
-            stt[:p_rrd_on][tii]  = copy(value.(p_rrd_on))
-            stt[:p_rrd_off][tii] = copy(value.(p_rrd_off))
-            stt[:q_qru][tii]     = copy(value.(q_qru))
-            stt[:q_qrd][tii]     = copy(value.(q_qrd))
+            stt[:p_rgu][tii]     .= copy.(value.(p_rgu))
+            stt[:p_rgd][tii]     .= copy.(value.(p_rgd))
+            stt[:p_scr][tii]     .= copy.(value.(p_scr))
+            stt[:p_nsc][tii]     .= copy.(value.(p_nsc))
+            stt[:p_rru_on][tii]  .= copy.(value.(p_rru_on))
+            stt[:p_rru_off][tii] .= copy.(value.(p_rru_off))
+            stt[:p_rrd_on][tii]  .= copy.(value.(p_rrd_on))
+            stt[:p_rrd_off][tii] .= copy.(value.(p_rrd_off))
+            stt[:q_qru][tii]     .= copy.(value.(q_qru))
+            stt[:q_qrd][tii]     .= copy.(value.(q_qrd))
         else
             # warn!
             @warn "Reserve cleanup solver (LP) failed at $(tii) -- skip this cleanup!"
@@ -646,16 +643,16 @@ function soft_reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::qua
         # add up
         zt_temp = 
             # local reserve penalties
-            sum(dt*getindex.(prm.dev.p_reg_res_up_cost,t_ind).*p_rgu) -   # zrgu
-            sum(dt*getindex.(prm.dev.p_reg_res_down_cost,t_ind).*p_rgd) - # zrgd
-            sum(dt*getindex.(prm.dev.p_syn_res_cost,t_ind).*p_scr) -      # zscr
-            sum(dt*getindex.(prm.dev.p_nsyn_res_cost,t_ind).*p_nsc) -     # znsc
-            sum(dt*(getindex.(prm.dev.p_ramp_res_up_online_cost,t_ind).*p_rru_on +
-                    getindex.(prm.dev.p_ramp_res_up_offline_cost,t_ind).*p_rru_off)) -   # zrru
-            sum(dt*(getindex.(prm.dev.p_ramp_res_down_online_cost,t_ind).*p_rrd_on +
-                    getindex.(prm.dev.p_ramp_res_down_offline_cost,t_ind).*p_rrd_off)) - # zrrd
-            sum(dt*getindex.(prm.dev.q_res_up_cost,t_ind).*q_qru) -   # zqru      
-            sum(dt*getindex.(prm.dev.q_res_down_cost,t_ind).*q_qrd) - # zqrd
+            -sum(dt*prm.dev.p_reg_res_up_cost_tmdv[t_ind].*p_rgu) -   # zrgu
+            sum(dt*prm.dev.p_reg_res_down_cost_tmdv[t_ind].*p_rgd) - # zrgd
+            sum(dt*prm.dev.p_syn_res_cost_tmdv[t_ind].*p_scr) -      # zscr
+            sum(dt*prm.dev.p_nsyn_res_cost_tmdv[t_ind].*p_nsc) -     # znsc
+            sum(dt*(prm.dev.p_ramp_res_up_online_cost_tmdv[t_ind].*p_rru_on +
+                    prm.dev.p_ramp_res_up_offline_cost_tmdv[t_ind].*p_rru_off)) -   # zrru
+            sum(dt*(prm.dev.p_ramp_res_down_online_cost_tmdv[t_ind].*p_rrd_on +
+                    prm.dev.p_ramp_res_down_offline_cost_tmdv[t_ind].*p_rrd_off)) - # zrrd
+            sum(dt*prm.dev.q_res_up_cost_tmdv[t_ind].*q_qru) -   # zqru      
+            sum(dt*prm.dev.q_res_down_cost_tmdv[t_ind].*q_qrd) - # zqrd
             # zonal reserve penalties (P)
             sum(dt*prm.vio.rgu_zonal.*p_rgu_zonal_penalty) -
             sum(dt*prm.vio.rgd_zonal.*p_rgd_zonal_penalty) -
@@ -681,16 +678,16 @@ function soft_reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::qua
 
          # did Gurobi find something valid?
         if soln_valid == true
-            stt[:p_rgu][tii]     = copy(value.(p_rgu))
-            stt[:p_rgd][tii]     = copy(value.(p_rgd))
-            stt[:p_scr][tii]     = copy(value.(p_scr))
-            stt[:p_nsc][tii]     = copy(value.(p_nsc))
-            stt[:p_rru_on][tii]  = copy(value.(p_rru_on))
-            stt[:p_rru_off][tii] = copy(value.(p_rru_off))
-            stt[:p_rrd_on][tii]  = copy(value.(p_rrd_on))
-            stt[:p_rrd_off][tii] = copy(value.(p_rrd_off))
-            stt[:q_qru][tii]     = copy(value.(q_qru))
-            stt[:q_qrd][tii]     = copy(value.(q_qrd))
+            stt[:p_rgu][tii]     .= copy.(value.(p_rgu))
+            stt[:p_rgd][tii]     .= copy.(value.(p_rgd))
+            stt[:p_scr][tii]     .= copy.(value.(p_scr))
+            stt[:p_nsc][tii]     .= copy.(value.(p_nsc))
+            stt[:p_rru_on][tii]  .= copy.(value.(p_rru_on))
+            stt[:p_rru_off][tii] .= copy.(value.(p_rru_off))
+            stt[:p_rrd_on][tii]  .= copy.(value.(p_rrd_on))
+            stt[:p_rrd_off][tii] .= copy.(value.(p_rrd_off))
+            stt[:q_qru][tii]     .= copy.(value.(q_qru))
+            stt[:q_qrd][tii]     .= copy.(value.(q_qrd))
         else
             # warn!
             @warn "(softly constrained) Reserve cleanup solver (LP) failed at $(tii) -- skip this cleanup!"
@@ -725,7 +722,7 @@ function cleanup_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Fl
         run_pf    = true
         pf_cnt    = 0 
 
-        # 1. update the ideal dispatch point (active power) -- we do this just once
+        # 1. update the ideal dispatch points p/q -- we do this just once
         quasiGrad.ideal_dispatch!(idx, msc, stt, sys, tii)
 
         # 2. update y_bus and Jacobian and bias point -- this
@@ -851,8 +848,8 @@ function cleanup_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Fl
                 @constraint(model, nodal_q[bus] - JacQ_noref[bus,:]'*x_in - msc[:qinj0][bus] <= slack_q[bus])
 
                 # add both to the objective
-                add_to_expression!(obj, slack_p[bus])
-                add_to_expression!(obj, slack_q[bus])
+                add_to_expression!(obj, slack_p[bus], 1e3)
+                add_to_expression!(obj, slack_q[bus], 1e3)
 
                 # voltage regularization
                 @constraint(model, -dvm[bus] <= tmp_vm)
@@ -891,7 +888,7 @@ function cleanup_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Fl
                 stt[:va][tii][2:end] = stt[:va][tii][2:end] + value.(dva)
 
                 # take the norm of dv
-                max_dx = maximum(value.(x_in))
+                max_dx = maximum(abs.(value.(x_in)))
                 
                 # println("========================================================")
                 if qG.print_linear_pf_iterations == true
@@ -900,7 +897,7 @@ function cleanup_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Fl
                 # println("========================================================")
                 #
                 # shall we terminate?
-                if (maximum(value.(x_in)) < qG.max_pf_dx) || (pf_cnt == qG.max_linear_pfs)
+                if (max_dx < qG.max_pf_dx) || (pf_cnt == qG.max_linear_pfs)
                     run_pf = false
 
                     # now, apply the updated injections to the devices
@@ -913,7 +910,498 @@ function cleanup_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Fl
                 end
             else
                 # the solution is NOT valid
-                println("Power flow cleanup failed at time $(tii)!")
+                @warn "Power flow cleanup failed at time $(tii)!"
+            end
+        end
+    end
+end
+
+# cleanup power flow (to some degree of accuracy)
+function single_shot_pf_clearnup!(idx::quasiGrad.Idx, Jac::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
+    # device p/q stay fixed -- just tune v, theta, and dc
+
+    # build and empty the model!
+    model = Model(Gurobi.Optimizer)
+    set_string_names_on_creation(model, false)
+    set_silent(model)
+
+    @info "Running lineaized power flow cleanup at $(tii)."
+
+    # define the variables (single time index)
+    @variable(model, x_in[1:(2*sys.nb - 1)])
+    set_start_value.(x_in, [stt[:vm][tii]; stt[:va][tii][2:end]])
+
+    # assign
+    dvm  = x_in[1:sys.nb]
+    dva  = x_in[(sys.nb+1):end]
+
+    # note:
+    # vm   = vm0   + dvm
+    # va   = va0   + dva
+    # pinj = pinj0 + dpinj
+    # qinj = qinj0 + dqinj
+    #
+    # key equation:
+    #                       dPQ .== Jac*dVT
+    #                       dPQ + basePQ(v) = devicePQ
+    #
+    #                       Jac*dVT + basePQ(v) == devicePQ
+    #
+    # so, we don't actually need to model dPQ explicitly (cool)
+    #
+    # so, the optimizer asks, how shall we tune dVT in order to produce a power perurbation
+    # which, when added to the base point, lives inside the feasible device region?
+    #
+    # based on the result, we only have to actually update the device set points on the very
+    # last power flow iteration, where we have converged.
+
+    # now, model all nodal injections from the device/dc line side, all put in nodal_p/q
+    nodal_p = Vector{AffExpr}(undef, sys.nb)
+    nodal_q = Vector{AffExpr}(undef, sys.nb)
+    for bus in 1:sys.nb
+        # now, we need to loop and set the affine expressions to 0, and then add powers
+        #   -> see: https://jump.dev/JuMP.jl/stable/manual/expressions/
+        nodal_p[bus] = AffExpr(0.0)
+        nodal_q[bus] = AffExpr(0.0)
+    end
+
+    # create a flow variable for each dc line and sum these into the nodal vectors
+    if sys.nldc == 0
+        # nothing to see here
+    else
+
+        # define dc variables
+        @variable(model, pdc_vars[1:sys.nldc])    # oriented so that fr = + !!
+        @variable(model, qdc_fr_vars[1:sys.nldc])
+        @variable(model, qdc_to_vars[1:sys.nldc])
+
+        set_start_value.(pdc_vars, stt[:dc_pfr][tii])
+        set_start_value.(qdc_fr_vars, stt[:dc_qfr][tii])
+        set_start_value.(qdc_to_vars, stt[:dc_qto][tii])
+
+        # bound dc power
+        @constraint(model, -prm.dc.pdc_ub    .<= pdc_vars    .<= prm.dc.pdc_ub)
+        @constraint(model,  prm.dc.qdc_fr_lb .<= qdc_fr_vars .<= prm.dc.qdc_fr_ub)
+        @constraint(model,  prm.dc.qdc_to_lb .<= qdc_to_vars .<= prm.dc.qdc_to_ub)
+
+        # loop and add to the nodal injection vectors
+        for dcl in 1:sys.nldc
+            add_to_expression!(nodal_p[idx.dc_fr_bus[dcl]], -pdc_vars[dcl])
+            add_to_expression!(nodal_p[idx.dc_to_bus[dcl]], +pdc_vars[dcl])
+            add_to_expression!(nodal_q[idx.dc_fr_bus[dcl]], -qdc_fr_vars[dcl])
+            add_to_expression!(nodal_q[idx.dc_to_bus[dcl]], -qdc_to_vars[dcl])
+        end
+    end
+
+    # next, deal with devices
+    # 
+    for dev in 1:sys.ndev
+        if dev in idx.pr_devs
+            # producers
+            add_to_expression!(nodal_p[idx.device_to_bus[dev]], stt[:dev_p][tii][dev])
+            add_to_expression!(nodal_q[idx.device_to_bus[dev]], stt[:dev_q][tii][dev])
+        else
+            # consumers
+            add_to_expression!(nodal_p[idx.device_to_bus[dev]], -stt[:dev_p][tii][dev])
+            add_to_expression!(nodal_q[idx.device_to_bus[dev]], -stt[:dev_q][tii][dev])
+        end
+    end
+
+    # bound system variables ==============================================
+    #
+    # bound variables -- voltage
+    @constraint(model, prm.bus.vm_lb - stt[:vm][tii] .<= dvm .<= prm.bus.vm_ub - stt[:vm][tii])
+    # alternative: => @constraint(model, prm.bus.vm_lb .<= stt[:vm][tii] + dvm .<= prm.bus.vm_ub)
+
+    # mapping
+    JacP_noref = @view Jac[1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
+    JacQ_noref = @view Jac[(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
+
+    # objective: find v, theta with minimal mismatch penalty
+    obj    = AffExpr(0.0)
+    tmp_vm = @variable(model)
+    tmp_va = @variable(model)
+    @variable(model, slack_p[1:sys.nb])
+    @variable(model, slack_q[1:sys.nb])
+
+    for bus in 1:sys.nb
+        # penalize mismatch
+        @constraint(model, JacP_noref[bus,:]'*x_in + msc[:pinj0][bus] - nodal_p[bus] <= slack_p[bus])
+        @constraint(model, nodal_p[bus] - JacP_noref[bus,:]'*x_in - msc[:pinj0][bus] <= slack_p[bus])
+        @constraint(model, JacQ_noref[bus,:]'*x_in + msc[:qinj0][bus] - nodal_q[bus] <= slack_q[bus])
+        @constraint(model, nodal_q[bus] - JacQ_noref[bus,:]'*x_in - msc[:qinj0][bus] <= slack_q[bus])
+
+        # add both to the objective
+        add_to_expression!(obj, slack_p[bus], 1e3)
+        add_to_expression!(obj, slack_q[bus], 1e3)
+
+        # voltage regularization
+        @constraint(model, -dvm[bus] <= tmp_vm)
+        @constraint(model,  dvm[bus] <= tmp_vm)
+
+        # phase regularization
+        if bus > 1
+            @constraint(model, -dva[bus-1] <= tmp_va)
+            @constraint(model,  dva[bus-1] <= tmp_va)
+        end
+    end
+
+    # this adds light regularization and causes convergence
+    add_to_expression!(obj, tmp_vm)
+    add_to_expression!(obj, tmp_va)
+
+    # set the objective
+    @objective(model, Min, obj)
+
+    # solve
+    optimize!(model)
+
+    # test solution!
+    soln_valid = solution_status(model)
+
+    # test validity
+    if soln_valid == true
+        # we update the voltage soluion
+        stt[:vm][tii]        .= stt[:vm][tii]        .+ value.(dvm)
+        stt[:va][tii][2:end] .= stt[:va][tii][2:end] .+ value.(dva)
+
+        # update dc
+        if sys.nldc > 0
+            stt[:dc_pfr][tii] .=  value.(pdc_vars)
+            stt[:dc_pto][tii] .= -value.(pdc_vars)  # also, performed in clipping
+            stt[:dc_qfr][tii] .= value.(qdc_fr_vars)
+            stt[:dc_qto][tii] .= value.(qdc_to_vars)
+        end
+
+        # take the norm of dv
+        max_dx = maximum(abs.(value.(x_in)))
+        if qG.print_linear_pf_iterations == true
+            println("Single shot at time $(tii): ",primal_status(model),". objective value: ", round(objective_value(model), sigdigits = 5), ". max dx: ", round(max_dx, sigdigits = 5))
+        end
+    else
+        # the solution is NOT valid
+        @warn "Single shot cleanup failed at $(tii)! Skipping it."
+    end
+end
+
+"""
+Solve linearized power flow with Gurobi -- apply ramping and bounding constraints, but forget the
+reserve values (they will be retuned afterwards.)
+"""
+function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+    # ask Gurobi to solve a linearize power flow. two options here:
+    #   1) define device variables which are bounded, and then insert them into the power balance expression
+    #   2) just define power balance bounds based on device characteristics, and then, at the end, optimally
+    #      dispatch the devices via updating.
+    # 
+    # I am pretty sure 1) is slower, but it is (1) safer, (2) simpler, and (3) more flexible -- and it will
+    # require less trouble-shooting. Plus, it will be easy to update/improve in the future! Go with it.
+    #
+    #
+    # here is power balance:
+    #
+    # p_pr - p_cs - pdc = p_lines/xfm/shunt => this is typical.
+    #
+    # vm0 = stt[:vm][tii]
+    # va0 = stt[:va][tii][2:end-1]
+    #
+    # bias point: msc[:pinj0, qinj0] === Y * stt[:vm, va]
+    qG.compute_pf_injs_with_Jac = true
+
+    # build and empty the model!
+    model = Model(Gurobi.Optimizer)
+    set_string_names_on_creation(model, false)
+    set_silent(model)
+
+    @info "Running constrained, lineaized power flow cleanup across $(sys.nT) time periods backwards."
+
+    # loop over time
+    for (t_ind_cntup, tii) in enumerate(reverse(prm.ts.time_keys))
+        t_ind = sys.nT - t_ind_cntup + 1
+
+        # duration
+        dt = prm.ts.duration[tii]
+
+        # initialize
+        run_pf    = true
+        pf_cnt    = 0
+
+        # 1. update the ideal dispatch point (active power) -- we do this just once
+        quasiGrad.ideal_dispatch!(idx, msc, stt, sys, tii)
+
+        # 2. update y_bus and Jacobian and bias point -- this
+        #    only needs to be done once per time, since xfm/shunt
+        #    values are not changing between iterations
+        Ybus_real, Ybus_imag = quasiGrad.update_Ybus(idx, ntk, prm, stt, sys, tii)
+
+        # loop over pf solves
+        while run_pf == true
+
+            # increment
+            pf_cnt += 1
+
+            # first, rebuild the jacobian, and update the
+            # base points: msc[:pinj0], msc[:qinj0]
+            Jac = quasiGrad.build_acpf_Jac_and_pq0(msc, qG, stt, sys, tii, Ybus_real, Ybus_imag);
+            
+            # empty model
+            empty!(model)
+
+            # set
+            #quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+            quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), 1e-10)
+            quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), 1e-10)
+
+            # define the variables (single time index)
+            @variable(model, x_in[1:(2*sys.nb - 1)])
+            set_start_value.(x_in, [stt[:vm][tii]; stt[:va][tii][2:end]])
+
+            # assign
+            dvm  = x_in[1:sys.nb]
+            dva  = x_in[(sys.nb+1):end]
+
+            # note:
+            # vm   = vm0   + dvm
+            # va   = va0   + dva
+            # pinj = pinj0 + dpinj
+            # qinj = qinj0 + dqinj
+            #
+            # key equation:
+            #                       dPQ .== Jac*dVT
+            #                       dPQ + basePQ(v) = devicePQ
+            #
+            #                       Jac*dVT + basePQ(v) == devicePQ
+            #
+            # so, we don't actually need to model dPQ explicitly (cool)
+
+            # now, model all nodal injections from the device/dc line side, all put in nodal_p/q
+            nodal_p = Vector{AffExpr}(undef, sys.nb)
+            nodal_q = Vector{AffExpr}(undef, sys.nb)
+            for bus in 1:sys.nb
+                # now, we need to loop and set the affine expressions to 0, and then add powers
+                #   -> see: https://jump.dev/JuMP.jl/stable/manual/expressions/
+                nodal_p[bus] = AffExpr(0.0)
+                nodal_q[bus] = AffExpr(0.0)
+            end
+
+            # create a flow variable for each dc line and sum these into the nodal vectors
+            if sys.nldc == 0
+                # nothing to see here
+            else
+                # define dc variables
+                @variable(model, pdc_vars[1:sys.nldc])    # oriented so that fr = + !!
+                @variable(model, qdc_fr_vars[1:sys.nldc])
+                @variable(model, qdc_to_vars[1:sys.nldc])
+
+                set_start_value.(pdc_vars, stt[:dc_pfr][tii])
+                set_start_value.(qdc_fr_vars, stt[:dc_qfr][tii])
+                set_start_value.(qdc_to_vars, stt[:dc_qto][tii])
+
+                # bound dc power
+                @constraint(model, -prm.dc.pdc_ub    .<= pdc_vars    .<= prm.dc.pdc_ub)
+                @constraint(model,  prm.dc.qdc_fr_lb .<= qdc_fr_vars .<= prm.dc.qdc_fr_ub)
+                @constraint(model,  prm.dc.qdc_to_lb .<= qdc_to_vars .<= prm.dc.qdc_to_ub)
+
+                # loop and add to the nodal injection vectors
+                for dcl in 1:sys.nldc
+                    add_to_expression!(nodal_p[idx.dc_fr_bus[dcl]], -pdc_vars[dcl])
+                    add_to_expression!(nodal_p[idx.dc_to_bus[dcl]], +pdc_vars[dcl])
+                    add_to_expression!(nodal_q[idx.dc_fr_bus[dcl]], -qdc_fr_vars[dcl])
+                    add_to_expression!(nodal_q[idx.dc_to_bus[dcl]], -qdc_to_vars[dcl])
+                end
+            end
+            
+            # next, deal with devices
+            @variable(model, dev_p_vars[1:sys.ndev])
+            @variable(model, dev_q_vars[1:sys.ndev])
+            set_start_value.(dev_p_vars, stt[:dev_p][tii])
+            set_start_value.(dev_q_vars, stt[:dev_q][tii])
+
+            # call device bounds
+            dev_plb = prm.dev.p_lb_tmdv[t_ind]
+            dev_pub = prm.dev.p_ub_tmdv[t_ind]
+            dev_qlb = prm.dev.q_lb_tmdv[t_ind]
+            dev_qub = prm.dev.q_ub_tmdv[t_ind]
+
+            # define p_on at this time
+            # => p_on = dev_p_vars - stt[:p_su][tii] - stt[:p_sd][tii]
+            p_on = Vector{AffExpr}(undef, sys.ndev)
+            for dev in 1:sys.ndev
+                # now, we need to loop and set the affine expressions to 0, and then add powers
+                #   -> see: https://jump.dev/JuMP.jl/stable/manual/expressions/
+                p_on[dev] = AffExpr(0.0)
+                add_to_expression!(p_on[dev], dev_p_vars[dev])
+                add_to_expression!(p_on[dev], -stt[:p_su][tii][dev] - stt[:p_sd][tii][dev])
+            end
+
+            # constraints: 7 types
+            #
+            # define the previous power value (used by both up and down ramping!)
+            if tii == :t1
+                # note: p0 = prm.dev.init_p[dev]
+                dev_p_previous = prm.dev.init_p
+            else
+                # grab previous time
+                tii_m1 = prm.ts.time_keys[t_ind-1]
+                dev_p_previous = stt[:dev_p][tii_m1]
+            end
+
+            # 1. ramp up
+            @constraint(model, dev_p_vars - dev_p_previous - dt*(prm.dev.p_ramp_up_ub.*(stt[:u_on_dev][tii] - stt[:u_su_dev][tii]) + prm.dev.p_startup_ramp_ub.*(stt[:u_su_dev][tii] .+ 1.0 .- stt[:u_on_dev][tii])) .<= 0.0)
+
+            # 2. ramp down
+            @constraint(model, dev_p_previous - dev_p_vars - dt*(prm.dev.p_ramp_down_ub.*stt[:u_on_dev][tii] + prm.dev.p_shutdown_ramp_ub.*(1.0 .- stt[:u_on_dev][tii])) .<= 0.0)
+
+            # 3. pmax
+            @constraint(model, p_on .<= dev_pub.*stt[:u_on_dev][tii])
+
+            # 4. pmin
+            @constraint(model, dev_plb.*stt[:u_on_dev][tii] .<= p_on)
+
+            # 5. qmax
+            @constraint(model, dev_q_vars .<= dev_qub.*stt[:u_sum][tii])
+
+            # 6. qmin
+            @constraint(model, dev_qlb.*stt[:u_sum][tii] .<= dev_q_vars)
+            
+            # 7. additional reactive power constraints!
+            #
+            # ~~~ J_pqe, and J_pqmin/max ~~~
+            #
+            # apply additional bounds: J_pqe (equality constraints)
+            if ~isempty(idx.J_pqe)
+                @constraint(model, dev_q_vars[idx.J_pqe] - prm.dev.beta[idx.J_pqe]*dev_p_vars[idx.J_pqe] .== prm.dev.q_0[idx.J_pqe]*stt[:u_sum][tii][idx.J_pqe])
+                # alternative: @constraint(model, dev_q_vars[idx.J_pqe] .== prm.dev.q_0[idx.J_pqe]*stt[:u_sum][tii][idx.J_pqe] + prm.dev.beta[idx.J_pqe]*dev_p_vars[idx.J_pqe])
+            end
+
+            # apply additional bounds: J_pqmin/max (inequality constraints)
+            #
+            # note: when the reserve products are negelected, pr and cs constraints are the same
+            #   remember: idx.J_pqmax == idx.J_pqmin
+            if ~isempty(idx.J_pqmax)
+                @constraint(model, dev_q_vars[idx.J_pqmax] .<= prm.dev.q_0_ub[idx.J_pqmax]*stt[:u_sum][tii][idx.J_pqmax] + prm.dev.beta_ub[idx.J_pqmax]*dev_p_vars[idx.J_pqmax])
+                @constraint(model, prm.dev.q_0_lb[idx.J_pqmax]*stt[:u_sum][tii][idx.J_pqmax] + prm.dev.beta_lb[idx.J_pqmax]*dev_p_vars[idx.J_pqmax] .<= dev_q_vars[idx.J_pqmax])
+            end
+
+            # great, now just update the nodal injection vectors
+            for dev in 1:sys.ndev
+                if dev in idx.pr_devs
+                    # producers
+                    add_to_expression!(nodal_p[idx.device_to_bus[dev]], dev_p_vars[dev])
+                    add_to_expression!(nodal_q[idx.device_to_bus[dev]], dev_q_vars[dev])
+                else
+                    # consumers
+                    add_to_expression!(nodal_p[idx.device_to_bus[dev]], -dev_p_vars[dev])
+                    add_to_expression!(nodal_q[idx.device_to_bus[dev]], -dev_q_vars[dev])
+                end
+            end
+
+            # if we aren't at the first time :t_end (we move backwards), then we must also consider
+            # the ramp constraints at the NEXT time:
+                # tii_p1 is the future (we just solved this)
+                # dt_p1 is the future duration
+                # stt[:dev_p][tii_p1] is teh future power
+            if tii != prm.ts.time_keys[end]
+                tii_p1 = prm.ts.time_keys[t_ind+1]
+                dt_p1  = prm.ts.duration[tii_p1]
+
+                # 1. ramp up
+                @constraint(model, stt[:dev_p][tii_p1] - dev_p_vars - dt_p1*(prm.dev.p_ramp_up_ub.*(stt[:u_on_dev][tii_p1] - stt[:u_su_dev][tii_p1]) + prm.dev.p_startup_ramp_ub.*(stt[:u_su_dev][tii_p1] .+ 1.0 .- stt[:u_on_dev][tii_p1])) .<= 0.0)
+
+                # 2. ramp down
+                @constraint(model, dev_p_vars - stt[:dev_p][tii_p1] - dt_p1*(prm.dev.p_ramp_down_ub.*stt[:u_on_dev][tii_p1] + prm.dev.p_shutdown_ramp_ub.*(1.0 .- stt[:u_on_dev][tii_p1])) .<= 0.0)
+            end
+
+            # bound system variables ==============================================
+            #
+            # bound variables -- voltage
+            @constraint(model, prm.bus.vm_lb - stt[:vm][tii] .<= dvm .<= prm.bus.vm_ub - stt[:vm][tii])
+            # alternative: => @constraint(model, prm.bus.vm_lb .<= stt[:vm][tii] + dvm .<= prm.bus.vm_ub)
+
+            # mapping
+            JacP_noref = @view Jac[1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
+            JacQ_noref = @view Jac[(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
+
+            @constraint(model, JacP_noref*x_in + msc[:pinj0] .== nodal_p)
+            @constraint(model, JacQ_noref*x_in + msc[:qinj0] .== nodal_q)
+
+            # objective: hold p and q close to their initial values
+                # => || msc[:pinj_ideal] - (p0 + dp) || + regularization
+            # this finds a solution close to the dispatch point -- does not converge without v,a regularization
+            obj    = AffExpr(0.0)
+            tmp_vm = @variable(model)
+            tmp_va = @variable(model)
+            for bus in 1:sys.nb
+                tmp_p = @variable(model)
+                tmp_q = @variable(model)
+                @constraint(model, msc[:pinj_ideal][bus] - nodal_p[bus] <= tmp_p)
+                @constraint(model, nodal_p[bus] - msc[:pinj_ideal][bus] <= tmp_p)
+                @constraint(model, msc[:qinj_ideal][bus] - nodal_q[bus] <= tmp_q)
+                @constraint(model, nodal_q[bus] - msc[:qinj_ideal][bus] <= tmp_q)
+
+                # update the objective
+                add_to_expression!(obj, tmp_p, 25.0/sys.nb)
+                add_to_expression!(obj, tmp_q, 2.5/sys.nb)
+
+                # voltage regularization
+                @constraint(model, -dvm[bus] <= tmp_vm)
+                @constraint(model,  dvm[bus] <= tmp_vm)
+
+                # phase regularization
+                if bus > 1
+                    @constraint(model, -dva[bus-1] <= tmp_va)
+                    @constraint(model,  dva[bus-1] <= tmp_va)
+                end
+            end
+
+            # this adds light regularization and causes convergence
+            add_to_expression!(obj, tmp_vm)
+            add_to_expression!(obj, tmp_va)
+
+            # set the objective
+            @objective(model, Min, obj/1000.0)
+
+            # solve
+            optimize!(model)
+
+            # test solution!
+            soln_valid = solution_status(model)
+
+            # test validity
+            if soln_valid == true
+                # no matter what, we update the voltage soluion
+                stt[:vm][tii]        .= stt[:vm][tii]        + value.(dvm)
+                stt[:va][tii][2:end] .= stt[:va][tii][2:end] + value.(dva)
+
+                # take the norm of dv
+                max_dx = maximum(abs.(value.(x_in)))
+                if qG.print_linear_pf_iterations == true
+                    println(termination_status(model),". time: $(tii). objective value: ", round(objective_value(model), sigdigits = 5), ". max dx: ", round(max_dx, sigdigits = 5))
+                end
+                #
+                # shall we terminate?
+                if (max_dx < qG.max_pf_dx) || (pf_cnt == qG.max_linear_pfs)
+                    run_pf = false
+
+                    # now, apply the updated injections to the devices
+                    stt[:dev_p][tii]  = value.(dev_p_vars)
+                    stt[:p_on][tii]   = stt[:dev_p][tii] - stt[:p_su][tii] - stt[:p_sd][tii]
+                    stt[:dev_q][tii]  = value.(dev_q_vars)
+                    if sys.nldc > 0
+                        stt[:dc_pfr][tii] =  value.(pdc_vars)
+                        stt[:dc_pto][tii] = -value.(pdc_vars)  # also, performed in clipping
+                        stt[:dc_qfr][tii] = value.(qdc_fr_vars)
+                        stt[:dc_qto][tii] = value.(qdc_to_vars)
+                    end
+                end
+            else
+                # the solution is NOT valid, so we should increase bounds and try again
+                @warn "Constrained power flow cleanup failed at $(tii)! Running one shot of penalized cleanup."
+                quasiGrad.single_shot_pf_clearnup!(idx, Jac, msc, prm, qG, stt, sys, tii)
+                @assert 1 == 2
+
+                # all done with this time period -- move on
+                run_pf = false
             end
         end
     end

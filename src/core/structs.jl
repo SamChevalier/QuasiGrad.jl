@@ -57,7 +57,7 @@ mutable struct QG
     eps::Float64
     beta1::Float64
     beta2::Float64
-    alpha_0::Float64
+    alpha_0::Dict{Symbol, Float64}
     alpha_min::Float64
     alpha_max::Float64
     Ti::Int64
@@ -68,7 +68,6 @@ mutable struct QG
     adam_max_time::Float64 
     adam_max_its::Int64 
     adam_stopper::String  
-
     apply_grad_weight_homotopy::Bool
     pqbal_grad_type::String
     pqbal_grad_weight_p::Float64
@@ -103,6 +102,9 @@ mutable struct QG
     first_qG_step::Bool
     first_qG_step_size::Float64
     skip_ctg_eval::Bool
+    take_adam_pf_steps::Bool
+    num_adam_pf_step::Int64
+    adam_pf_variables::Vector{Symbol}
 end
 
 struct Shunt
@@ -288,6 +290,10 @@ struct Device
     p_lb::Vector{Vector{Float64}}
     q_ub::Vector{Vector{Float64}}
     q_lb::Vector{Vector{Float64}}
+    p_ub_tmdv::Vector{Vector{Float64}}
+    p_lb_tmdv::Vector{Vector{Float64}}
+    q_ub_tmdv::Vector{Vector{Float64}}
+    q_lb_tmdv::Vector{Vector{Float64}}
     cost::Vector{Vector{Vector{Vector{Float64}}}}
     cum_cost_blocks::Vector{Vector{Vector{Vector{Float64}}}}
     p_reg_res_up_cost::Vector{Vector{Float64}}
@@ -300,6 +306,16 @@ struct Device
     p_ramp_res_down_offline_cost::Vector{Vector{Float64}}
     q_res_up_cost::Vector{Vector{Float64}}
     q_res_down_cost::Vector{Vector{Float64}}
+    p_reg_res_up_cost_tmdv::Vector{Vector{Float64}}           
+    p_reg_res_down_cost_tmdv::Vector{Vector{Float64}}         
+    p_syn_res_cost_tmdv::Vector{Vector{Float64}}              
+    p_nsyn_res_cost_tmdv::Vector{Vector{Float64}}             
+    p_ramp_res_up_online_cost_tmdv::Vector{Vector{Float64}}   
+    p_ramp_res_down_online_cost_tmdv::Vector{Vector{Float64}} 
+    p_ramp_res_up_offline_cost_tmdv::Vector{Vector{Float64}}  
+    p_ramp_res_down_offline_cost_tmdv::Vector{Vector{Float64}}
+    q_res_up_cost_tmdv::Vector{Vector{Float64}}               
+    q_res_down_cost_tmdv::Vector{Vector{Float64}}             
 end
 
 # upper level struct

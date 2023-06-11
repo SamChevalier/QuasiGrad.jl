@@ -42,10 +42,10 @@ function score_zt!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, s
     # fist, compute some useful scores to report
     scr[:encs] = +sum(sum(stt[:zen_dev][tii][idx.cs_devs] for tii in prm.ts.time_keys))
     scr[:enpr] = -sum(sum(stt[:zen_dev][tii][idx.pr_devs] for tii in prm.ts.time_keys))
-    scr[:zp]   = -sum(sum(stt[:zp][tii]        for tii in prm.ts.time_keys))
-    scr[:zq]   = -sum(sum(stt[:zq][tii]        for tii in prm.ts.time_keys))
-    scr[:acl]  = -sum(sum(stt[:zs_acline][tii] for tii in prm.ts.time_keys)) 
-    scr[:xfm]  = -sum(sum(stt[:zs_xfm][tii]    for tii in prm.ts.time_keys)) 
+    scr[:zp]   = -sum(sum(stt[:zp][tii]                   for tii in prm.ts.time_keys))
+    scr[:zq]   = -sum(sum(stt[:zq][tii]                   for tii in prm.ts.time_keys))
+    scr[:acl]  = -sum(sum(stt[:zs_acline][tii]            for tii in prm.ts.time_keys)) 
+    scr[:xfm]  = -sum(sum(stt[:zs_xfm][tii]               for tii in prm.ts.time_keys)) 
 
     scr[:zone] = -(
         # zonal reserve penalties (P) 
@@ -170,13 +170,61 @@ function soft_abs(x::Float64, eps2::Float64)
     # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
     sqrt(x^2 + eps2)
 end
-# soft abs derviative
-function soft_abs_grad(x::Float64, eps2::Float64)
+
+# soft abs derviative -- constraints
+function soft_abs_constraint_grad(x::Float64, qG::quasiGrad.QG)
     # soft_abs(x)      = sqrt(x^2 + eps^2)
     # soft_abs_grad(x) = x/sqrt(x^2 + eps^2)
     #
     # usage: instead of c*sign(max(x,0)), use c*soft_abs_grad(max(x,0))
     # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
-    grad = sign(x)
-    grad = x/(sqrt(x^2 .+ eps2))
+    return x/(sqrt(x^2 + qG.constraint_grad_eps2))
+end
+
+# soft abs derviative -- reserves
+function soft_abs_reserve_grad(x::Float64, qG::quasiGrad.QG)
+    # soft_abs(x)      = sqrt(x^2 + eps^2)
+    # soft_abs_grad(x) = x/sqrt(x^2 + eps^2)
+    #
+    # usage: instead of c*sign(max(x,0)), use c*soft_abs_grad(max(x,0))
+    # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
+    return x/(sqrt(x^2 + qG.reserve_grad_eps2))
+end
+
+# soft abs derviative
+function soft_abs_grad_faster(x::Vector{Float64}, qG::quasiGrad.QG)
+    # soft_abs(x)      = sqrt(x^2 + eps^2)
+    # soft_abs_grad(x) = x/sqrt(x^2 + eps^2)
+    #
+    # usage: instead of c*sign(max(x,0)), use c*soft_abs_grad(max(x,0))
+    # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
+    return x./(sqrt.(x.^2 .+ qG.acflow_grad_eps2))
+end
+
+function soft_abs_grad_ac_old(x::Float64, qG::quasiGrad.QG)
+    # soft_abs(x)      = sqrt(x^2 + eps^2)
+    # soft_abs_grad(x) = x/sqrt(x^2 + eps^2)
+    #
+    # usage: instead of c*sign(max(x,0)), use c*soft_abs_grad(max(x,0))
+    # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
+    return x/(sqrt(x^2 + qG.acflow_grad_eps2))
+end
+
+function soft_abs_grad_ac(ind::Int64, msc::Dict{Symbol, Vector{Float64}}, qG::quasiGrad.QG, s::Symbol)
+    # soft_abs(x)      = sqrt(x^2 + eps^2)
+    # soft_abs_grad(x) = x/sqrt(x^2 + eps^2)
+    #
+    # usage: instead of c*sign(max(x,0)), use c*soft_abs_grad(max(x,0))
+    # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
+    return msc[s][ind]/(sqrt(msc[s][ind]^2 + qG.acflow_grad_eps2))
+end
+
+# soft abs derviative
+function soft_abs_grad_vec!(bit::Dict{Symbol, BitVector}, msc::Dict{Symbol, Vector{Float64}}, qG::quasiGrad.QG, s_bit::Symbol, s_in::Symbol, s_out::Symbol)
+    # soft_abs(x)      = sqrt(x^2 + eps^2)
+    # soft_abs_grad(x) = x/sqrt(x^2 + eps^2)
+    #
+    # usage: instead of c*sign(max(x,0)), use c*soft_abs_grad(max(x,0))
+    # usage: instead of c*abs(x), use c*soft_abs_grad(x,0) #
+    msc[s_out][bit[s_bit]] .= @view msc[s_in][bit[s_bit]]#./(sqrt.((@view msc[s_in][bit[s_bit]]).^2 .+ qG.acflow_grad_eps2))
 end

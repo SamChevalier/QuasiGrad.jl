@@ -94,7 +94,8 @@ function write_solution(input_json_path::String, prm::quasiGrad.Param, qG::quasi
 end
 
 # post process
-function post_process_stats(    
+function post_process_stats(  
+    bit::Dict{Symbol, BitVector},  
     cgd::quasiGrad.Cgd, 
     ctb::Vector{Vector{Float64}},
     ctd::Vector{Vector{Float64}}, 
@@ -114,7 +115,7 @@ function post_process_stats(
     # update the state vector
     qG.eval_grad      = false
     qG.score_all_ctgs = true
-    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
     
     # flop, just in case
     qG.eval_grad      = true

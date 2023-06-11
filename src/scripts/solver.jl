@@ -14,7 +14,7 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
     stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 
     # I3. run an economic dispatch and update the states
-    quasiGrad.economic_dispatch_initialization!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+    quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
 
     # TT: time
     time_spent_before_loop = time() - start_time
@@ -33,22 +33,16 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
         qG.adam_max_time = qG.adam_solve_times[solver_itr]
 
         # L1. run power flow
-        quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+        quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
 
         # L2. clean-up reserves by solving softly constrained LP
         quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 
         # L3. run adam
-        quasiGrad.run_adam!(adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+        quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
 
-        # L4. solve Gurobi projection
-        quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
-
-        # L5. fix binaries which are closest to their Gurobi solutions
-        quasiGrad.batch_fix!(pct_round, prm, stt, sys, upd)
-
-        # L6. update the state (i.e., apply the projection)
-        quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
+        # L4. solve and apply projection
+        quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
 
         # L7. on the second-to-last iteration, fix the shunts; otherwise, just snap them
         fix = solver_itr == (n_its-1)
@@ -75,18 +69,18 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
     quasiGrad.count_active_binaries!(prm, upd)
 
     # E1. run power flow, one more time
-    quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
 
     # E2. clean-up reserves by solving softly constrained LP
     quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 
     # E3. run adam
     qG.adam_max_time = qG.adam_solve_times[end]
-    quasiGrad.run_adam!(adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+    quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
 
     # E4. LP projection
-    quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd, final_projection = true)
-
+    quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
+    
     # E5. cleanup reserves
     quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 
@@ -97,5 +91,5 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
     quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
     # E8. post process
-    quasiGrad.post_process_stats(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.post_process_stats(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 end

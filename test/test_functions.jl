@@ -633,7 +633,7 @@ end
 function calc_nzms_qG(grd, idx, mgd, prm, qG, stt, sys)
 
         # compute states and grads
-        quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+        quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
     
         # output
         return scr[:nzms]
@@ -650,9 +650,9 @@ function calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     # don't clip!!
     
     # compute network flows and injections
-    quasiGrad.acline_flows!(grd, idx, prm, qG, stt)
-    quasiGrad.xfm_flows!(grd, idx, prm, qG, stt)
-    quasiGrad.shunts!(grd, idx, prm, qG, stt)
+    quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
 
     # device powers
     quasiGrad.all_device_statuses_and_costs!(grd, prm, qG, stt)
@@ -671,8 +671,9 @@ function calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     quasiGrad.reserve_balance!(idx, prm, stt, sys)
 
     # score the contingencies and take the gradients
-    quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
-
+    # quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+    @info "ctg solve off"
+    
     # score the market surplus function
     quasiGrad.score_zt!(idx, prm, qG, scr, stt) 
     quasiGrad.score_zbase!(qG, scr)

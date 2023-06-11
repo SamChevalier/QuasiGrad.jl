@@ -5,13 +5,14 @@ using Revise
 # load things
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D3/C3S0N00073/scenario_002.json"
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_117.json"
 
 # load
 jsn = quasiGrad.load_json(path)
 
 # %% initialize the system
-adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
-stt, sys, upd, wct = quasiGrad.base_initialization(jsn, true, 2.0);
+adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
+stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # %% reset -- to help with numerical conditioning of the market surplus function 
 # (so that we can take its derivative numerically)
@@ -24,19 +25,20 @@ qG.scale_c_sflow_testing = 0.02
 include("./test_functions.jl")
 # README: 1) make sure the ctg solver has a sufficiently high tolerance setting!
 #         2) make sure standard gradients are being used
-qG.pqbal_grad_type = "standard"
-qG.pcg_tol             = 1e-9
-epsilon                = 1e-5     # maybe set larger when dealing with ctgs + krylov solver..
+qG.pqbal_grad_type  = "standard"
+qG.pcg_tol          = 1e-9
+epsilon             = 1e-5     # maybe set larger when dealing with ctgs + krylov solver..
 
-# gradient modifications -- power balance
-#pqbal_grad_type     = "soft_abs"
-#pqbal_grad_eps2     = 1e-16
+# other types
+qG.constraint_grad_is_soft_abs = false
+qG.acflow_grad_is_soft_abs     = false
+qG.reserve_grad_is_soft_abs    = false
 
 #
 # %% 1. transformer phase shift (phi) =======================================================================
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nx)); (ind == 0 ? ind = 1 : ind = ind)
-epsilon = 1e-6
+epsilon = 1e-5
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx    = mgd[:phi][tii][ind]
 
@@ -64,9 +66,10 @@ println(dzdx_num)
 # %% 3. voltage magnitude =======================================================================
 include("./test_functions.jl")
 qG.delta                 = 0.0
-qG.scale_c_pbus_testing  = 1.0
-qG.scale_c_qbus_testing  = 1.0
-qG.scale_c_sflow_testing = 1.0  # for flow testing!!
+qG.scale_c_pbus_testing  = 1e-4
+qG.scale_c_qbus_testing  = 1e-4
+qG.scale_c_sflow_testing = 1e-4  # for flow testing!!
+# %%
 
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nb)); (ind == 0 ? ind = 1 : ind = ind)
@@ -241,10 +244,10 @@ if true == false
     qG.scale_c_sflow_testing = 1.0
 
     # run and write
-    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
     quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
     quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
-    quasiGrad.update_states_and_grads!(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
     # write a solution :)
     soln_dict = quasiGrad.prepare_solution(prm, stt, sys)

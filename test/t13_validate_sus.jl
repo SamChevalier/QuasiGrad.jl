@@ -1,47 +1,134 @@
+using quasiGrad
+using GLMakie
+using Revise
+using Plots
+using Makie
+
+# call the plotting tools
+# include("../core/plotting.jl")
+
+# %% ===============
+#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D2/C3S0N00073/scenario_002.json"
+#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
+#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D2/C3S1N00600/scenario_001.json"
+
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_117.json"
+
+InFile1               = path
+TimeLimitInSeconds    = 1500.0
+NewTimeLimitInSeconds = TimeLimitInSeconds - 35.0
+Division              = 1
+NetworkModel          = "test"
+AllowSwitching        = 0
+
+# this is the master function which executes quasiGrad.
+# 
+#
+# =====================================================\\
+# TT: start time
+start_time = time()
+
+# I1. load the system data
+jsn = quasiGrad.load_json(InFile1)
+
+# I2. initialize the system
+adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
+stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
+
+qG.apply_grad_weight_homotopy = false
+
+# I3. run an economic dispatch and update the states
+quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+
+quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+
+quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd, final_projection = true)
+
+quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+
+quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+
+# %% 
+qG.max_pf_dx = 1e-2
+quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+
+# %%
+qG.IntFeasTol = 1e-9
+qG.FeasibilityTol = 1e-9
+qG.time_lim = 15.0
+quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd, final_projection = true)
+
+quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+
+quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+
+
+# %%
+dev = 130
+for (t_ind, tii) in enumerate(prm.ts.time_keys)
+    # duration
+    dt = prm.ts.duration[tii]
+    
+    # define the previous power value (used by both up and down ramping!)
+    if tii == :t1
+        # note: p0 = prm.dev.init_p[dev]
+        dev_p_previous = prm.dev.init_p[dev]
+    else
+        # grab previous time
+        dev_p_previous = stt[:dev_p][prm.ts.tmin1[tii]][dev] 
+    end
+
+    println(stt[:dev_p][tii][dev] - dev_p_previous
+    - dt*(prm.dev.p_ramp_up_ub[dev]     *(stt[:u_on_dev][tii][dev] - stt[:u_su_dev][tii][dev])
+    +     prm.dev.p_startup_ramp_ub[dev]*(stt[:u_su_dev][tii][dev] + 1.0 - stt[:u_on_dev][tii][dev])))
+
+    #println(            max(dev_p_previous - stt[:dev_p][tii][dev]
+    #- dt*(prm.dev.p_ramp_down_ub[dev]*stt[:u_on_dev][tii][dev]
+    #+     prm.dev.p_shutdown_ramp_ub[dev]*(1.0-stt[:u_on_dev][tii][dev])),0.0))
+
+end
+
+# %%
+dev = 130
 
 model = Model(Gurobi.Optimizer; add_bridges = false)
 set_string_names_on_creation(model, false)
-#set_silent(model)
-
-# status update
-@info "Running MILP projection across $(sys.ndev) devices."
-
-# loop over all devices
-dev = 103
+set_silent(model)
 
 # empty the model!
 empty!(model)
 
 # quiet down!!!
-    # set_silent(model)
-    # alternative => quasiGrad.set_optimizer_attribute(model, "OutputFlag", qG.GRB_output_flag)
+# set_silent(model)
+# alternative => quasiGrad.set_optimizer_attribute(model, "OutputFlag", qG.GRB_output_flag)
 
 # set model properties
-    # quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-#quasiGrad.set_optimizer_attribute(model, "IntFeasTol",     qG.IntFeasTol)
+#quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+quasiGrad.set_optimizer_attribute(model, "IntFeasTol",     qG.IntFeasTol)
 #quasiGrad.set_optimizer_attribute(model, "MIPGap",         qG.mip_gap)
 #quasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
 
 # MOI tolerances
-#quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), 1e-9)
-#quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), 1e-9)
+quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), 1e-3)
+quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), 1e-3)
 
 # define local time keys
 tkeys = prm.ts.time_keys
 
-u_on_dev  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0,  binary=true)       for ii in 1:(sys.nT)) # => base_name = "u_on_dev_t$(ii)",  
-p_on      = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0)                     for ii in 1:(sys.nT)) # => base_name = "p_on_t$(ii)",      
-dev_q     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0,  lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "dev_q_t$(ii)",     
-p_rgu     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0,  lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rgu_t$(ii)",     
-p_rgd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0,  lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rgd_t$(ii)",     
-p_scr     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0,  lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_scr_t$(ii)",     
-p_nsc     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0,  lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_nsc_t$(ii)",     
-p_rru_on  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0,  lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rru_on_t$(ii)",  
-p_rru_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0,  lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rru_off_t$(ii)", 
-p_rrd_on  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0,  lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rrd_on_t$(ii)",  
-p_rrd_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0,  lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rrd_off_t$(ii)", 
-q_qru     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0,  lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "q_qru_t$(ii)",     
-q_qrd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0,  lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "q_qrd_t$(ii)",     
+# define the minimum set of variables we will need to solve the constraints                                                       -- round() the int?
+u_on_dev  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:u_on_dev][tkeys[ii]][dev],  binary=true)       for ii in 1:(sys.nT)) # => base_name = "u_on_dev_t$(ii)",  
+p_on      = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_on][tkeys[ii]][dev])                         for ii in 1:(sys.nT)) # => base_name = "p_on_t$(ii)",      
+dev_q     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:dev_q][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "dev_q_t$(ii)",     
+p_rgu     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_rgu][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rgu_t$(ii)",     
+p_rgd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_rgd][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rgd_t$(ii)",     
+p_scr     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_scr][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_scr_t$(ii)",     
+p_nsc     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_nsc][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_nsc_t$(ii)",     
+p_rru_on  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_rru_on][tkeys[ii]][dev],  lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rru_on_t$(ii)",  
+p_rru_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_rru_off][tkeys[ii]][dev], lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rru_off_t$(ii)", 
+p_rrd_on  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_rrd_on][tkeys[ii]][dev],  lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rrd_on_t$(ii)",  
+p_rrd_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_rrd_off][tkeys[ii]][dev], lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rrd_off_t$(ii)", 
+q_qru     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:q_qru][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "q_qru_t$(ii)",     
+q_qrd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:q_qrd][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "q_qrd_t$(ii)",     
 
 # add a few more (implicit) variables which are necessary for solving this system
 u_su_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:u_su_dev][tkeys[ii]][dev], binary=true) for ii in 1:(sys.nT)) # => base_name = "u_su_dev_t$(ii)", 
@@ -383,16 +470,184 @@ end
 # solve
 optimize!(model)
 
-println()
-println(value(obj))
-println(termination_status(model))
+quasiGrad.solution_status(model)
+# %%
 
-# test solution!
-soln_valid = quasiGrad.solution_status(model)
 
+if tii == :t1
+    # note: p0 = prm.dev.init_p[dev]
+    dev_p_previous = prm.dev.init_p[dev]
+else
+    # grab previous time
+    tii_m1 = prm.ts.time_keys[t_ind-1]
+    dev_p_previous = dev_p[tii_m1]
+end
+
+value(    dev_p[tii] - dev_p_previous
+- dt*(prm.dev.p_ramp_up_ub[dev]     *(u_on_dev[tii] - u_su_dev[tii])
++     prm.dev.p_startup_ramp_ub[dev]*(u_su_dev[tii] + 1.0 - u_on_dev[tii])))
 
 # %%
-for tii in prm.ts.time_keys
-    println(stt[:p_on][tii][dev])
-    println(stt[:u_on_dev][tii][dev])
+@btime quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
+sum(sum(stt[:zsus_dev][tii]    for tii in prm.ts.time_keys))
+
+# %% timing
+qG.eval_grad = false
+
+@btime sus!(grd, idx, mgd, prm, qG, stt, sys)
+
+# %%
+
+function sus!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+    # loop over each time period
+    for (t_ind, tii) in enumerate(prm.ts.time_keys)
+        for dev in 1:sys.ndev
+            # first, we bound ("bnd") the startup state ("sus"):
+            # the startup state can only be active if the device
+            # has been on within some recent time period.
+            #
+            # flush the sus
+            stt[:zsus_dev][tii][dev] = 0.0
+
+            # loop over sus (i.e., f in F)
+            for ii in 1:prm.dev.num_sus[dev]
+                # grab the sets of T_sus
+                T_sus_jft = idx.Ts_sus_jft[dev][t_ind][ii] # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
+                T_sus_jf  = idx.Ts_sus_jf[dev][t_ind][ii]  # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
+
+                if tii in T_sus_jf
+                    if tii == :t1
+                        # this is an edge case, where there are no previous states which
+                        # could be "on" (since we can't turn on the generator in the fixed
+                        # past, and it wasn't on)
+                        # ** stt[:u_sus_bnd][tii][dev][ii] = 0.0
+                        u_sus_bnd = 0.0
+                    else
+                        u_on_max_ind = argmax([stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft])
+                        u_sus_bnd    = stt[:u_on_dev][T_sus_jft[u_on_max_ind]][dev]
+                        #u_sus_bnd = maximum([stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft])
+                        # ** stt[:u_sus_bnd][tii][dev][ii] = stt[:u_on_dev][T_sus_jft[u_on_max_ind]][dev]
+                    end
+                    #
+                    # note: u_on_max == stt[:u_on_dev][T_sus_jft[u_on_max_ind]][dev]
+                    #
+                    # previous bound based on directly taking the max:
+                        # stt[:u_sus_bnd][tii][dev][ii] = max.([stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft])
+                    # previous bound based on the sum (rather than max)
+                        # stt[:u_sus_bnd][tii][dev][ii] = max.(sum(stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft; init=0.0), 1.0)
+                else
+                    # ok, in this case the device was on in a sufficiently recent time (based on
+                    # startup conditions), so we don't need to compute a bound
+                    u_sus_bnd = 1.0
+                    # ** stt[:u_sus_bnd][tii][dev][ii] = 1.0
+                end
+
+                # now, compute the discount/cost ==> this is "+=", since it is over all (f in F) states
+                if u_sus_bnd > 0.0
+                    stt[:zsus_dev][tii][dev] += prm.dev.startup_states[dev][ii][1]*min(stt[:u_su_dev][tii][dev],u_sus_bnd)
+                end
+                # ** stt[:zsus_dev][tii][dev] += prm.dev.startup_states[dev][ii][1]*min(stt[:u_su_dev][tii][dev],stt[:u_sus_bnd][tii][dev][ii])
+
+                # this is all pretty expensive, so let's take the gradient right here
+                #
+                # evaluate gradient?
+                if qG.eval_grad
+                    # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsus_dev] * prm.dev.startup_states[dev][ii][1]
+                    gc = prm.dev.startup_states[dev][ii][1]
+
+                    # test which was smaller: u_su, or the su_bound?
+                    #
+                    # we want "<=" so that we never end up in a case where 
+                    # we try to take the gradient of u_sus_bnd == 1 (see else case above)
+                    if stt[:u_su_dev][tii][dev] <= u_sus_bnd # ** stt[:u_sus_bnd][tii][dev][ii]
+                        # in this case, there is an available discount, so we want u_su
+                        # to feel a bit less downward pressure and rise up (potentially)
+                        mgd[:u_on_dev][tii][dev] += gc*grd[:u_su_dev][:u_on_dev][tii][dev]
+                        if tii != :t1
+                            # previous time?
+                            mgd[:u_on_dev][prm.ts.tmin1[tii]][dev] += gc*grd[:u_su_dev][:u_on_dev_prev][tii][dev]
+                        end
+                    else
+                        # in this case, sus bound is lower than u_su, so we'll put some pressure on the
+                        # previous largest u_on, trying to push it up, in order to extract a little value
+                        # from this sus.. :)
+                        #
+                        # what time is associated with this derivative? it is the time associated with the max u_on
+                        if tii != :t1
+                            # skip the gradient if tii == :t1, since stt[:u_sus_bnd] == 0 and no gradient exists
+                            # -- this is a weird edge case, but it does make sense if you think about it for
+                            # long enough.....
+                            tt_max = T_sus_jft[u_on_max_ind]
+                            mgd[:u_on_dev][tt_max][dev] += gc*grd[:u_su_dev][:u_on_dev][tt_max][dev]
+                            if tt_max != :t1
+                                # previous time?
+                                mgd[:u_on_dev][prm.ts.tmin1[tt_max]][dev] += gc*grd[:u_su_dev][:u_on_dev_prev][tt_max][dev]
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
 end
+
+# %% timing tests
+
+tkeys = [Symbol("t"*string(ii)) for ii in 1:(sys.nT)]
+
+time_dict = Dict(
+    :var1              => Dict(tkeys[ii] => zeros(sys.nb)          for ii in 1:(sys.nT)),
+    :var2              => Dict(tkeys[ii] => copy(prm.bus.init_va) for ii in 1:(sys.nT)))
+
+arr_dict = Dict(
+    :var1              => [zeros(sys.nb) for _ in 1:(sys.nT)],
+    :var2              => [zeros(sys.nb) for _ in 1:(sys.nT)])
+
+arr = [ones(sys.nb) for _ in 1:(sys.nT)]
+
+dev = 10
+T_sus_jft = idx.Ts_sus_jft[dev][18][1]
+T_sus_jf  = idx.Ts_sus_jf[dev][18][1] 
+
+# %%
+f1() = argmax([time_dict[:var1][tii_inst][dev] for tii_inst in T_sus_jft])
+f2() = argmax(@inbounds getindex.(arr_dict[:var1], dev))
+f3() = @inbounds argmax(first.(arr))
+# %%
+
+@btime f1()
+@btime f2()
+# %%
+
+@btime f3()
+
+# %%
+argmax(getindex.(time_dict[:var1],dev))
+
+# %%
+dev = 95
+t_ind = 1
+T_supc     = idx.Ts_supc[dev][t_ind]     # => T_supc, p_supc_set   = get_supc(tii, dev, prm)
+p_supc_set = idx.ps_supc_set[dev][t_ind] # => T_supc, p_supc_set   = get_supc(tii, dev, prm)
+
+# %%
+
+f4() = sum(p_supc_set[ii]*stt[:u_su_dev][tii_inst][dev] for (ii,tii_inst) in enumerate(T_supc); init=0.0)
+f5() = sum(p_supc_set[ii]*arr_dict[:var1][tii_inst][dev] for (ii,tii_inst) in enumerate(2:10); init=0.0)
+
+# %%
+@btime f4()
+@btime f5()
+
+# %%
+@btime stt[:vm][tii][idx.acline_fr_bus]
+@btime @view stt[:vm][tii][idx.acline_fr_bus]
+
+# %%
+@btime t = prm.xfm.g_sr;
+
+# %%
+@btime @view prm.xfm.g_sr
+
+# %%
+@btime msc[:acline_sto] .= sqrt.(stt[:acline_pto][tii].^2 + stt[:acline_qto][tii].^2);
