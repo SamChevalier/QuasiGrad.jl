@@ -11,5 +11,6 @@ function compute_quasiGrad_solution_feas(InFile1::String, NewTimeLimitInSeconds:
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
     quasiGrad.snap_shunts!(true, prm, stt, upd)
-    quasiGrad.write_solution(solution_file, prm, qG, stt, sys)
+    
+    quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 end
