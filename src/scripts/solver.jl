@@ -58,12 +58,10 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
     #   E2. (softly) cleanup the reserves
     #   E3. run adam one more time, with very tight constraint tolerances
     #   E4. solve the (~MI)LP projection with very tight p/q
-    #   E5. p/q fixed: cleanup the reserves (i.e., maximize)
-    #           - guarenteed feasible
-    #   E6. p/q fixed: cleanup power flow with LP solver (just v, theta)
-    #           - guatenteed feasible
+    #   E5. cleanup constrained powerflow with LP solver
+    #   E6. cleanup the reserves
     #   E7. prepare (and clip) and write solution
-    #   E6. post process (print stats)
+    #   E8. post process (print stats)
     #   
     # ensure there are no more binaries/discrete variables:
     quasiGrad.count_active_binaries!(prm, upd)
