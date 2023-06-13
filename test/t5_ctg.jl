@@ -63,20 +63,155 @@ include("../src/core/contingencies.jl")
 
 # solve ctg (with gradients)
 qG.eval_grad = true
-quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+
+# %%
+# duration
+dt = prm.ts.duration[tii]
+
+# compute the shared, common gradient terms (time dependent)
+#
+# gc_avg = grd[:nzms][:zctg_avg] * grd[:zctg_avg][:zctg_avg_t] * grd[:zctg_avg_t][:zctg] * grd[:zctg][:zctg_s] * grd[:zctg_s][:s_ctg][tii]
+#        = (-1)                  *                (1)          *       (1/sys.nctg)        *          (-1)       *   dt*prm.vio.s_flow
+#        = dt*prm.vio.s_flow/sys.nctg
+gc_avg   = cgd.ctg_avg[tii] * qG.scale_c_sflow_testing
+
+# gc_min = (-1)                  *                (1)          *            (1)          *          (-1)       *   dt*prm.vio.s_flow
+#        = grd[:nzms][:zctg_min] * grd[:zctg_min][:zctg_min_t] * grd[:zctg_min_t][:zctg] * grd[:zctg][:zctg_s] * grd[:zctg_s][:s_ctg][tii]
+gc_min   = cgd.ctg_min[tii] * qG.scale_c_sflow_testing
+
+# get the slack at this time
+p_slack = 
+    sum(stt[:dev_p][tii][pr] for pr in idx.pr_devs) -
+    sum(stt[:dev_p][tii][cs] for cs in idx.cs_devs) - 
+    sum(stt[:sh_p][tii])
+
+# loop over each bus
+for bus in 1:sys.nb
+    # active power balance
+    flw[:p_inj][bus] = 
+        sum(stt[:dev_p][tii][pr] for pr in idx.pr[bus]; init=0.0) - 
+        sum(stt[:dev_p][tii][cs] for cs in idx.cs[bus]; init=0.0) - 
+        sum(stt[:sh_p][tii][sh] for sh in idx.sh[bus]; init=0.0) - 
+        sum(stt[:dc_pfr][tii][dc_fr] for dc_fr in idx.bus_is_dc_frs[bus]; init=0.0) - 
+        sum(stt[:dc_pto][tii][dc_to] for dc_to in idx.bus_is_dc_tos[bus]; init=0.0) - 
+        ntk.alpha*p_slack
+end
+
+# also, we need to update the flows on all lines! and the phase shift
+flw[:ac_qfr][idx.ac_line_flows] .= stt[:acline_qfr][tii]
+flw[:ac_qfr][idx.ac_xfm_flows]  .= stt[:xfm_qfr][tii]
+flw[:ac_qto][idx.ac_line_flows] .= stt[:acline_qto][tii]
+flw[:ac_qto][idx.ac_xfm_flows]  .= stt[:xfm_qto][tii]
+flw[:ac_phi][idx.ac_phi]        .= stt[:phi][tii]
+
+# compute square flows
+flw[:qfr2] .= flw[:ac_qfr].^2
+flw[:qto2] .= flw[:ac_qto].^2
+
+# solve for the flows across each ctg
+#   p  =  @view flw[:p_inj][2:end]
+flw[:bt] .= .-flw[:ac_phi].*ntk.b
+# now, we have flw[:p_inj] = Yb*theta + E'*bt
+#   c = p - ntk.Er'*bt
+#
+# simplified:
+flw[:c] .= (@view flw[:p_inj][2:end]) .- ntk.Er'*flw[:bt]
+
+# solve the base case with pcg
+if qG.base_solver == "lu"
+    ctb[t_ind]  .= ntk.Ybr\flw[:c]
+
+# error with this type !!!
+# elseif qG.base_solver == "cholesky"
+#    ctb[t_ind]  = ntk.Ybr_Ch\c
+
+elseif qG.base_solver == "pcg"
+    if sys.nb <= qG.min_buses_for_krylov
+        # too few buses -- just use LU
+        ctb[t_ind] .= ntk.Ybr\flw[:c]
+    else
+        # solve with a hot start!
+        #
+        # note: ctg[:ctb][tii][end] is modified in place,
+        # and it represents the base case solution
+        _, ch = quasiGrad.cg!(ctb[t_ind], ntk.Ybr, flw[:c], abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
+        
+        # test the krylov solution
+        if ~(ch.isconverged)
+            @info "Krylov failed -- using LU backup (ctg flows)!"
+            ctb[t_ind] = ntk.Ybr\flw[:c]
+        end
+    end
+else
+    println("base case solve type not recognized :)")
+end
+
+# set all ctg scores to 0:
+stt[:zctg][tii] .= 0.0
+
+# zero out the gradients, which will be collected and applied all at once!
+flw[:dz_dpinj_all] .= 0.0
+
+# %% do we want to score all ctgs? for testing/post processing
+if qG.score_all_ctgs == true
+    ###########################################################
+    # => up above: @info "Warning -- scoring all contingencies! No gradients."
+    ###########################################################
+    for ctg_ii in 1:sys.nctg
+        # see the "else" case for comments and details
+        theta_k = quasiGrad.special_wmi_update(ctb[t_ind], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], flw[:c])
+        pflow_k = ntk.Yfr*theta_k  + flw[:bt]
+        sfr     = sqrt.(flw[:qfr2] + pflow_k.^2)
+        sto     = sqrt.(flw[:qto2] + pflow_k.^2)
+        sfr_vio = sfr - ntk.s_max
+        sto_vio = sto - ntk.s_max
+        sfr_vio[ntk.ctg_out_ind[ctg_ii]] .= 0.0
+        sto_vio[ntk.ctg_out_ind[ctg_ii]] .= 0.0
+        smax_vio = max.(sfr_vio, sto_vio, 0.0)
+        zctg_s = dt*prm.vio.s_flow*smax_vio * qG.scale_c_sflow_testing
+        stt[:zctg][tii][ctg_ii] = -sum(zctg_s, init=0.0)
+    end
+
+    # score
+    scr[:zctg_min] += minimum(stt[:zctg][tii])
+    scr[:zctg_avg] += sum(stt[:zctg][tii])/sys.nctg
+else
+end
+
+# %%
+theta_k = quasiGrad.special_wmi_update(ctb[t_ind], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], flw[:c])
+pflow_k = ntk.Yfr*theta_k  + flw[:bt]
+sfr     = sqrt.(flw[:qfr2] + pflow_k.^2)
+sto     = sqrt.(flw[:qto2] + pflow_k.^2)
+sfr_vio = sfr - ntk.s_max
+sto_vio = sto - ntk.s_max
+sfr_vio[ntk.ctg_out_ind[ctg_ii]] .= 0.0
+sto_vio[ntk.ctg_out_ind[ctg_ii]] .= 0.0
+smax_vio = max.(sfr_vio, sto_vio, 0.0)
+zctg_s = dt*prm.vio.s_flow*smax_vio * qG.scale_c_sflow_testing
+stt[:zctg][tii][ctg_ii] = -sum(zctg_s, init=0.0)
+
+line = argmax(smax_vio)
+fr_bus = idx.acline_fr_bus[line]
+idx.pr[fr_bus]
+idx.cs[fr_bus]
 
 # %% 1. test if the gradient solution is correct -- p_on
 quasiGrad.flush_gradients!(grd, mgd, prm, sys)
 qG.pcg_tol = 0.00000001
 
+qG.scale_c_sflow_testing = 1000.0
+
 epsilon = 1e-5
 tii     = :t1 #Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
-ind     = 2   #Int64(round(rand(1)[1]*sys.nb)); (ind == 0 ? ind = 1 : ind = ind)
-quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+t_ind   = 1
+ind     = 101   #Int64(round(rand(1)[1]*sys.nb)); (ind == 0 ? ind = 1 : ind = ind)
+quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 for (t_ind, tii) in enumerate(prm.ts.time_keys)
     for dev in 1:sys.ndev
         quasiGrad.apply_dev_q_grads!(tii, t_ind, prm, qG, idx, stt, grd, mgd, dev, grd[:dx][:dq][tii][dev])
-        quasiGrad.apply_dev_p_grads!(tii, t_ind, prm, qG, stt, grd, mgd, dev, grd[:dx][:dp][tii][dev])
+        quasiGrad.apply_dev_p_grads!(tii, t_ind, prm, qG, idx, stt, grd, mgd, dev, grd[:dx][:dp][tii][dev])
     end
 end
 z0      = copy(-(scr[:zbase] + scr[:zctg_min] + scr[:zctg_avg]))
@@ -86,7 +221,7 @@ dzdx    = copy(mgd[:p_on][tii][ind])
 stt[:p_on][tii][ind] += epsilon
 stt[:dev_p][tii] = stt[:p_on][tii] + stt[:p_su][tii] + stt[:p_sd][tii]
 quasiGrad.flush_gradients!(grd, mgd, prm, sys)
-quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 zp      = copy(-(scr[:zbase] + scr[:zctg_min] + scr[:zctg_avg]))
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -98,12 +233,14 @@ qG.pcg_tol = 0.000000001
 
 epsilon = 1e-4
 tii     = :t1 #Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
+t_ind   = 1
 ind     = 2   #Int64(round(rand(1)[1]*sys.nb)); (ind == 0 ? ind = 1 : ind = ind)
-quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 for tii in prm.ts.time_keys
     for dev in 1:sys.ndev
-        quasiGrad.apply_dev_q_grads!(tii, prm, idx, stt, grd, mgd, dev, grd[:dx][:dq][tii][dev])
-        quasiGrad.apply_dev_p_grads!(tii, prm, stt, grd, mgd, dev, grd[:dx][:dp][tii][dev])
+        quasiGrad.apply_dev_q_grads!(tii, t_ind, prm, qG, idx, stt, grd, mgd, dev, grd[:dx][:dq][tii][dev])
+        
+        quasiGrad.apply_dev_p_grads!(tii, t_ind, prm, qG, idx, stt, grd, mgd, dev, grd[:dx][:dp][tii][dev])
     end
 end
 z0      = copy(-(scr[:zbase] + scr[:zctg_min] + scr[:zctg_avg]))
@@ -112,7 +249,7 @@ dzdx    = copy(mgd[:vm][tii][ind])
 # update device power
 stt[:vm][tii][ind] += epsilon
 quasiGrad.flush_gradients!(grd, mgd, prm, sys)
-quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 zp      = copy(-(scr[:zbase] + scr[:zctg_min] + scr[:zctg_avg]))
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -124,7 +261,7 @@ println(dzdx_num)
 # solve a ctg
 qG.pcg_tol = 1e-9
 
-quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 # grab a flow
 tii    = :t1
 ctg_ii = 1
@@ -138,7 +275,7 @@ pf  = copy(ctg[:pflow_k][tii][end][line])
 
 stt[:p_on][tii][dev] += epsilon
 stt[:dev_p][tii] = stt[:p_on][tii] + stt[:p_su][tii] + stt[:p_sd][tii]
-quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 pf_new = copy(ctg[:pflow_k][tii][end][line])
 
 # how much did the power flow change? can the ptdf matrix explain it?
@@ -357,7 +494,7 @@ ctb        = [zeros(sys.nb-1) for _ in 1:sys.nT]
 wct = [collect(1:sys.nctg) for _ in 1:sys.nT]
 
 # %%
-quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 # %%
 include("../src/core/contingencies.jl")
 

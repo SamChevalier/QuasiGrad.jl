@@ -18,7 +18,7 @@ stt, sys, upd, wct = quasiGrad.base_initialization(jsn, true, 1.0);
 # (so that we can take its derivative numerically)
 qG.scale_c_pbus_testing  = 0.00001 #1.0 #
 qG.scale_c_qbus_testing  = 0.00001 #1.0 #
-qG.scale_c_sflow_testing = 0.02 #1.0 #
+qG.scale_c_sflow_testing = 1.0 #1.0 #
 
 # test
 #
@@ -67,7 +67,9 @@ println(dzdx_num)
 include("./test_functions.jl")
 qG.scale_c_pbus_testing  = 1e-4
 qG.scale_c_qbus_testing  = 1e-4
-qG.scale_c_sflow_testing = 1e-4  # for flow testing!!
+qG.scale_c_sflow_testing = 1.0
+
+# for flow testing!!
 epsilon = 1e-5
 
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
@@ -210,17 +212,27 @@ end
 # %% README: if you perturb over the max power, the device cost will error
 #         out -- this happens a lot.
 #quasiGrad.clip_all!(prm, qG, stt)
-qG.pg_tol = 0.0
-qG.constraint_grad_weight = 1e6
+include("./test_functions.jl")
 
-qG.scale_c_pbus_testing  = 1.0 #1e-4
-qG.scale_c_qbus_testing  = 1.0 #1e-4
+qG.pg_tol = 0.0
+qG.constraint_grad_weight = 1e-6
+
+qG.scale_c_pbus_testing  = 1e-6
+qG.scale_c_qbus_testing  = 1e-6
 qG.scale_c_sflow_testing = 1.0 #1e-4
 
-# %%
+qG.pqbal_grad_type  = "standard"
+qG.pcg_tol          = 1e-9
+epsilon             = 1e-5
+
+# other types
+qG.constraint_grad_is_soft_abs = false
+qG.acflow_grad_is_soft_abs     = false
+qG.reserve_grad_is_soft_abs    = false
+
 #              1         2      3       4       5       6      7        8          9          10           11        12      13
 var     = [:u_on_dev, :dev_q, :p_on, :p_rgu, :p_rgd, :p_scr, :p_nsc, :p_rru_on, :p_rrd_on, :p_rru_off, :p_rrd_off, :q_qru, :q_qrd]    
-vii     = 1
+vii     = 3
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.ndev)); (ind == 0 ? ind = 1 : ind = ind)
 
@@ -235,8 +247,6 @@ dzdx_num = (zp - z0)/epsilon
 println(dzdx)
 println(dzdx_num)
 
-
-println(dzdx - dzdx_num)
 
 # %% compute the states (without gradients)
 if true == false

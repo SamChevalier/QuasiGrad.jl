@@ -1,7 +1,7 @@
 function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
     # this is the master function which executes quasiGrad.
     # 
-    #
+    # 
     # =====================================================\\
     # TT: start time
     start_time = time()
@@ -10,8 +10,8 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
     jsn = quasiGrad.load_json(InFile1)
 
     # I2. initialize the system
-    adm, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
-    stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
+    adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
+    stt, sys, upd, wct = quasiGrad.base_initialization(jsn);
 
     # I3. run an economic dispatch and update the states
     quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
@@ -79,13 +79,16 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
     quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
 
     # E4. LP projection
-    quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
+    quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
     
+    # E5. cleanup constrained powerflow
+    quasiGrad.cleanup_constrained_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
+
     # E5. cleanup reserves
     quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 
-    # E6. cleanup powerflow
-    quasiGrad.cleanup_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
+    # E6. cleanup reserves
+    quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 
     # E7. write the final solution
     quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)

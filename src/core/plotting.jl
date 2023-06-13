@@ -95,7 +95,6 @@ function run_adam_with_plotting!(
     qG.eval_grad = true
 end
 
-
 # initialize the plot
 function initialize_plot(
     cgd::quasiGrad.Cgd,

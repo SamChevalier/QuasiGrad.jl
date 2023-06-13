@@ -73,6 +73,8 @@ function initialize_qG(prm::quasiGrad.Param)
     scale_c_sflow_testing    = 1.0
 
     # ctg solver settings
+    ctg_grad_cutoff          = -50.0  # don't take gradients of ctg violations that are smaller
+                                      # (in magnitude) than this value -- not worth it!
     score_all_ctgs           = false # this is used for testing/post-processing
     min_buses_for_krylov     = 25    # don't use Krylov if there are this many or fewer buses
     frac_ctg_keep            = 0.05  # this is the fraction of ctgs that are scored and differentiated
@@ -91,6 +93,9 @@ function initialize_qG(prm::quasiGrad.Param)
     else
         frac_ctg_keep = 0.25
     end
+
+    @warn "keeping all ctgs!!"
+    frac_ctg_keep = 1.0
 
     # cg error: set the max allowable error (no error can be larger than this)
     emax = 2e-5*sqrt(num_bus)
@@ -205,7 +210,8 @@ function initialize_qG(prm::quasiGrad.Param)
 
     # shall we compute injections when we build the Jacobian?
     compute_pf_injs_with_Jac = true
-    max_pf_dx                = 2.5e-4  # stop when max delta < 5e-4
+    max_pf_dx                = 7.5e-4  # stop when max delta < 5e-4
+    max_pf_dx_final_solve    = 5e-5    # final pf solve
     max_linear_pfs           = 5       # stop when number of pfs > max_linear_pfs
     max_linear_pfs_total     = 10      # this includes failures
     Gurobi_pf_obj            = "min_dispatch_distance" # or, "min_dispatch_perturbation"
@@ -217,7 +223,7 @@ function initialize_qG(prm::quasiGrad.Param)
     # power flow solve parameters ==============================
     #
     # strength of quadratic distance regularization
-    cdist_psolve     = 1e4
+    cdist_psolve = 1e5
 
     # turn of su/sd updates, which is expensive, during power flow solves
     run_susd_updates = true
@@ -227,7 +233,7 @@ function initialize_qG(prm::quasiGrad.Param)
     include_lbfgs_p0_regularization = false
     print_lbfgs_iterations          = true
     print_linear_pf_iterations      = true
-    initial_pf_lbfgs_step           = 0.05
+    initial_pf_lbfgs_step           = 0.1
     lbfgs_map_over_all_time         = false # assume the same set of variables
                                             # are optimized at each time step
     # set the number of lbfgs steps
@@ -280,6 +286,7 @@ function initialize_qG(prm::quasiGrad.Param)
         scale_c_pbus_testing,
         scale_c_qbus_testing,
         scale_c_sflow_testing,
+        ctg_grad_cutoff,
         score_all_ctgs,
         min_buses_for_krylov,
         frac_ctg_keep,
@@ -325,6 +332,7 @@ function initialize_qG(prm::quasiGrad.Param)
         reserve_grad_eps2,
         compute_pf_injs_with_Jac,
         max_pf_dx,
+        max_pf_dx_final_solve,
         max_linear_pfs,
         max_linear_pfs_total,
         print_linear_pf_iterations,
@@ -349,7 +357,7 @@ function initialize_qG(prm::quasiGrad.Param)
     return qG
 end
 
-function base_initialization(jsn::Dict{String, Any}, perturb_states::Bool, pert_size::Float64)
+function base_initialization(jsn::Dict{String, Any}; perturb_states::Bool=false, pert_size::Float64=1.0)
     # perform all initializations from the jsn data
     # 
     # parse the input jsn data
@@ -739,33 +747,15 @@ function initialize_states(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiG
         :scale_to_x      => zeros(sys.nx),
         :vm2_sh          => zeros(sys.nsh),
         :g_tv_shunt      => zeros(sys.nsh),
-        :b_tv_shunt      => zeros(sys.nsh),
-        :vmfrpfr         => zeros(sys.nl),
-        :vmtopfr         => zeros(sys.nl),
-        :vafrpfr         => zeros(sys.nl),
-        :vatopfr         => zeros(sys.nl),
-        :uonpfr          => zeros(sys.nl),
-        :vmfrqfr         => zeros(sys.nl),
-        :vmtoqfr         => zeros(sys.nl),
-        :vafrqfr         => zeros(sys.nl),
-        :vatoqfr         => zeros(sys.nl),
-        :uonqfr          => zeros(sys.nl),
-        :vmfrpto         => zeros(sys.nl),
-        :vmtopto         => zeros(sys.nl),
-        :vafrpto         => zeros(sys.nl),
-        :vatopto         => zeros(sys.nl),
-        :uonpto          => zeros(sys.nl),
-        :vmfrqto         => zeros(sys.nl),
-        :vmtoqto         => zeros(sys.nl),
-        :vafrqto         => zeros(sys.nl),
-        :vatoqto         => zeros(sys.nl),
-        :uonqto          => zeros(sys.nl))
+        :b_tv_shunt      => zeros(sys.nsh))
 
     bit = Dict(
         :acline_sfr_plus => BitArray(zeros(Int, sys.nl)), # indices assocaited with acline_sfr_plus_x > acline_sto_plus_x && 0
         :acline_sto_plus => BitArray(zeros(Int, sys.nl)), # indices assocaited with acline_sto_plus_x > acline_sfr_plus_x && 0
         :xfm_sfr_plus_x  => BitArray(zeros(Int, sys.nx)), # indices assocaited with xfm_sfr_plus_x > xfm_sto_plus_x && 0
         :xfm_sto_plus_x  => BitArray(zeros(Int, sys.nx)), # indices assocaited with xfm_sto_plus_x > xfm_sfr_plus_x && 0
+        :sfr_vio        => BitArray(zeros(Int, sys.nac)), # indices assocaited with ctg flows: sfr_vio
+        :sto_vio        => BitArray(zeros(Int, sys.nac)), # indices assocaited with ctg flows: sto_vio
         )
         
     # mgd = master grad -- this is the gradient which relates the negative market surplus function 
@@ -944,6 +934,7 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
     # build the full incidence matrix: E = lines x buses
     E  = build_incidence(idx, prm, sys)
     Er = E[:,2:end]
+    ErT = copy(Er')
 
     # get the diagonal admittance matrix   => Ybs == "b susceptance"
     Ybs = quasiGrad.spdiagm(ac_b_params)
@@ -988,7 +979,8 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
     end
 
     # get the flow matrix
-    Yfr = Ybs*Er
+    Yfr  = Ybs*Er
+    YfrT = copy(Yfr')
 
     # build the low-rank contingecy updates
     #
@@ -1139,9 +1131,11 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
             s_max_ctg,     # max contingency flows
             E,             # full incidence matrix
             Er,            # reduced incidence matrix
+            ErT,           # Er transposed :)
             Yb,            # full Ybus (DC)    
             Ybr,           # reduced Ybus (DC)
             Yfr,           # reduced flow matrix (DC)
+            YfrT,          # Yfr transposed
             ctg_out_ind,   # for each ctg, the list of line indices
             ctg_params,    # for each ctg, the list of (negative) params
             Ybr_k,         # if build_ctg == true, reduced admittance matrix for each ctg 
@@ -1184,7 +1178,15 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
         :dsmax_dp_flow   => zeros(sys.nac),
         :dsmax_dqfr_flow => zeros(sys.nac),
         :dsmax_dqto_flow => zeros(sys.nac),
+        :pflow_k         => zeros(sys.nac),
+        :sfr             => zeros(sys.nac),  
+        :sto             => zeros(sys.nac),  
+        :sfr_vio         => zeros(sys.nac), 
+        :sto_vio         => zeros(sys.nac), 
         :p_inj           => zeros(sys.nb),
+        :theta_k         => zeros(sys.nb-1),
+        :rhs             => zeros(sys.nb-1),
+        :dz_dpinj        => zeros(sys.nb-1),
         :dz_dpinj_all    => zeros(sys.nb-1),
         :c               => zeros(sys.nb-1))
 

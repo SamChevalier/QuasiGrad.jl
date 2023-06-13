@@ -938,7 +938,6 @@ function apply_dev_q_grads!(tii::Symbol, t_ind::Int64, prm::quasiGrad.Param, qG:
     end
 end
 
-
 function du_sum!(tii::Symbol, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, dev::Int64, alpha::Float64, T_supc::Vector{Symbol}, T_sdpc::Vector{Symbol})
     # this function takes the derivative of the commonly used "u_sum"
     # term, and it applies the derivatives across mgd

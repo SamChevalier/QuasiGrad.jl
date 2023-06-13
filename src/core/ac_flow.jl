@@ -123,7 +123,9 @@ function acline_flows!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symb
             grd[:zs_acline][:acline_qto][tii] .= 0.0  
 
             # indicators
-            quasiGrad.get_largest_indices(msc, bit, :acline_sfr_plus, :acline_sto_plus)
+            # => slower :( quasiGrad.get_largest_indices(msc, bit, :acline_sfr_plus, :acline_sto_plus)
+            bit[:acline_sfr_plus] .= (msc[:acline_sfr_plus] .> 0.0) .&& (msc[:acline_sfr_plus] .> msc[:acline_sto_plus]);
+            bit[:acline_sto_plus] .= (msc[:acline_sto_plus] .> 0.0) .&& (msc[:acline_sto_plus] .> msc[:acline_sfr_plus]); 
             #
             # slower alternative
                 # => max_sfst0 = [argmax([spfr, spto, 0.0]) for (spfr,spto) in zip(msc[:acline_sfr_plus], msc[:acline_sto_plus])]
@@ -139,7 +141,7 @@ function acline_flows!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symb
             if qG.acflow_grad_is_soft_abs
                 # compute the scaled gradients
                 if sum(bit[:acline_sfr_plus]) > 0
-                    msc[:acline_scale_fr][bit[:acline_sfr_plus]] .= msc[:acline_sfr_plus][bit[:acline_sfr_plus]]./sqrt.(msc[:acline_sfr_plus][bit[:acline_sfr_plus]].^2 .+ qG.acflow_grad_eps2);
+                    msc[:acline_scale_fr][bit[:acline_sfr_plus]]             .= msc[:acline_sfr_plus][bit[:acline_sfr_plus]]./sqrt.(msc[:acline_sfr_plus][bit[:acline_sfr_plus]].^2 .+ qG.acflow_grad_eps2);
                     grd[:zs_acline][:acline_pfr][tii][bit[:acline_sfr_plus]] .= msc[:acline_scale_fr][bit[:acline_sfr_plus]].*((dt*qG.acflow_grad_weight).*stt[:acline_pfr][tii][bit[:acline_sfr_plus]]./msc[:acline_sfr][bit[:acline_sfr_plus]])
                     grd[:zs_acline][:acline_qfr][tii][bit[:acline_sfr_plus]] .= msc[:acline_scale_fr][bit[:acline_sfr_plus]].*((dt*qG.acflow_grad_weight).*stt[:acline_qfr][tii][bit[:acline_sfr_plus]]./msc[:acline_sfr][bit[:acline_sfr_plus]])
                 end
@@ -218,7 +220,7 @@ function xfm_flows!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol,
     b_to = prm.xfm.b_to
     
     # call penalty costs
-    cs = prm.vio.s_flow
+    cs = prm.vio.s_flow * qG.scale_c_sflow_testing
     
     # loop over time
     for tii in prm.ts.time_keys
@@ -346,7 +348,10 @@ function xfm_flows!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol,
             grd[:xfm_qto][:uon][tii] .= msc[:qto_x]
 
             # indicators
-            quasiGrad.get_largest_indices(msc, bit, :xfm_sfr_plus_x, :xfm_sto_plus_x)
+            # slower :( => quasiGrad.get_largest_indices(msc, bit, :xfm_sfr_plus_x, :xfm_sto_plus_x)
+            bit[:xfm_sfr_plus_x] .= (msc[:xfm_sfr_plus_x] .> 0.0) .&& (msc[:xfm_sfr_plus_x] .> msc[:xfm_sto_plus_x]);
+            bit[:xfm_sto_plus_x] .= (msc[:xfm_sto_plus_x] .> 0.0) .&& (msc[:xfm_sto_plus_x] .> msc[:xfm_sfr_plus_x]);
+
             #
             # slow alternative:
                 # => max_sfst0 = [argmax([spfr, spto, 0.0]) for (spfr,spto) in zip(msc[:xfm_sfr_plus_x],msc[:xfm_sto_plus_x])]
@@ -419,7 +424,7 @@ function xfm_flows!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol,
                     end
                 end
             end
-=#
+            =#
 
             # ====================================================== #
             # Gradients: apparent power flow -- to -> from

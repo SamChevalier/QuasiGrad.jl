@@ -596,3 +596,18 @@ function power_flow_residual!(idx::quasiGrad.Idx, residual::Vector{Float64}, stt
             -sum(stt[:dev_q][tii][idx.pr[bus]]; init=0.0)
     end
 end
+
+function update_states_for_distributed_slack_pf!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+    # in this function, we only update the flow, xfm, and shunt states
+    #
+    # clip voltage
+    # println("clipping off")
+    quasiGrad.clip_voltage!(prm, stt)
+
+    # compute network flows and injections
+    qG.eval_grad = false
+    quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
+    qG.eval_grad = true
+end

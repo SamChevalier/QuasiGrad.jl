@@ -40,6 +40,7 @@ mutable struct QG
     scale_c_pbus_testing::Float64
     scale_c_qbus_testing::Float64
     scale_c_sflow_testing::Float64
+    ctg_grad_cutoff::Float64
     score_all_ctgs::Bool
     min_buses_for_krylov::Int64
     frac_ctg_keep::Float64
@@ -85,6 +86,7 @@ mutable struct QG
     reserve_grad_eps2::Float64
     compute_pf_injs_with_Jac::Bool
     max_pf_dx::Float64   
+    max_pf_dx_final_solve::Float64
     max_linear_pfs::Int64
     max_linear_pfs_total::Int64
     print_linear_pf_iterations::Bool
@@ -416,9 +418,11 @@ struct Ntk
     s_max::Vector{Float64}
     E::SparseMatrixCSC{Int64, Int64}
     Er::SparseMatrixCSC{Int64, Int64}
+    ErT::SparseMatrixCSC{Int64, Int64}
     Yb::SparseMatrixCSC{Float64, Int64}
     Ybr::SparseMatrixCSC{Float64, Int64}
     Yfr::SparseMatrixCSC{Float64, Int64}
+    YfrT::SparseMatrixCSC{Float64, Int64}
     ctg_out_ind::Dict{Int64, Vector{Int64}}
     ctg_params::Dict{Int64, Vector{Float64}}
     Ybr_k::Dict{Int64, SparseMatrixCSC{Float64, Int64}}

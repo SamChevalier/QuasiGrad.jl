@@ -1,5 +1,9 @@
 # cleanup reserve variables, mostly
 function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
+    # time limit: not needed -- this is an LP
+    # integer tolerance: not needed -- this is an LP
+    # FeasibilityTol -- qG.FeasibilityTol
+    # 
     # this is, necessarily, a centralized (across devices) optimziation problem.
     #
     #
@@ -9,7 +13,9 @@ function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGra
     set_silent(model)
 
     # set model properties
-    set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+    quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+    quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+    quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
     # loop over each time period and define the hard constraints
     for (t_ind, tii) in enumerate(prm.ts.time_keys)
@@ -19,11 +25,6 @@ function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGra
 
         # empty the model!
         empty!(model)
-
-        # set model properties
-            #quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-            #quasiGrad.set_optimizer_attribute(model, "IntFeasTol",     qG.IntFeasTol)
-        quasiGrad.set_optimizer_attribute(model, "TimeLimit", qG.time_lim)
 
         # affine aggregation terms
         zt = AffExpr(0.0)
@@ -323,9 +324,6 @@ function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGra
             @warn "Reserve cleanup solver (LP) failed at $(tii) -- skip this cleanup!"
         end
     end
-
-    # clip, to help ensure feasibility -- (17c) sometimes causes "epsilon" infeasibility
-    clip_for_feasibility!(idx, prm, qG, stt, sys)
 end
 
 # cleanup reserve variables, mostly
@@ -696,229 +694,6 @@ function soft_reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::qua
 end
 
 # cleanup power flow (to some degree of accuracy)
-function cleanup_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
-    # device p/q stay fixed -- just tune v, theta, and dc
-    # here is power balance:
-    #
-    # p_pr - p_cs - pdc = p_lines/xfm/shunt => this is typical.
-    #
-    # vm0 = stt[:vm][tii]
-    # va0 = stt[:va][tii][2:end-1]
-    #
-    # bias point: msc[:pinj0, qinj0] === Y * stt[:vm, va]
-    qG.compute_pf_injs_with_Jac = true
-
-    # build and empty the model!
-    model = Model(Gurobi.Optimizer)
-    set_string_names_on_creation(model, false)
-    set_silent(model)
-
-    quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-
-    @info "Running lineaized power flow cleanup across $(sys.nT) time periods."
-
-    # loop over time
-    for (t_ind, tii) in enumerate(prm.ts.time_keys)
-
-        # initialize
-        run_pf    = true
-        pf_cnt    = 0 
-
-        # 1. update the ideal dispatch points p/q -- we do this just once
-        quasiGrad.ideal_dispatch!(idx, msc, stt, sys, tii)
-
-        # 2. update y_bus and Jacobian and bias point -- this
-        #    only needs to be done once per time, since xfm/shunt
-        #    values are not changing between iterations
-        Ybus_real, Ybus_imag = quasiGrad.update_Ybus(idx, ntk, prm, stt, sys, tii)
-
-        # loop over pf solves
-        while run_pf == true
-
-            # increment
-            pf_cnt += 1
-
-            # first, rebuild the jacobian, and update the
-            # base points: msc[:pinj0], msc[:qinj0]
-            Jac = quasiGrad.build_acpf_Jac_and_pq0(msc, qG, stt, sys, tii, Ybus_real, Ybus_imag);
-            
-            # quiet down!!!
-            empty!(model)
-
-            # define the variables (single time index)
-            @variable(model, x_in[1:(2*sys.nb - 1)])
-            set_start_value.(x_in, [stt[:vm][tii]; stt[:va][tii][2:end]])
-
-            # assign
-            dvm   = x_in[1:sys.nb]
-            dva   = x_in[(sys.nb+1):end]
-
-            # note:
-            # vm   = vm0   + dvm
-            # va   = va0   + dva
-            # pinj = pinj0 + dpinj
-            # qinj = qinj0 + dqinj
-            #
-            # key equation:
-            #                       dPQ .== Jac*dVT
-            #                       dPQ + basePQ(v) = devicePQ
-            #
-            #                       Jac*dVT + basePQ(v) == devicePQ
-            #
-            # so, we don't actually need to model dPQ explicitly (cool)
-            #
-            # so, the optimizer asks, how shall we tune dVT in order to produce a power perurbation
-            # which, when added to the base point, lives inside the feasible device region?
-            #
-            # based on the result, we only have to actually update the device set points on the very
-            # last power flow iteration, where we have converged.
-
-            # now, model all nodal injections from the device/dc line side, all put in nodal_p/q
-            nodal_p = Vector{AffExpr}(undef, sys.nb)
-            nodal_q = Vector{AffExpr}(undef, sys.nb)
-            for bus in 1:sys.nb
-                # now, we need to loop and set the affine expressions to 0, and then add powers
-                #   -> see: https://jump.dev/JuMP.jl/stable/manual/expressions/
-                nodal_p[bus] = AffExpr(0.0)
-                nodal_q[bus] = AffExpr(0.0)
-            end
-
-            # create a flow variable for each dc line and sum these into the nodal vectors
-            if sys.nldc == 0
-                # nothing to see here
-            else
-
-                # define dc variables
-                @variable(model, pdc_vars[1:sys.nldc])    # oriented so that fr = + !!
-                @variable(model, qdc_fr_vars[1:sys.nldc])
-                @variable(model, qdc_to_vars[1:sys.nldc])
-
-                set_start_value.(pdc_vars, stt[:dc_pfr][tii])
-                set_start_value.(qdc_fr_vars, stt[:dc_qfr][tii])
-                set_start_value.(qdc_to_vars, stt[:dc_qto][tii])
-
-                # bound dc power
-                @constraint(model, -prm.dc.pdc_ub    .<= pdc_vars    .<= prm.dc.pdc_ub)
-                @constraint(model,  prm.dc.qdc_fr_lb .<= qdc_fr_vars .<= prm.dc.qdc_fr_ub)
-                @constraint(model,  prm.dc.qdc_to_lb .<= qdc_to_vars .<= prm.dc.qdc_to_ub)
-
-                # loop and add to the nodal injection vectors
-                for dcl in 1:sys.nldc
-                    add_to_expression!(nodal_p[idx.dc_fr_bus[dcl]], -pdc_vars[dcl])
-                    add_to_expression!(nodal_p[idx.dc_to_bus[dcl]], +pdc_vars[dcl])
-                    add_to_expression!(nodal_q[idx.dc_fr_bus[dcl]], -qdc_fr_vars[dcl])
-                    add_to_expression!(nodal_q[idx.dc_to_bus[dcl]], -qdc_to_vars[dcl])
-                end
-            end
-
-            # next, deal with devices
-            # 
-            for dev in 1:sys.ndev
-                if dev in idx.pr_devs
-                    # producers
-                    add_to_expression!(nodal_p[idx.device_to_bus[dev]], stt[:dev_p][tii][dev])
-                    add_to_expression!(nodal_q[idx.device_to_bus[dev]], stt[:dev_q][tii][dev])
-                else
-                    # consumers
-                    add_to_expression!(nodal_p[idx.device_to_bus[dev]], -stt[:dev_p][tii][dev])
-                    add_to_expression!(nodal_q[idx.device_to_bus[dev]], -stt[:dev_q][tii][dev])
-                end
-            end
-
-            # bound system variables ==============================================
-            #
-            # bound variables -- voltage
-            @constraint(model, prm.bus.vm_lb - stt[:vm][tii] .<= dvm .<= prm.bus.vm_ub - stt[:vm][tii])
-            # alternative: => @constraint(model, prm.bus.vm_lb .<= stt[:vm][tii] + dvm .<= prm.bus.vm_ub)
-
-            # mapping
-            JacP_noref = @view Jac[1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
-            JacQ_noref = @view Jac[(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
-
-            # objective: find v, theta with minimal mismatch penalty
-            obj    = AffExpr(0.0)
-            tmp_vm = @variable(model)
-            tmp_va = @variable(model)
-            @variable(model, slack_p[1:sys.nb])
-            @variable(model, slack_q[1:sys.nb])
-
-            for bus in 1:sys.nb
-                # penalize mismatch
-                @constraint(model, JacP_noref[bus,:]'*x_in + msc[:pinj0][bus] - nodal_p[bus] <= slack_p[bus])
-                @constraint(model, nodal_p[bus] - JacP_noref[bus,:]'*x_in - msc[:pinj0][bus] <= slack_p[bus])
-                @constraint(model, JacQ_noref[bus,:]'*x_in + msc[:qinj0][bus] - nodal_q[bus] <= slack_q[bus])
-                @constraint(model, nodal_q[bus] - JacQ_noref[bus,:]'*x_in - msc[:qinj0][bus] <= slack_q[bus])
-
-                # add both to the objective
-                add_to_expression!(obj, slack_p[bus], 1e3)
-                add_to_expression!(obj, slack_q[bus], 1e3)
-
-                # voltage regularization
-                @constraint(model, -dvm[bus] <= tmp_vm)
-                @constraint(model,  dvm[bus] <= tmp_vm)
-
-                # phase regularization
-                if bus > 1
-                    @constraint(model, -dva[bus-1] <= tmp_va)
-                    @constraint(model,  dva[bus-1] <= tmp_va)
-                end
-            end
-
-            # this adds light regularization and causes convergence
-            add_to_expression!(obj, tmp_vm)
-            add_to_expression!(obj, tmp_va)
-
-
-            # set the objective
-            @objective(model, Min, obj)
-
-            # solve
-            optimize!(model)
-
-            # test solution!
-            soln_valid = solution_status(model)
-
-            # if we have reached our max number of tries, jsut quit after this
-            if pf_cnt == qG.max_linear_pfs
-                run_pf = false
-            end
-
-            # test validity
-            if soln_valid == true
-                # we update the voltage soluion
-                stt[:vm][tii]        = stt[:vm][tii]        + value.(dvm)
-                stt[:va][tii][2:end] = stt[:va][tii][2:end] + value.(dva)
-
-                # take the norm of dv
-                max_dx = maximum(abs.(value.(x_in)))
-                
-                # println("========================================================")
-                if qG.print_linear_pf_iterations == true
-                    println(termination_status(model),". ",primal_status(model),". objective value: ", round(objective_value(model), sigdigits = 5), ". max dx: ", round(max_dx, sigdigits = 5))
-                end
-                # println("========================================================")
-                #
-                # shall we terminate?
-                if (max_dx < qG.max_pf_dx) || (pf_cnt == qG.max_linear_pfs)
-                    run_pf = false
-
-                    # now, apply the updated injections to the devices
-                    if sys.nldc > 0
-                        stt[:dc_pfr][tii] =  value.(pdc_vars)
-                        stt[:dc_pto][tii] = -value.(pdc_vars)  # also, performed in clipping
-                        stt[:dc_qfr][tii] = value.(qdc_fr_vars)
-                        stt[:dc_qto][tii] = value.(qdc_to_vars)
-                    end
-                end
-            else
-                # the solution is NOT valid
-                @warn "Power flow cleanup failed at time $(tii)!"
-            end
-        end
-    end
-end
-
-# cleanup power flow (to some degree of accuracy)
 function single_shot_pf_clearnup!(idx::quasiGrad.Idx, Jac::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
     # device p/q stay fixed -- just tune v, theta, and dc
 
@@ -926,6 +701,11 @@ function single_shot_pf_clearnup!(idx::quasiGrad.Idx, Jac::quasiGrad.SparseArray
     model = Model(Gurobi.Optimizer)
     set_string_names_on_creation(model, false)
     set_silent(model)
+
+    # set model properties
+    quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+    quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+    quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
     @info "Running lineaized power flow cleanup at $(tii)."
 
@@ -1086,10 +866,6 @@ function single_shot_pf_clearnup!(idx::quasiGrad.Idx, Jac::quasiGrad.SparseArray
     end
 end
 
-"""
-Solve linearized power flow with Gurobi -- apply ramping and bounding constraints, but forget the
-reserve values (they will be retuned afterwards.)
-"""
 function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # ask Gurobi to solve a linearize power flow. two options here:
     #   1) define device variables which are bounded, and then insert them into the power balance expression
@@ -1115,7 +891,10 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
     set_string_names_on_creation(model, false)
     set_silent(model)
 
+    # set model properties
     quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+    quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+    quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
     @info "Running constrained, lineaized power flow cleanup across $(sys.nT) time periods backwards."
 
@@ -1150,11 +929,6 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
             
             # empty model
             empty!(model)
-
-            # set
-            #quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-            quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), 1e-10)
-            quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), 1e-10)
 
             # define the variables (single time index)
             @variable(model, x_in[1:(2*sys.nb - 1)])
@@ -1221,12 +995,6 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
             set_start_value.(dev_p_vars, stt[:dev_p][tii])
             set_start_value.(dev_q_vars, stt[:dev_q][tii])
 
-            # call device bounds
-            dev_plb = prm.dev.p_lb_tmdv[t_ind]
-            dev_pub = prm.dev.p_ub_tmdv[t_ind]
-            dev_qlb = prm.dev.q_lb_tmdv[t_ind]
-            dev_qub = prm.dev.q_ub_tmdv[t_ind]
-
             # define p_on at this time
             # => p_on = dev_p_vars - stt[:p_su][tii] - stt[:p_sd][tii]
             p_on = Vector{AffExpr}(undef, sys.ndev)
@@ -1257,16 +1025,16 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
             @constraint(model, dev_p_previous - dev_p_vars - dt*(prm.dev.p_ramp_down_ub.*stt[:u_on_dev][tii] + prm.dev.p_shutdown_ramp_ub.*(1.0 .- stt[:u_on_dev][tii])) .<= 0.0)
 
             # 3. pmax
-            @constraint(model, p_on .<= dev_pub.*stt[:u_on_dev][tii])
+            @constraint(model, p_on .<= prm.dev.p_ub_tmdv[t_ind].*stt[:u_on_dev][tii])
 
             # 4. pmin
-            @constraint(model, dev_plb.*stt[:u_on_dev][tii] .<= p_on)
+            @constraint(model, prm.dev.p_lb_tmdv[t_ind].*stt[:u_on_dev][tii] .<= p_on)
 
             # 5. qmax
-            @constraint(model, dev_q_vars .<= dev_qub.*stt[:u_sum][tii])
+            @constraint(model, dev_q_vars .<= prm.dev.q_ub_tmdv[t_ind].*stt[:u_sum][tii])
 
             # 6. qmin
-            @constraint(model, dev_qlb.*stt[:u_sum][tii] .<= dev_q_vars)
+            @constraint(model, prm.dev.q_lb_tmdv[t_ind].*stt[:u_sum][tii] .<= dev_q_vars)
             
             # 7. additional reactive power constraints!
             #
@@ -1332,20 +1100,33 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
             # objective: hold p and q close to their initial values
                 # => || msc[:pinj_ideal] - (p0 + dp) || + regularization
             # this finds a solution close to the dispatch point -- does not converge without v,a regularization
-            obj    = AffExpr(0.0)
+            obj = AffExpr(0.0)
+
+            # loop over devices
+            for dev in 1:sys.ndev
+                tmp_devp = @variable(model)
+                tmp_devq = @variable(model)
+                add_to_expression!(obj, tmp_devp, 25.0/sys.nb)
+                add_to_expression!(obj, tmp_devq,  5.0/sys.nb)
+
+                @constraint(model, stt[:dev_p][tii][dev] - dev_p_vars[dev] <= tmp_devp)
+                @constraint(model, dev_p_vars[dev] - stt[:dev_p][tii][dev] <= tmp_devp)
+                @constraint(model, stt[:dev_q][tii][dev] - dev_q_vars[dev] <= tmp_devq)
+                @constraint(model, dev_q_vars[dev] - stt[:dev_q][tii][dev] <= tmp_devq)
+            end
+
             tmp_vm = @variable(model)
             tmp_va = @variable(model)
             for bus in 1:sys.nb
-                tmp_p = @variable(model)
-                tmp_q = @variable(model)
-                @constraint(model, msc[:pinj_ideal][bus] - nodal_p[bus] <= tmp_p)
-                @constraint(model, nodal_p[bus] - msc[:pinj_ideal][bus] <= tmp_p)
-                @constraint(model, msc[:qinj_ideal][bus] - nodal_q[bus] <= tmp_q)
-                @constraint(model, nodal_q[bus] - msc[:qinj_ideal][bus] <= tmp_q)
-
-                # update the objective
-                add_to_expression!(obj, tmp_p, 25.0/sys.nb)
-                add_to_expression!(obj, tmp_q, 2.5/sys.nb)
+                # if constraining nodal injections is helpful:
+                    # => tmp_p = @variable(model)
+                    # => tmp_q = @variable(model)
+                    # => @constraint(model, msc[:pinj_ideal][bus] - nodal_p[bus] <= tmp_p)
+                    # => @constraint(model, nodal_p[bus] - msc[:pinj_ideal][bus] <= tmp_p)
+                    # => @constraint(model, msc[:qinj_ideal][bus] - nodal_q[bus] <= tmp_q)
+                    # => @constraint(model, nodal_q[bus] - msc[:qinj_ideal][bus] <= tmp_q)
+                    # => add_to_expression!(obj, tmp_p, 25.0/sys.nb)
+                    # => add_to_expression!(obj, tmp_q, 2.5/sys.nb)
 
                 # voltage regularization
                 @constraint(model, -dvm[bus] <= tmp_vm)
@@ -1363,7 +1144,7 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
             add_to_expression!(obj, tmp_va)
 
             # set the objective
-            @objective(model, Min, obj/1000.0)
+            @objective(model, Min, obj)
 
             # solve
             optimize!(model)
@@ -1384,7 +1165,7 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
                 end
                 #
                 # shall we terminate?
-                if (max_dx < qG.max_pf_dx) || (pf_cnt == qG.max_linear_pfs)
+                if (max_dx < qG.max_pf_dx_final_solve) || (pf_cnt == qG.max_linear_pfs)
                     run_pf = false
 
                     # now, apply the updated injections to the devices

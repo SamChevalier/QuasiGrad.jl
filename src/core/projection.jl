@@ -1,7 +1,7 @@
 # in this file, we prepare the hard device constraints, which we pass to Gurobi
 #
 # note -- this is ALWAYS run after clipping
-function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
+function solve_Gurobi_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
     # loop over each device and solve individually -- not clear if this is faster
     # than solving one big optimization problem all at once. see legacy code for
     # a(n unfinished) version where all devices are solved at once!
@@ -11,6 +11,13 @@ function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Idx, pr
 
     # status update
     @info "Running MILP projection across $(sys.ndev) devices."
+
+    # set model properties
+    quasiGrad.set_optimizer_attribute(model, "MIPGap",         qG.mip_gap)
+    quasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
+    quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+    quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+    quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
     # loop over all devices
     for dev in 1:sys.ndev
@@ -23,19 +30,6 @@ function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Idx, pr
         
             # empty the model!
             empty!(model)
-
-            # set model properties
-            quasiGrad.set_optimizer_attribute(model, "MIPGap",         qG.mip_gap)
-            quasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
-            quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-
-            # MOI tolerances
-            if final_projection == true
-                # => useless: quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-                #quasiGrad.set_optimizer_attribute(model, "IntFeasTol", qG.IntFeasTol)
-                #quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), 1e-9)
-                #quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), 1e-9)
-            end
 
             # define local time keys
             tkeys = prm.ts.time_keys
@@ -485,7 +479,7 @@ function apply_Gurobi_projection_and_states!(idx::quasiGrad.Idx, prm::quasiGrad.
 end
 
 # final, manual projection
-function final_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}; final_projection::Bool=false)
+function final_projection___BROKEN!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}; final_projection::Bool=false)
     
     for (t_ind, tii) in enumerate(prm.ts.time_keys)
         # duration
@@ -650,8 +644,8 @@ end
 function project!(pct_round::Float64, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}; final_projection::Bool=false)
     # this function 1) projects, 2) batch fixes, and 3) applies the projection
     #
-    # 1. solve the projection -- don't treat the final projection as special, other than tolerance tightening!
-    quasiGrad.solve_Gurobi_projection!(final_projection, idx, prm, qG, stt, sys, upd)
+    # 1. solve the projection -- don't treat the final projection as special
+    quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
 
     # 2. fix binaries which are closest to their Gurobi solutions
     if final_projection == false

@@ -80,7 +80,7 @@ print("t14: ")
 
 # score the contingencies and take the gradients
 print("t15: ")
-@time quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+@time quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 
 print("t16: ")
 @time quasiGrad.score_zt!(idx, prm, qG, scr, stt)
@@ -144,14 +144,14 @@ quasiGrad.write_solution(data_dir*file_name, qG, soln_dict, scr)
 # %% ===================
 # using ProfileView
 # ProfileView.@profview quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
-ProfileView.@profview quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+ProfileView.@profview quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 
 # %%
 include("../src/core/contingencies.jl")
 using InvertedIndices
 #ProfileView.@profview @code_warntype
 # %%
-@benchmark quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+@benchmark quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 # %% ====
 include("../src/core/contingencies.jl")
 

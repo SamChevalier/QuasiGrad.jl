@@ -202,7 +202,7 @@ function update_states_and_grads!(
     if qG.skip_ctg_eval
         println("Skipping ctg evaluation!")
     else
-        quasiGrad.solve_ctgs!(cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+        quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
     end
     # score the market surplus function
     quasiGrad.score_zt!(idx, prm, qG, scr, stt) 
@@ -214,21 +214,6 @@ function update_states_and_grads!(
 
     # compute the master grad
     quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
-end
-
-function update_states_for_distributed_slack_pf!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
-    # in this function, we only update the flow, xfm, and shunt states
-    #
-    # clip voltage
-    # println("clipping off")
-    quasiGrad.clip_voltage!(prm, stt)
-
-    # compute network flows and injections
-    qG.eval_grad = false
-    quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
-    quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
-    quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
-    qG.eval_grad = true
 end
 
 function update_states_and_grads_for_adam_pf!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
@@ -338,7 +323,7 @@ end
 
 # lbfgs
 function lbfgs!(lbfgs::Dict{Symbol, Vector{Float64}}, lbfgs_diff::Dict{Symbol, Vector{Vector{Float64}}}, lbfgs_idx::Vector{Int64}, lbfgs_map::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, lbfgs_step::Dict{Symbol, Float64}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
-    # NOTE: based on testing on May 10 or so, lbfgs does not outperform adam,
+    # NOTE: based on testing on May 10 or so, lbfgs does NOT outperform adam,
     #       More fundamentally, it has a problem: the states "lbfgs[:x_now]",
     #       etc. need to modified after binaries are fixed. Right now, they
     #       are not. (i.e., some of the lbfgs states need to be removed).
@@ -850,10 +835,6 @@ function solve_power_flow!(bit::Dict{Symbol, BitVector}, cgd::quasiGrad.Cgd, grd
     # step 2: Gurobi linear solve (projection)
     quasiGrad.solve_linear_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
 
-    # step 3: clean up without regularization/OPF influence (?)
-    # => qG.include_energy_costs_lbfgs      = true
-    # => qG.include_lbfgs_p0_regularization = true
-
     # change the gradient type back
     qG.pqbal_grad_type = "soft_abs"
 end
@@ -887,11 +868,10 @@ function ideal_dispatch!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}},
     end
 end
 
-"""
-Solve linearized power flow with Gurobi -- use margin tinkering to guarentee convergence. Only consinder upper 
-and lower bounds on the p/q production (no other limits).
-"""
 function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+    # Solve linearized power flow with Gurobi -- use margin tinkering to guarentee convergence. Only consinder upper 
+    # and lower bounds on the p/q production (no other limits).
+    #
     # ask Gurobi to solve a linearize power flow. two options here:
     #   1) define device variables which are bounded, and then insert them into the power balance expression
     #   2) just define power balance bounds based on device characteristics, and then, at the end, optimally
@@ -963,8 +943,8 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
             set_start_value.(x_in, [stt[:vm][tii]; stt[:va][tii][2:end]])
 
             # assign
-            dvm   = x_in[1:sys.nb]
-            dva   = x_in[(sys.nb+1):end]
+            dvm = x_in[1:sys.nb]
+            dva = x_in[(sys.nb+1):end]
 
             # note:
             # vm   = vm0   + dvm
@@ -1092,20 +1072,6 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
             JacP_noref = @view Jac[1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
             JacQ_noref = @view Jac[(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
 
-            # balance p and q
-            #= this is slightly faster:
-            add_to_expression!.(nodal_p, -msc[:pinj0])
-            add_to_expression!.(nodal_q, -msc[:qinj0])
-            # constrain
-            @constraint(model, JacP_noref*x_in .== nodal_p)
-            @constraint(model, JacQ_noref*x_in .== nodal_q)
-            # remove these values!
-            add_to_expression!.(nodal_p, msc[:pinj0])
-            add_to_expression!.(nodal_q, msc[:qinj0])
-            =#
-            
-            # alternative: => @constraint(model, JacP_noref*x_in + msc[:pinj0] .== nodal_p)
-            # alternative: => @constraint(model, JacQ_noref*x_in + msc[:qinj0] .== nodal_q)
             @constraint(model, JacP_noref*x_in + msc[:pinj0] .== nodal_p)
             @constraint(model, JacQ_noref*x_in + msc[:qinj0] .== nodal_q)
 
@@ -1113,24 +1079,30 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
             # => || msc[:pinj_ideal] - (p0 + dp) || + regularization
             if qG.Gurobi_pf_obj == "min_dispatch_distance"
                 # this finds a solution close to the dispatch point -- does not converge without v,a regularization
-                obj    = AffExpr(0.0)
+                obj = AffExpr(0.0)
+
+                # every 10% of devices, introduce a new slack variable -- limit complexity
+                num_dev_per_slack  = Int(round(0.10*sys.ndev))
+                slack_power_weight = 15.0
+
+                tmp_devp = @variable(model)
+                add_to_expression!(obj, tmp_devp, slack_power_weight/(sys.nb/num_dev_per_slack))
+                for dev in 1:sys.ndev
+                    if mod(dev,num_dev_per_slack) == 0
+                        tmp_devp = @variable(model)
+                        add_to_expression!(obj, tmp_devp, slack_power_weight/(sys.nb/num_dev_per_slack))
+                    end
+                    @constraint(model, stt[:dev_p][tii][dev] - dev_p_vars[dev] <= tmp_devp)
+                    @constraint(model, dev_p_vars[dev] - stt[:dev_p][tii][dev] <= tmp_devp)
+                end
+
+                # regularize against voltage movement -- this adds light 
+                # regularization and causes convergence
                 tmp_vm = @variable(model)
                 tmp_va = @variable(model)
-                tmp_p  = @variable(model)
+                add_to_expression!(obj, tmp_vm)
+                add_to_expression!(obj, tmp_va)
                 for bus in 1:sys.nb
-                    # => @constraint(model, msc[:pinj_ideal][bus] - nodal_p[bus] <= tmp)
-                    # => @constraint(model, nodal_p[bus] - msc[:pinj_ideal][bus] <= tmp)
-                    #
-                    @constraint(model, msc[:pinj_ideal][bus] - nodal_p[bus] <= tmp_p)
-                    @constraint(model, nodal_p[bus] - msc[:pinj_ideal][bus] <= tmp_p)
-                    # slightly faster:
-                    #=
-                    add_to_expression!(nodal_p[bus], -msc[:pinj_ideal][bus])
-                    @constraint(model,  nodal_p[bus] <= tmp)
-                    @constraint(model, -nodal_p[bus] <= tmp)
-                    add_to_expression!(obj, tmp)
-                    =#
-
                     # voltage regularization
                     @constraint(model, -dvm[bus] <= tmp_vm)
                     @constraint(model,  dvm[bus] <= tmp_vm)
@@ -1140,12 +1112,11 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
                         @constraint(model, -dva[bus-1] <= tmp_va)
                         @constraint(model,  dva[bus-1] <= tmp_va)
                     end
-                end
 
-                # this adds light regularization and causes convergence
-                add_to_expression!(obj, tmp_vm)
-                add_to_expression!(obj, tmp_va)
-                add_to_expression!(obj, tmp_p, 10.0)
+                    # for injections:
+                        # => @constraint(model, msc[:pinj_ideal][bus] - nodal_p[bus] <= tmp_p)
+                        # => @constraint(model, nodal_p[bus] - msc[:pinj_ideal][bus] <= tmp_p)
+                end
 
             elseif qG.Gurobi_pf_obj == "min_dispatch_perturbation"
                 # this finds a solution with minimum movement -- not really needed
@@ -1206,7 +1177,7 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
                 else
                     # valid solution, and no margins needed!
                     #
-                    # take the norm of dv
+                    # take the norm of dv and da
                     max_dx = maximum(abs.(value.(x_in)))
                     
                     # println("========================================================")

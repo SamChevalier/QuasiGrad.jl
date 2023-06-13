@@ -158,13 +158,14 @@ end
 function clip_for_feasibility!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # sequentially clip -- order does not matter
     #
+    @warn "this isn't totally validated.. or used."
     # note: "clamp" is much faster than the alternatives!
     clip_onoff_binaries!(prm, stt)
     clip_reserves!(prm, stt)
-    #clip_pq!(prm, qG, stt)
+    clip_pq!(prm, qG, stt)
 
     # target the problematic one
-    #clip_17c!(idx, prm, qG, stt, sys)
+    clip_17c!(idx, prm, qG, stt, sys)
 end
 
 function clip_17c!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
