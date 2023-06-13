@@ -14,8 +14,8 @@ function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGra
 
     # set model properties
     quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-    quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
-    quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
+    #quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+    #quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
     # loop over each time period and define the hard constraints
     for (t_ind, tii) in enumerate(prm.ts.time_keys)
@@ -704,8 +704,8 @@ function single_shot_pf_clearnup!(idx::quasiGrad.Idx, Jac::quasiGrad.SparseArray
 
     # set model properties
     quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-    quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
-    quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
+    #quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+    #quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
     @info "Running lineaized power flow cleanup at $(tii)."
 
@@ -893,8 +893,8 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
 
     # set model properties
     quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-    quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
-    quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
+    #quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+    #quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
     @info "Running constrained, lineaized power flow cleanup across $(sys.nT) time periods backwards."
 

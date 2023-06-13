@@ -17,8 +17,8 @@ function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Idx, pr
     quasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
     quasiGrad.set_optimizer_attribute(model, "IntFeasTol",     qG.IntFeasTol)
     quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-    quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
-    quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
+    #quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+    #quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
     # loop over all devices
     for dev in 1:sys.ndev
