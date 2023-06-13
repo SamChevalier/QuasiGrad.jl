@@ -195,7 +195,7 @@ function update_plot!(adm_step::Int64, ax::quasiGrad.Makie.Axis, fig::quasiGrad.
         # first, set the current values
         z_plt[:now][:zms]  = scale_z(scr[:zms])
         z_plt[:now][:pzms] = scale_z(scr[:zms_penalized])      
-        z_plt[:now][:zhat] = scale_z(scr[:zt_penalty] - qG.delta*scr[:zhat_mxst])
+        z_plt[:now][:zhat] = scale_z(scr[:zt_penalty] - qG.constraint_grad_weight*scr[:zhat_mxst])
         z_plt[:now][:ctg]  = scale_z(scr[:zctg_min] + scr[:zctg_avg])
         z_plt[:now][:emnx] = scale_z(scr[:emnx])
         z_plt[:now][:zp]   = scale_z(scr[:zp])
@@ -282,7 +282,7 @@ function update_plot!(adm_step::Int64, ax::quasiGrad.Makie.Axis, fig::quasiGrad.
     # update the previous values!
     z_plt[:prev][:zms]  = scale_z(scr[:zms])
     z_plt[:prev][:pzms] = scale_z(scr[:zms_penalized])      
-    z_plt[:prev][:zhat] = scale_z(scr[:zt_penalty] - qG.delta*scr[:zhat_mxst])
+    z_plt[:prev][:zhat] = scale_z(scr[:zt_penalty] - qG.constraint_grad_weight*scr[:zhat_mxst])
     z_plt[:prev][:ctg]  = scale_z(scr[:zctg_min] + scr[:zctg_avg])
     z_plt[:prev][:emnx] = scale_z(scr[:emnx])
     z_plt[:prev][:zp]   = scale_z(scr[:zp])

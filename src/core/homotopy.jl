@@ -13,8 +13,8 @@ function update_penalties!(prm::quasiGrad.Param, qG::quasiGrad.QG, tnow::Float64
     #   Plots.plot(x,exp.(8.0*x)./(2.5 .+ exp.(8.0*x)))
 
     # now, update the constraint penalties!
-    qG.pqbal_grad_weight_p    = (2.5e-4*prm.vio.p_bus)*(1.0-beta) + beta*prm.vio.p_bus
-    qG.pqbal_grad_weight_q    = (2.5e-4*prm.vio.q_bus)*(1.0-beta) + beta*prm.vio.q_bus
-    qG.constraint_grad_weight = (2.5e-4*prm.vio.p_bus)*(1.0-beta) + beta*prm.vio.p_bus
+    qG.pqbal_grad_weight_p    = (5e-4*prm.vio.p_bus)*(1.0-beta) + beta*prm.vio.p_bus
+    qG.pqbal_grad_weight_q    = (5e-4*prm.vio.q_bus)*(1.0-beta) + beta*prm.vio.q_bus
+    qG.constraint_grad_weight = (5e-4*prm.vio.p_bus)*(1.0-beta) + beta*prm.vio.p_bus
     qG.acflow_grad_weight     = (1e-2*prm.vio.s_flow)*(1.0-beta)  + beta*prm.vio.s_flow
 end

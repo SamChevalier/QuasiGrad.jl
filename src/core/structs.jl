@@ -25,7 +25,6 @@ mutable struct QG
     adam_solve_times::Vector{Float64}
     write_location::String
     pg_tol::Float64
-    delta::Float64
     eval_grad::Bool
     binary_projection_weight::Float64
     p_on_projection_weight::Float64

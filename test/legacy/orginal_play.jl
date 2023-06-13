@@ -724,7 +724,7 @@ end
 
 # %%
 
-del = qG.delta
+del = qG.constraint_grad_weight
 for tii in prm.ts.time_keys
     stt[:zt][tii] = 
     # - 
@@ -1789,7 +1789,7 @@ dzqrd_zonal_dq_qrd_zonal_penalty = Dict(tkeys[ii] => prm.ts.duration[tkeys[ii]]*
         grd[:zbase][:zt]        = 1.0
         grd[:zbase][:z_enmax]   = 1.0
         grd[:zbase][:z_enmin]   = 1.0
-        grd[:zbase][:zhat_mxst] = -qG.delta
+        grd[:zbase][:zhat_mxst] = -qG.constraint_grad_weight
     
         # zt: see score_zt!()
         #
@@ -1834,26 +1834,26 @@ dzqrd_zonal_dq_qrd_zonal_penalty = Dict(tkeys[ii] => prm.ts.duration[tkeys[ii]]*
         grd[:zt][:zqru_zonal] = -1.0
         grd[:zt][:zqrd_zonal] = -1.0
     
-        grd[:zt][:zhat_mndn]   = -qG.delta
-        grd[:zt][:zhat_mnup]   = -qG.delta
-        grd[:zt][:zhat_rup]    = -qG.delta
-        grd[:zt][:zhat_rd]     = -qG.delta
-        grd[:zt][:zhat_rgu]    = -qG.delta
-        grd[:zt][:zhat_rgd]    = -qG.delta
-        grd[:zt][:zhat_scr]    = -qG.delta
-        grd[:zt][:zhat_nsc]    = -qG.delta
-        grd[:zt][:zhat_rruon]  = -qG.delta
-        grd[:zt][:zhat_rruoff] = -qG.delta
-        grd[:zt][:zhat_rrdon]  = -qG.delta
-        grd[:zt][:zhat_rrdoff] = -qG.delta
+        grd[:zt][:zhat_mndn]   = -qG.constraint_grad_weight
+        grd[:zt][:zhat_mnup]   = -qG.constraint_grad_weight
+        grd[:zt][:zhat_rup]    = -qG.constraint_grad_weight
+        grd[:zt][:zhat_rd]     = -qG.constraint_grad_weight
+        grd[:zt][:zhat_rgu]    = -qG.constraint_grad_weight
+        grd[:zt][:zhat_rgd]    = -qG.constraint_grad_weight
+        grd[:zt][:zhat_scr]    = -qG.constraint_grad_weight
+        grd[:zt][:zhat_nsc]    = -qG.constraint_grad_weight
+        grd[:zt][:zhat_rruon]  = -qG.constraint_grad_weight
+        grd[:zt][:zhat_rruoff] = -qG.constraint_grad_weight
+        grd[:zt][:zhat_rrdon]  = -qG.constraint_grad_weight
+        grd[:zt][:zhat_rrdoff] = -qG.constraint_grad_weight
         # common set of pr and cs constraint variables (see below)
-        grd[:zt][:zhat_pmax]      = -qG.delta
-        grd[:zt][:zhat_pmin]      = -qG.delta
-        grd[:zt][:zhat_pmaxoff]   = -qG.delta
-        grd[:zt][:zhat_qmax]      = -qG.delta
-        grd[:zt][:zhat_qmin]      = -qG.delta
-        grd[:zt][:zhat_qmax_beta] = -qG.delta
-        grd[:zt][:zhat_qmin_beta] = -qG.delta
+        grd[:zt][:zhat_pmax]      = -qG.constraint_grad_weight
+        grd[:zt][:zhat_pmin]      = -qG.constraint_grad_weight
+        grd[:zt][:zhat_pmaxoff]   = -qG.constraint_grad_weight
+        grd[:zt][:zhat_qmax]      = -qG.constraint_grad_weight
+        grd[:zt][:zhat_qmin]      = -qG.constraint_grad_weight
+        grd[:zt][:zhat_qmax_beta] = -qG.constraint_grad_weight
+        grd[:zt][:zhat_qmin_beta] = -qG.constraint_grad_weight
 
 # %% =======
 include("./src/core/structs.jl")
@@ -1927,7 +1927,7 @@ cgd, GRB, grd, mgd, scr, stt = quasiGrad.initialize_states(idx, prm, sys)
 perturb!(stt, prm, idx, grd, sys, qG, 1.0)
 
 # initialize static gradients
-qG.delta = 50.0
+qG.constraint_grad_weight = 50.0
 quasiGrad.clip_all!(prm, qG, stt)
 
 # initialize the states which adam will update -- the rest are fixed

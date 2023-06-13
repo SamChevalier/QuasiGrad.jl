@@ -1065,8 +1065,8 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
             # note: when the reserve products are negelected, pr and cs constraints are the same
             #   remember: idx.J_pqmax == idx.J_pqmin
             if ~isempty(idx.J_pqmax)
-                @constraint(model, dev_q_vars[idx.J_pqmax] .<= prm.dev.q_0_ub[idx.J_pqmax]*stt[:u_sum][tii][idx.J_pqmax] + prm.dev.beta_ub[idx.J_pqmax]*dev_p_vars[idx.J_pqmax])
-                @constraint(model, prm.dev.q_0_lb[idx.J_pqmax]*stt[:u_sum][tii][idx.J_pqmax] + prm.dev.beta_lb[idx.J_pqmax]*dev_p_vars[idx.J_pqmax] .<= dev_q_vars[idx.J_pqmax])
+                @constraint(model, dev_q_vars[idx.J_pqmax] .<= prm.dev.q_0_ub[idx.J_pqmax].*stt[:u_sum][tii][idx.J_pqmax] .+ prm.dev.beta_ub[idx.J_pqmax].*dev_p_vars[idx.J_pqmax])
+                @constraint(model, prm.dev.q_0_lb[idx.J_pqmax].*stt[:u_sum][tii][idx.J_pqmax] .+ prm.dev.beta_lb[idx.J_pqmax].*dev_p_vars[idx.J_pqmax] .<= dev_q_vars[idx.J_pqmax])
             end
 
             # great, now just update the nodal injection vectors

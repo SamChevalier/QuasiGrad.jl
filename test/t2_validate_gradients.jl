@@ -5,20 +5,20 @@ using Revise
 # load things
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D3/C3S0N00073/scenario_002.json"
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
-path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_117.json"
+#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_117.json"
 
 # load
 jsn = quasiGrad.load_json(path)
 
-# %% initialize the system
+# initialize the system
 adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
-stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
+stt, sys, upd, wct = quasiGrad.base_initialization(jsn, true, 1.0);
 
 # %% reset -- to help with numerical conditioning of the market surplus function 
 # (so that we can take its derivative numerically)
-qG.scale_c_pbus_testing  = 0.00001
-qG.scale_c_qbus_testing  = 0.00001
-qG.scale_c_sflow_testing = 0.02
+qG.scale_c_pbus_testing  = 0.00001 #1.0 #
+qG.scale_c_qbus_testing  = 0.00001 #1.0 #
+qG.scale_c_sflow_testing = 0.02 #1.0 #
 
 # test
 #
@@ -38,7 +38,7 @@ qG.reserve_grad_is_soft_abs    = false
 # %% 1. transformer phase shift (phi) =======================================================================
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nx)); (ind == 0 ? ind = 1 : ind = ind)
-epsilon = 1e-5
+epsilon = 1e-4
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx    = mgd[:phi][tii][ind]
 
@@ -65,11 +65,10 @@ println(dzdx_num)
 
 # %% 3. voltage magnitude =======================================================================
 include("./test_functions.jl")
-qG.delta                 = 0.0
 qG.scale_c_pbus_testing  = 1e-4
 qG.scale_c_qbus_testing  = 1e-4
 qG.scale_c_sflow_testing = 1e-4  # for flow testing!!
-# %%
+epsilon = 1e-5
 
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nb)); (ind == 0 ? ind = 1 : ind = ind)
@@ -212,21 +211,20 @@ end
 #         out -- this happens a lot.
 #quasiGrad.clip_all!(prm, qG, stt)
 qG.pg_tol = 0.0
-qG.delta                 = 0*1e6
-qG.scale_c_pbus_testing  = 1.0
-qG.scale_c_qbus_testing  = 1.0
-qG.scale_c_sflow_testing = 1.0
+qG.constraint_grad_weight = 1e6
 
-#
+qG.scale_c_pbus_testing  = 1.0 #1e-4
+qG.scale_c_qbus_testing  = 1.0 #1e-4
+qG.scale_c_sflow_testing = 1.0 #1e-4
+
+# %%
 #              1         2      3       4       5       6      7        8          9          10           11        12      13
 var     = [:u_on_dev, :dev_q, :p_on, :p_rgu, :p_rgd, :p_scr, :p_nsc, :p_rru_on, :p_rrd_on, :p_rru_off, :p_rrd_off, :q_qru, :q_qrd]    
 vii     = 1
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.ndev)); (ind == 0 ? ind = 1 : ind = ind)
 
-#ind = 10
-#tii = :t4
-epsilon = 1e-6
+epsilon = 1e-5
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx    = copy(mgd[var[vii]][tii][ind])
 
@@ -236,6 +234,9 @@ zp = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
 println(dzdx_num)
+
+
+println(dzdx - dzdx_num)
 
 # %% compute the states (without gradients)
 if true == false

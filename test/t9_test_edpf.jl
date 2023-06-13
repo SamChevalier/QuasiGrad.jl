@@ -96,7 +96,7 @@ plt = Dict(:plot            => true,
            :global_adm_step => 0,
            :disp_freq       => 1)
 qG.alpha_0 = 0.0001
-qG.delta   = 1e6
+qG.constraint_grad_weight   = 1e6
 
 if plt[:first_plot]
     ax, fig, z_plt = quasiGrad.initialize_plot(plt, scr)

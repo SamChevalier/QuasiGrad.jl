@@ -93,7 +93,7 @@ if action == "just write"
     qG.pqbal_grad_type   = "standard"
     qG.pcg_tol               = 1e-5
     qG.print_final_stats     = true
-    qG.delta                 = 1e-9
+    qG.constraint_grad_weight                 = 1e-9
     qG.scale_c_pbus_testing  = 1.0
     qG.scale_c_qbus_testing  = 1.0
     qG.scale_c_sflow_testing = 1.0
@@ -170,7 +170,7 @@ for tii in prm.ts.time_keys
     sum(stt[:zqru_zonal][tii]) -
     sum(stt[:zqrd_zonal][tii])
     # penalized constraints
-    scr[:zt_penalty] += -qG.delta*(
+    scr[:zt_penalty] += -qG.constraint_grad_weight*(
     sum(stt[:zhat_mndn][tii]) + 
     sum(stt[:zhat_mnup][tii]) + 
     sum(stt[:zhat_rup][tii]) + 

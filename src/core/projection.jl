@@ -27,13 +27,14 @@ function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Idx, pr
             # set model properties
             quasiGrad.set_optimizer_attribute(model, "MIPGap",         qG.mip_gap)
             quasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
+            quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
 
             # MOI tolerances
             if final_projection == true
                 # => useless: quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-                quasiGrad.set_optimizer_attribute(model, "IntFeasTol", qG.IntFeasTol)
-                quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), 1e-9)
-                quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), 1e-9)
+                #quasiGrad.set_optimizer_attribute(model, "IntFeasTol", qG.IntFeasTol)
+                #quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), 1e-9)
+                #quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), 1e-9)
             end
 
             # define local time keys

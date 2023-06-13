@@ -31,7 +31,9 @@ function initialize_qG(prm::quasiGrad.Param)
     pg_tol                   = 1e-9
 
     # amount to penalize constraint violations
-    delta                    = prm.vio.p_bus
+        # => **replaced by constraint_grad_weight**
+        # => delta                    = prm.vio.p_bus
+        # => **replaced by constraint_grad_weight**
 
     # mainly for testing
     eval_grad                = true
@@ -117,8 +119,8 @@ function initialize_qG(prm::quasiGrad.Param)
 
     # initialize adam parameters
     eps        = 1e-9         # for numerical stability -- keep at 1e-8 (?)
-    beta1      = 0.75
-    beta2      = 0.9
+    beta1      = 0.9
+    beta2      = 0.99
     alpha_min  = 0.001/10.0   # for cos decay
     alpha_max  = 0.001/0.5    # for cos decay
     Ti         = 100          # for cos decay -- at Tcurr == Ti, cos() => -1
@@ -181,7 +183,7 @@ function initialize_qG(prm::quasiGrad.Param)
 
     # gradient modification for constraints
     constraint_grad_is_soft_abs = true # "standard"
-    constraint_grad_weight = prm.vio.p_bus/10
+    constraint_grad_weight = prm.vio.p_bus
     constraint_grad_eps2 = 1e-4
 
     # gradient modification for ac flow penalties
@@ -263,7 +265,6 @@ function initialize_qG(prm::quasiGrad.Param)
         adam_solve_times,
         write_location,
         pg_tol,
-        delta,
         eval_grad,
         binary_projection_weight,
         p_on_projection_weight,
@@ -1380,7 +1381,7 @@ function initialize_static_grads!(idx::quasiGrad.Idx, grd::Dict{Symbol, Dict{Sym
     grd[:zbase][:zt]        = 1.0
     grd[:zbase][:z_enmax]   = 1.0
     grd[:zbase][:z_enmin]   = 1.0
-    grd[:zbase][:zhat_mxst] = -qG.delta
+    grd[:zbase][:zhat_mxst] = -qG.constraint_grad_weight
 
     # zt: see score_zt!()
     #
@@ -1425,26 +1426,26 @@ function initialize_static_grads!(idx::quasiGrad.Idx, grd::Dict{Symbol, Dict{Sym
     grd[:zt][:zqru_zonal] = -1.0
     grd[:zt][:zqrd_zonal] = -1.0
 
-    grd[:zt][:zhat_mndn]   = -qG.delta
-    grd[:zt][:zhat_mnup]   = -qG.delta
-    grd[:zt][:zhat_rup]    = -qG.delta
-    grd[:zt][:zhat_rd]     = -qG.delta
-    grd[:zt][:zhat_rgu]    = -qG.delta
-    grd[:zt][:zhat_rgd]    = -qG.delta
-    grd[:zt][:zhat_scr]    = -qG.delta
-    grd[:zt][:zhat_nsc]    = -qG.delta
-    grd[:zt][:zhat_rruon]  = -qG.delta
-    grd[:zt][:zhat_rruoff] = -qG.delta
-    grd[:zt][:zhat_rrdon]  = -qG.delta
-    grd[:zt][:zhat_rrdoff] = -qG.delta
+    grd[:zt][:zhat_mndn]   = -qG.constraint_grad_weight
+    grd[:zt][:zhat_mnup]   = -qG.constraint_grad_weight
+    grd[:zt][:zhat_rup]    = -qG.constraint_grad_weight
+    grd[:zt][:zhat_rd]     = -qG.constraint_grad_weight
+    grd[:zt][:zhat_rgu]    = -qG.constraint_grad_weight
+    grd[:zt][:zhat_rgd]    = -qG.constraint_grad_weight
+    grd[:zt][:zhat_scr]    = -qG.constraint_grad_weight
+    grd[:zt][:zhat_nsc]    = -qG.constraint_grad_weight
+    grd[:zt][:zhat_rruon]  = -qG.constraint_grad_weight
+    grd[:zt][:zhat_rruoff] = -qG.constraint_grad_weight
+    grd[:zt][:zhat_rrdon]  = -qG.constraint_grad_weight
+    grd[:zt][:zhat_rrdoff] = -qG.constraint_grad_weight
     # common set of pr and cs constraint variables (see below)
-    grd[:zt][:zhat_pmax]      = -qG.delta
-    grd[:zt][:zhat_pmin]      = -qG.delta
-    grd[:zt][:zhat_pmaxoff]   = -qG.delta
-    grd[:zt][:zhat_qmax]      = -qG.delta
-    grd[:zt][:zhat_qmin]      = -qG.delta
-    grd[:zt][:zhat_qmax_beta] = -qG.delta
-    grd[:zt][:zhat_qmin_beta] = -qG.delta
+    grd[:zt][:zhat_pmax]      = -qG.constraint_grad_weight
+    grd[:zt][:zhat_pmin]      = -qG.constraint_grad_weight
+    grd[:zt][:zhat_pmaxoff]   = -qG.constraint_grad_weight
+    grd[:zt][:zhat_qmax]      = -qG.constraint_grad_weight
+    grd[:zt][:zhat_qmin]      = -qG.constraint_grad_weight
+    grd[:zt][:zhat_qmax_beta] = -qG.constraint_grad_weight
+    grd[:zt][:zhat_qmin_beta] = -qG.constraint_grad_weight
 
     # for testing the connection costs
     # prm.acline.connection_cost    .= 1000000.0

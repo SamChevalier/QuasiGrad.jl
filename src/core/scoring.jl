@@ -178,7 +178,11 @@ function soft_abs_constraint_grad(x::Float64, qG::quasiGrad.QG)
     #
     # usage: instead of c*sign(max(x,0)), use c*soft_abs_grad(max(x,0))
     # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
-    return x/(sqrt(x^2 + qG.constraint_grad_eps2))
+    if qG.constraint_grad_is_soft_abs
+        return x/(sqrt(x^2 + qG.constraint_grad_eps2))
+    else
+        return sign(x)
+    end
 end
 
 # soft abs derviative -- reserves

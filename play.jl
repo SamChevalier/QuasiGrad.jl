@@ -1274,7 +1274,7 @@ end
 # %%
 scr[:zt_penalty] = 0.0
 tii = :t18
-scr[:zt_penalty] += -qG.delta*(
+scr[:zt_penalty] += -qG.constraint_grad_weight*(
             sum(stt[:zhat_mndn][tii]) +
             sum(stt[:zhat_mnup][tii]) + 
             sum(stt[:zhat_rup][tii]) + 

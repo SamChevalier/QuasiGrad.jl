@@ -139,7 +139,7 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 #path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D2/C3S1N00600/scenario_001.json"
 #path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D1/C3S0N00073/scenario_002.json"
 #path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_117.json"
-#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_130.json"
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_130.json"
 
 # parameters
 InFile1               = path
@@ -164,11 +164,11 @@ adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
 stt, sys, upd, wct = quasiGrad.base_initialization(jsn, true, 1.0);
 
 # project
-quasiGrad.project!(15.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+quasiGrad.project!(15.0, idx, prm, qG, stt, sys, upd)
 
 quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
-# E7. write the final solution
+# %% E7. write the final solution
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
 # E8. post process

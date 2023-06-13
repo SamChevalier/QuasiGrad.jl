@@ -2172,7 +2172,7 @@ end
         :sfr_ctg           => Dict(tkeys[ii] => Dict(ctg_ii => zeros(sys.nac) for ctg_ii in 1:(sys.nctg + 1)) for ii in 1:(sys.nT))
         :sto_ctg           => Dict(tkeys[ii] => Dict(ctg_ii => zeros(sys.nac) for ctg_ii in 1:(sys.nctg + 1)) for ii in 1:(sys.nT))
 
-        qG.delta*sum(sum.(values(scr[:zhat_mxst]), init=0.0), init=0.0)
+        qG.constraint_grad_weight*sum(sum.(values(scr[:zhat_mxst]), init=0.0), init=0.0)
         :zhat_mxst         => Dict(ii => zeros(prm.dev.num_mxst[ii]) for ii in 1:(sys.ndev))
         #:zw_enmax   => Dict(ii => zeros(prm.dev.num_W_enmax[ii]) for ii in 1:(sys.ndev)),
         #:zw_enmin   => Dict(ii => zeros(prm.dev.num_W_enmax[ii]) for ii in 1:(sys.ndev)),
@@ -2528,7 +2528,7 @@ end
         # now, set the previous scoring values
         z_prev[:zms]  = scale_z(scr[:zms])
         z_prev[:pzms] = scale_z(scr[:zms_penalized])      
-        z_prev[:zhat] = scale_z(scr[:zt_penalty] - qG.delta*scr[:zhat_mxst])
+        z_prev[:zhat] = scale_z(scr[:zt_penalty] - qG.constraint_grad_weight*scr[:zhat_mxst])
         z_prev[:ctg]  = scale_z(scr[:zctg_min] + scr[:zctg_avg])
         z_prev[:emnx] = scale_z(scr[:emnx])
         z_prev[:zp]   = scale_z(scr[:zp])

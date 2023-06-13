@@ -27,7 +27,7 @@ qG.plot_scale_dn = 1e9
 qG.adam_max_time = 60.0
 qG.adam_max_its  = 250
 qG.adam_stopper  = "time" # "iterations"
-qG.delta         = 1e5
+qG.constraint_grad_weight         = 1e5
 
 # plot
 plot_adam = true

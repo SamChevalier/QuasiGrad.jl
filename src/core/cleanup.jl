@@ -9,7 +9,7 @@ function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGra
     set_silent(model)
 
     # set model properties
-    # set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+    set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
 
     # loop over each time period and define the hard constraints
     for (t_ind, tii) in enumerate(prm.ts.time_keys)
@@ -270,7 +270,7 @@ function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGra
         # add up
         zt_temp = 
             # local reserve penalties
-            -sum(dt.*prm.dev.p_reg_res_up_cost_tmdv[t_ind].*p_rgu) -   # zrgu
+           -sum(dt.*prm.dev.p_reg_res_up_cost_tmdv[t_ind].*p_rgu) -   # zrgu
             sum(dt.*prm.dev.p_reg_res_down_cost_tmdv[t_ind].*p_rgd) - # zrgd
             sum(dt.*prm.dev.p_syn_res_cost_tmdv[t_ind].*p_scr) -      # zscr
             sum(dt.*prm.dev.p_nsyn_res_cost_tmdv[t_ind].*p_nsc) -     # znsc
@@ -713,6 +713,8 @@ function cleanup_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Fl
     set_string_names_on_creation(model, false)
     set_silent(model)
 
+    quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+
     @info "Running lineaized power flow cleanup across $(sys.nT) time periods."
 
     # loop over time
@@ -1113,6 +1115,8 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
     set_string_names_on_creation(model, false)
     set_silent(model)
 
+    quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+
     @info "Running constrained, lineaized power flow cleanup across $(sys.nT) time periods backwards."
 
     # loop over time
@@ -1279,8 +1283,8 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
             # note: when the reserve products are negelected, pr and cs constraints are the same
             #   remember: idx.J_pqmax == idx.J_pqmin
             if ~isempty(idx.J_pqmax)
-                @constraint(model, dev_q_vars[idx.J_pqmax] .<= prm.dev.q_0_ub[idx.J_pqmax]*stt[:u_sum][tii][idx.J_pqmax] + prm.dev.beta_ub[idx.J_pqmax]*dev_p_vars[idx.J_pqmax])
-                @constraint(model, prm.dev.q_0_lb[idx.J_pqmax]*stt[:u_sum][tii][idx.J_pqmax] + prm.dev.beta_lb[idx.J_pqmax]*dev_p_vars[idx.J_pqmax] .<= dev_q_vars[idx.J_pqmax])
+                @constraint(model, dev_q_vars[idx.J_pqmax] .<= prm.dev.q_0_ub[idx.J_pqmax].*stt[:u_sum][tii][idx.J_pqmax] .+ prm.dev.beta_ub[idx.J_pqmax].*dev_p_vars[idx.J_pqmax])
+                @constraint(model, prm.dev.q_0_lb[idx.J_pqmax].*stt[:u_sum][tii][idx.J_pqmax] .+ prm.dev.beta_lb[idx.J_pqmax].*dev_p_vars[idx.J_pqmax] .<= dev_q_vars[idx.J_pqmax])
             end
 
             # great, now just update the nodal injection vectors

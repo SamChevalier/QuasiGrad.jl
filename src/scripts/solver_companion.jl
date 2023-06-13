@@ -10,14 +10,16 @@ using Makie
 # ===============
 #path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D2/C3S0N00073/scenario_002.json"
 #path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
-#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D2/C3S1N00600/scenario_001.json"
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D2/C3S1N00600/scenario_001.json"
 #path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D1/C3S0N00073/scenario_002.json"
 #path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_117.json"
-path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_130.json"
+#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_129.json"
+
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N04200D1/scenario_111.json"
 
 # parameters
 InFile1               = path
-TimeLimitInSeconds    = 700.0
+TimeLimitInSeconds    = 600.0
 NewTimeLimitInSeconds = TimeLimitInSeconds - 35.0
 Division              = 1
 NetworkModel          = "test"
@@ -40,7 +42,7 @@ stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 @warn "homotopy ON"
 qG.apply_grad_weight_homotopy = true
 
-# I3. run an economic dispatch and update the states
+# %% I3. run an economic dispatch and update the states
 quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
 
 # TT: time
@@ -79,7 +81,7 @@ for (solver_itr, pct_round) in enumerate(qG.pcts_to_round)
         end
         quasiGrad.run_adam_with_plotting!(adm, ax, cgd, ctb, ctd, fig, flw, grd, idx, mgd, msc, ntk, plt, prm, qG, scr, stt, sys, upd, wct, z_plt)
     else
-        quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+        #quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
     end
 
     # L4. solve and apply projection
@@ -122,7 +124,7 @@ else
 end
 
 # E4. LP projection
-quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
+quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
 
 # E5. cleanup constrained powerflow
 qG.max_pf_dx = 1e-4

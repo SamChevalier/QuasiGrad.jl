@@ -29,7 +29,7 @@ file_name = "scenario_002_phi_mod.json"
 jsn, prm, idx, sys = quasiGrad.load_and_parse_json(data_dir*file_name)
 qG                 = quasiGrad.initialize_qG(prm)
 qG.eval_grad     = true
-qG.delta         = 1000.0
+qG.constraint_grad_weight         = 1000.0
 
 # initialize
 cgd, GRB, grd, mgd, scr, stt = quasiGrad.initialize_states(idx, prm, sys);

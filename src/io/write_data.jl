@@ -129,7 +129,7 @@ function post_process_stats(
         zb      = scr[:zbase]
         zenmax  = scr[:z_enmax]
         zenmin  = scr[:z_enmin]
-        zhmxst  = qG.delta*scr[:zhat_mxst]
+        zhmxst  = qG.constraint_grad_weight*scr[:zhat_mxst]
         zctgmin = scr[:zctg_min]
         zctgavg = scr[:zctg_avg]
 
