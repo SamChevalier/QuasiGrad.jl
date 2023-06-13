@@ -1,7 +1,7 @@
 # in this file, we prepare the hard device constraints, which we pass to Gurobi
 #
 # note -- this is ALWAYS run after clipping
-function solve_Gurobi_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
+function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
     # loop over each device and solve individually -- not clear if this is faster
     # than solving one big optimization problem all at once. see legacy code for
     # a(n unfinished) version where all devices are solved at once!
@@ -15,6 +15,7 @@ function solve_Gurobi_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
     # set model properties
     quasiGrad.set_optimizer_attribute(model, "MIPGap",         qG.mip_gap)
     quasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
+    quasiGrad.set_optimizer_attribute(model, "IntFeasTol",     qG.IntFeasTol)
     quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
     quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
     quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
@@ -36,8 +37,17 @@ function solve_Gurobi_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
 
             # define the minimum set of variables we will need to solve the constraints  
             if first_solve == true
-                # in this case, use a hot start***       
-                u_on_dev  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:u_on_dev][tkeys[ii]][dev],  binary=true)       for ii in 1:(sys.nT)) # => base_name = "u_on_dev_t$(ii)",  
+                # in this case, use a hot start***  
+                if final_projection == true
+                    u_on_dev = Dict(tkeys[ii] => round(stt[:u_on_dev][tkeys[ii]][dev]) for ii in 1:(sys.nT))
+                    u_su_dev = Dict(tkeys[ii] => round(stt[:u_su_dev][tkeys[ii]][dev]) for ii in 1:(sys.nT))
+                    u_sd_dev = Dict(tkeys[ii] => round(stt[:u_sd_dev][tkeys[ii]][dev]) for ii in 1:(sys.nT))
+                else
+                    # define binary on/su/sd states
+                    u_on_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:u_on_dev][tkeys[ii]][dev],  binary=true) for ii in 1:(sys.nT)) # => base_name = "u_on_dev_t$(ii)", 
+                    u_su_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:u_su_dev][tkeys[ii]][dev],  binary=true) for ii in 1:(sys.nT)) # => base_name = "u_su_dev_t$(ii)", 
+                    u_sd_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:u_sd_dev][tkeys[ii]][dev],  binary=true) for ii in 1:(sys.nT)) # => base_name = "u_sd_dev_t$(ii)",  
+                end
                 p_on      = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_on][tkeys[ii]][dev])                         for ii in 1:(sys.nT)) # => base_name = "p_on_t$(ii)",      
                 dev_q     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:dev_q][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "dev_q_t$(ii)",     
                 p_rgu     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_rgu][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rgu_t$(ii)",     
@@ -50,13 +60,18 @@ function solve_Gurobi_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
                 p_rrd_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:p_rrd_off][tkeys[ii]][dev], lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rrd_off_t$(ii)", 
                 q_qru     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:q_qru][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "q_qru_t$(ii)",     
                 q_qrd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:q_qrd][tkeys[ii]][dev],     lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "q_qrd_t$(ii)",     
-
-                # add a few more (implicit) variables which are necessary for solving this system
-                u_su_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:u_su_dev][tkeys[ii]][dev], binary=true) for ii in 1:(sys.nT)) # => base_name = "u_su_dev_t$(ii)", 
-                u_sd_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:u_sd_dev][tkeys[ii]][dev], binary=true) for ii in 1:(sys.nT)) # => base_name = "u_sd_dev_t$(ii)", 
             else
-                # in this case (i.e., we failed once), use a flat start! It seems to help :)        
-                u_on_dev  = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0,  binary=true)   for ii in 1:(sys.nT)) # => base_name = "u_on_dev_t$(ii)",  
+                # in this case (i.e., we failed once), use a flat start! It seems to help :)    
+                if final_projection == true
+                    u_on_dev = Dict(tkeys[ii] => round(stt[:u_on_dev][tkeys[ii]][dev]) for ii in 1:(sys.nT))
+                    u_su_dev = Dict(tkeys[ii] => round(stt[:u_su_dev][tkeys[ii]][dev]) for ii in 1:(sys.nT))
+                    u_sd_dev = Dict(tkeys[ii] => round(stt[:u_sd_dev][tkeys[ii]][dev]) for ii in 1:(sys.nT))
+                else
+                    # define binary on/su/sd states
+                    u_on_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:u_on_dev][tkeys[ii]][dev],  binary=true) for ii in 1:(sys.nT)) # => base_name = "u_on_dev_t$(ii)", 
+                    u_su_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:u_su_dev][tkeys[ii]][dev],  binary=true) for ii in 1:(sys.nT)) # => base_name = "u_su_dev_t$(ii)", 
+                    u_sd_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=stt[:u_sd_dev][tkeys[ii]][dev],  binary=true) for ii in 1:(sys.nT)) # => base_name = "u_sd_dev_t$(ii)",  
+                end
                 p_on      = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0)                    for ii in 1:(sys.nT)) # => base_name = "p_on_t$(ii)",      
                 dev_q     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0, lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "dev_q_t$(ii)",     
                 p_rgu     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0, lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rgu_t$(ii)",     
@@ -69,10 +84,6 @@ function solve_Gurobi_projection!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
                 p_rrd_off = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0, lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "p_rrd_off_t$(ii)", 
                 q_qru     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0, lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "q_qru_t$(ii)",     
                 q_qrd     = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0, lower_bound = 0.0) for ii in 1:(sys.nT)) # => base_name = "q_qrd_t$(ii)",     
-
-                # add a few more (implicit) variables which are necessary for solving this system
-                u_su_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0, binary=true) for ii in 1:(sys.nT)) # => base_name = "u_su_dev_t$(ii)", 
-                u_sd_dev = Dict{Symbol, quasiGrad.JuMP.VariableRef}(tkeys[ii] => @variable(model, start=0.0, binary=true) for ii in 1:(sys.nT)) # => base_name = "u_sd_dev_t$(ii)", 
             end
 
             # we have the affine "AffExpr" expressions (whose values are specified)
@@ -645,7 +656,7 @@ function project!(pct_round::Float64, idx::quasiGrad.Idx, prm::quasiGrad.Param, 
     # this function 1) projects, 2) batch fixes, and 3) applies the projection
     #
     # 1. solve the projection -- don't treat the final projection as special
-    quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
+    quasiGrad.solve_Gurobi_projection!(final_projection, idx, prm, qG, stt, sys, upd)
 
     # 2. fix binaries which are closest to their Gurobi solutions
     if final_projection == false

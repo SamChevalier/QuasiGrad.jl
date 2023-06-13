@@ -31,8 +31,8 @@ function solve_ctgs!(
     scr[:zctg_avg] = 0.0
 
     # how many ctgs 
-    num_wrst = Int64(round(qG.frac_ctg_keep*sys.nctg/2))
-    num_rnd  = Int64(round(qG.frac_ctg_keep*sys.nctg/2))
+    num_wrst = Int64(ceil(qG.frac_ctg_keep*sys.nctg/2))  # in case n_ctg is odd, and we want to keep all!
+    num_rnd  = Int64(floor(qG.frac_ctg_keep*sys.nctg/2)) # in case n_ctg is odd, and we want to keep all!
     num_ctg  = num_wrst + num_rnd
 
     if qG.score_all_ctgs == true

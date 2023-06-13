@@ -32,6 +32,7 @@ include("./io/write_data.jl")
 include("./core/reserves.jl")
 include("./core/homotopy.jl")
 include("./scripts/solver.jl")
+include("./scripts/feas_solver.jl") # ********************************
 include("./core/projection.jl")
 include("./core/master_grad.jl")
 include("./core/optimization.jl")

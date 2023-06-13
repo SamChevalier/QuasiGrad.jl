@@ -51,8 +51,8 @@ function initialize_qG(prm::quasiGrad.Param)
     print_final_stats        = true
 
     # gurobi feasibility tolerance -- needs to be 1e-8 for GO!
-    FeasibilityTol           = 1e-8
-    IntFeasTol               = 1e-8
+    FeasibilityTol           = 9e-9
+    IntFeasTol               = 9e-9
 
     # mip gap for Gurobi
     mip_gap                  = 1/100.0

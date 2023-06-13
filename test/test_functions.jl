@@ -729,20 +729,38 @@ end
 
 # solve, and then return the solution
 function grb_speed_typed(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
-        tkeys = [Symbol("t"*string(ii)) for ii in 1:42]
-        for tii in tkeys
-            GRB[:u_on_dev][tii]  = GRB[:u_on_dev][tii].^2 .+ 1.6
-            GRB[:p_on][tii]      = GRB[:p_on][tii].^2 .+ 1.6      
-            GRB[:dev_q][tii]     = GRB[:dev_q][tii].^2 .+ 1.6
-            GRB[:p_rgu][tii]     = GRB[:p_rgu][tii].^2 .+ 1.6     
-            GRB[:p_rgd][tii]     = GRB[:p_rgd][tii].^2 .+ 1.6     
-            GRB[:p_scr][tii]     = GRB[:p_scr][tii].^2 .+ 1.6     
-            GRB[:p_nsc][tii]     = GRB[:p_nsc][tii].^2 .+ 1.6     
-            GRB[:p_rru_on][tii]  = GRB[:p_rru_on][tii].^2 .+ 1.6  
-            GRB[:p_rru_off][tii] = GRB[:p_rru_off][tii].^2 .+ 1.6 
-            GRB[:p_rrd_on][tii]  = GRB[:p_rrd_on][tii].^2 .+ 1.6  
-            GRB[:p_rrd_off][tii] = GRB[:p_rrd_off][tii].^2 .+ 1.6 
-            GRB[:q_qru][tii]     = GRB[:q_qru][tii].^2 .+ 1.6     
-            GRB[:q_qrd][tii]     = GRB[:q_qrd][tii].^2 .+ 1.6     
-        end
+    tkeys = [Symbol("t"*string(ii)) for ii in 1:42]
+    for tii in tkeys
+        GRB[:u_on_dev][tii]  = GRB[:u_on_dev][tii].^2 .+ 1.6
+        GRB[:p_on][tii]      = GRB[:p_on][tii].^2 .+ 1.6      
+        GRB[:dev_q][tii]     = GRB[:dev_q][tii].^2 .+ 1.6
+        GRB[:p_rgu][tii]     = GRB[:p_rgu][tii].^2 .+ 1.6     
+        GRB[:p_rgd][tii]     = GRB[:p_rgd][tii].^2 .+ 1.6     
+        GRB[:p_scr][tii]     = GRB[:p_scr][tii].^2 .+ 1.6     
+        GRB[:p_nsc][tii]     = GRB[:p_nsc][tii].^2 .+ 1.6     
+        GRB[:p_rru_on][tii]  = GRB[:p_rru_on][tii].^2 .+ 1.6  
+        GRB[:p_rru_off][tii] = GRB[:p_rru_off][tii].^2 .+ 1.6 
+        GRB[:p_rrd_on][tii]  = GRB[:p_rrd_on][tii].^2 .+ 1.6  
+        GRB[:p_rrd_off][tii] = GRB[:p_rrd_off][tii].^2 .+ 1.6 
+        GRB[:q_qru][tii]     = GRB[:q_qru][tii].^2 .+ 1.6     
+        GRB[:q_qrd][tii]     = GRB[:q_qrd][tii].^2 .+ 1.6     
     end
+end
+
+function load_and_project(path::String, solution_file::String)
+    InFile1 = path
+    jsn = quasiGrad.load_json(InFile1)
+
+    # initialize
+    adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn)
+
+    # solve
+    fix       = true
+    pct_round = 100.0
+    quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+    quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
+    quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
+    quasiGrad.snap_shunts!(true, prm, stt, upd)
+    quasiGrad.write_solution(solution_file, prm, qG, stt, sys)
+    quasiGrad.post_process_stats(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+end
