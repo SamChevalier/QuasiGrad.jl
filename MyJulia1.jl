@@ -13,10 +13,11 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Any, Division::Int64, Net
     println("  $(NetworkModel)")
     println("  $(AllowSwitching)")
 
-    # how long did package loading take? Give it 30 sec for now..
-    NewTimeLimitInSeconds = Float64(TimeLimitInSeconds) - 30.0
+    # how long did package loading take? Give it 3 sec for now..
+    NewTimeLimitInSeconds = Float64(TimeLimitInSeconds) - 3.0
 
     # compute the solution
-    quasiGrad.compute_quasiGrad_solution_feas(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
+    quasiGrad.compute_quasiGrad_solution_timed(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
+    #quasiGrad.compute_quasiGrad_solution_feas(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
     #quasiGrad.compute_quasiGrad_solution(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
 end

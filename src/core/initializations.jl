@@ -1,16 +1,27 @@
-function initialize_qG(prm::quasiGrad.Param; Div::Int64 = 1)
+function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=False)
     # In this function, we hardcode a number of important parameters
     # and intructions related to how the qG solver will operate. 
     # It also contains all of the adam solver parameters!
     #
     # printing
-    print_zms                     = true # print zms at every adam iteration?
-    print_freq                    = 5    # (i.e., every how often)
-    print_final_stats             = true # print stats at the end?
-    print_lbfgs_iterations        = true
-    print_projection_success      = true
-    print_linear_pf_iterations    = true
-    print_reserve_cleanup_success = true
+    if hpc_params == true
+        # turn OFF printing
+        print_zms                     = false # print zms at every adam iteration?
+        print_freq                    = 5    # (i.e., every how often)
+        print_final_stats             = false # print stats at the end?
+        print_lbfgs_iterations        = false
+        print_projection_success      = false
+        print_linear_pf_iterations    = false
+        print_reserve_cleanup_success = false
+    else
+        print_zms                     = true # print zms at every adam iteration?
+        print_freq                    = 5    # (i.e., every how often)
+        print_final_stats             = true # print stats at the end?
+        print_lbfgs_iterations        = true
+        print_projection_success      = true
+        print_linear_pf_iterations    = true
+        print_reserve_cleanup_success = true
+    end
 
     # compute sus on each adam iteration?
     compute_sus_on_each_iteration = false
@@ -394,14 +405,14 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64 = 1)
     return qG
 end
 
-function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, perturb_states::Bool=false, pert_size::Float64=1.0)
+function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::Bool = false, perturb_states::Bool=false, pert_size::Float64=1.0)
     # perform all initializations from the jsn data
     # 
     # parse the input jsn data
     prm, idx, sys = parse_json(jsn)
 
     # build the qg structure
-    qG = initialize_qG(prm, Div=Div)
+    qG = initialize_qG(prm, Div=Div, hpc_params=hpc_params)
 
     # intialize (empty) states
     bit, cgd, grd, mgd, scr, stt, msc = initialize_states(idx, prm, sys, qG)
