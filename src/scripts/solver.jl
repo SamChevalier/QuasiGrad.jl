@@ -243,5 +243,5 @@ function compute_quasiGrad_solution_timed(InFile1::String, NewTimeLimitInSeconds
     println("E7: $(time_elapsed)")
 
     # E8. post process
-    quasiGrad.post_process_stats(false, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 end
