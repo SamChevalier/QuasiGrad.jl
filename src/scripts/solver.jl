@@ -11,7 +11,7 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
 
     # I2. initialize the system
     adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
-    stt, sys, upd, wct = quasiGrad.base_initialization(jsn);
+    stt, sys, upd, wct = quasiGrad.base_initialization(jsn, Div=Division);
 
     # I3. run an economic dispatch and update the states
     quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
@@ -82,9 +82,6 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
     # E5. cleanup constrained powerflow
     quasiGrad.cleanup_constrained_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
 
-    # E5. cleanup reserves
-    quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-
     # E6. cleanup reserves
     quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 
@@ -92,5 +89,5 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
     quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
     # E8. post process
-    quasiGrad.post_process_stats(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.post_process_stats(false, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 end

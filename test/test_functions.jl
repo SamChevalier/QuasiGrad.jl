@@ -461,7 +461,6 @@ function test3_subtest_loss_grad(state, grad, jac, prm, idx, func_0)
 
 end
 
-
 # ac line flows
 function acline_flows_test!(eval_grad::Bool, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol, quasiGrad.SparseMatrixCSC{Float64, Int64}}, prm::quasiGrad.Param, state::Dict{Symbol,Vector{Float64}}, idx::quasiGrad.Idx)
     # line parameters
@@ -762,5 +761,5 @@ function load_and_project(path::String, solution_file::String)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
     quasiGrad.snap_shunts!(true, prm, stt, upd)
     quasiGrad.write_solution(solution_file, prm, qG, stt, sys)
-    quasiGrad.post_process_stats(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 end

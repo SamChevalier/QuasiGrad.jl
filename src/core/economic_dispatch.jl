@@ -9,9 +9,6 @@ function solve_economic_dispatch!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
     set_string_names_on_creation(model, false)
     set_silent(model)
 
-    # quiet down!!!
-    # alternative: => quasiGrad.set_optimizer_attribute(model, "OutputFlag", qG.GRB_output_flag)
-
     # set model properties => let this run until it finishes
         # quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
         # quasiGrad.set_optimizer_attribute(model, "MIPGap",         qG.mip_gap)

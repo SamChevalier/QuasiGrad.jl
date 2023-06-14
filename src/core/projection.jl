@@ -429,8 +429,9 @@ function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Idx, pr
             if soln_valid == true
 
                 # print
-                println("Projection for dev $(dev). ", termination_status(model),". objective value: ", objective_value(model))
-
+                if qG.print_projection_success == true
+                    println("Projection for dev $(dev). ", termination_status(model),". objective value: ", objective_value(model))
+                end
                 # leave the loop
                 solve_projection = false
 

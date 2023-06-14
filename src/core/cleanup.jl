@@ -306,7 +306,9 @@ function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGra
 
         # did Gurobi find something valid?
         if soln_valid == true
-            println("Reserve cleanup at $(tii). ", termination_status(model),". objective value: ", objective_value(model))
+            if qG.print_reserve_cleanup_success == true
+                println("Reserve cleanup at $(tii). ", termination_status(model),". objective value: ", objective_value(model))
+            end
 
             # return the solution
             stt[:p_rgu][tii]     .= copy.(value.(p_rgu))
@@ -906,11 +908,12 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
         dt = prm.ts.duration[tii]
 
         # initialize
-        run_pf    = true
-        pf_cnt    = 0
+        run_pf = true
+        pf_cnt = 0
 
         # 1. update the ideal dispatch point (active power) -- we do this just once
-        quasiGrad.ideal_dispatch!(idx, msc, stt, sys, tii)
+            # => quasiGrad.ideal_dispatch!(idx, msc, stt, sys, tii)
+            # this is no longer needed, because we penalize device injections directly
 
         # 2. update y_bus and Jacobian and bias point -- this
         #    only needs to be done once per time, since xfm/shunt
@@ -1165,7 +1168,7 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
                 end
                 #
                 # shall we terminate?
-                if (max_dx < qG.max_pf_dx_final_solve) || (pf_cnt == qG.max_linear_pfs)
+                if (max_dx < qG.max_pf_dx_final_solve) || (pf_cnt == qG.max_linear_pfs_final_solve)
                     run_pf = false
 
                     # now, apply the updated injections to the devices

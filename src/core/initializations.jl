@@ -1,13 +1,41 @@
-function initialize_qG(prm::quasiGrad.Param)
+function initialize_qG(prm::quasiGrad.Param; Div::Int64 = 1)
     # In this function, we hardcode a number of important parameters
     # and intructions related to how the qG solver will operate. 
     # It also contains all of the adam solver parameters!
     #
+    # printing
+    print_zms                     = true # print zms at every adam iteration?
+    print_freq                    = 5    # (i.e., every how often)
+    print_final_stats             = true # print stats at the end?
+    print_lbfgs_iterations        = true
+    print_projection_success      = true
+    print_linear_pf_iterations    = true
+    print_reserve_cleanup_success = true
+
+    # compute sus on each adam iteration?
+    compute_sus_on_each_iteration = false
+    compute_sus_frequency         = 5
+
+    # buses
     num_bus = length(prm.bus.id)
-    #
-    # pcts_to_round = [25.0; 50.0; 75.0; 90.0; 95.0; 100.0]
-    pcts_to_round = [25.0; 50.0; 75.0; 90.0; 100.0]
-    pcts_to_round = [25.0; 50.0; 100]
+
+    # rounding percentages for the various divisions
+    pcts_to_round_D1 = [75; 100.0]
+    pcts_to_round_D2 = [25.0; 50.0; 80.0; 95.0; 100.0]
+    pcts_to_round_D3 = [25.0; 50.0; 75.0; 90.0; 95.0; 99.0; 100.0]
+    
+    # which division are we in?
+    if Div == 1
+        pcts_to_round = pcts_to_round_D1
+    elseif Div == 2
+        pcts_to_round = pcts_to_round_D2
+    elseif Div == 3
+        pcts_to_round = pcts_to_round_D3
+    else
+        @warn "Division $(Div) not recognized. Using D1."
+        pcts_to_round = pcts_to_round_D1
+    end
+
     # so: adam 1   =>   round pcts_to_round[1]
     #     adam 2   =>   round pcts_to_round[2]
     #     adam 3   =>   round pcts_to_round[3]
@@ -16,7 +44,7 @@ function initialize_qG(prm::quasiGrad.Param)
     #     adam n+1 =>   no more rounding! just an LP solve.
 
     # adam clips anything larger than grad_max
-    grad_max  = 1e12
+    grad_max  = 1e11
 
     # these will be set programmatically
     adam_solve_times = zeros(length(pcts_to_round))
@@ -24,11 +52,11 @@ function initialize_qG(prm::quasiGrad.Param)
     # write location
     #   => "local" just writes in the same folder as the input
     #   => "GO" writes "solution.json" in the cwd
-    write_location           = "GO" # "local"
+    write_location = "GO" # "local"
 
     # penalty gradients are expensive -- only compute the gradient
     # if the constraint is violated by more than this value
-    pg_tol                   = 1e-9
+    pg_tol = 1e-9
 
     # amount to penalize constraint violations
         # => **replaced by constraint_grad_weight**
@@ -36,7 +64,7 @@ function initialize_qG(prm::quasiGrad.Param)
         # => **replaced by constraint_grad_weight**
 
     # mainly for testing
-    eval_grad                = true
+    eval_grad = true
 
     # amount to de-prioritize binary selection over continuous variables
     # note: we don't actually care about binary values, other than the fact
@@ -45,27 +73,17 @@ function initialize_qG(prm::quasiGrad.Param)
 
     # amount to prioritize power selection over other variables
     p_on_projection_weight   = 10.0
-    dev_q_projection_weight  = 10.0
-
-    # print stats at the end?
-    print_final_stats        = true
+    dev_q_projection_weight  = 5.0
 
     # gurobi feasibility tolerance -- needs to be 1e-8 for GO!
-    FeasibilityTol           = 9e-9
-    IntFeasTol               = 9e-9
+    FeasibilityTol = 9e-9
+    IntFeasTol     = 9e-9
 
     # mip gap for Gurobi
-    mip_gap                  = 1/100.0
+    mip_gap = 1/100.0
 
     # Gurobi time limit (projection)
-    time_lim                 = 5.0
-
-    # how much should Gurobi print?
-    GRB_output_flag          = 0
-
-    # print zms at every adam iteration?
-    print_zms                = true
-    print_freq               = 5 # (i.e., every how often)
+    time_lim = 3.0
 
     # for testing:
     scale_c_pbus_testing     = 1.0
@@ -75,30 +93,32 @@ function initialize_qG(prm::quasiGrad.Param)
     # ctg solver settings
     ctg_grad_cutoff          = -50.0  # don't take gradients of ctg violations that are smaller
                                       # (in magnitude) than this value -- not worth it!
-    score_all_ctgs           = false # this is used for testing/post-processing
-    min_buses_for_krylov     = 25    # don't use Krylov if there are this many or fewer buses
-    frac_ctg_keep            = 0.05  # this is the fraction of ctgs that are scored and differentiated
-                                     # i.e., 100*frac_ctg_keep% of them. half are random, and half are
-                                     # the worst case performers from the previous adam iteration.
-    # adaptively choose:
-    if length(prm.ctg.id) < 50
-        # just keep all!
-        frac_ctg_keep = 1.0
-    elseif length(prm.ctg.id) < 250
-        frac_ctg_keep = 0.5
-    elseif length(prm.ctg.id) < 1000
-        frac_ctg_keep = 0.25
-    elseif length(prm.ctg.id) < 5000
-        frac_ctg_keep = 0.25
-    else
-        frac_ctg_keep = 0.25
-    end
+    score_all_ctgs           = false  # this is used for testing/post-processing
+    min_buses_for_krylov     = 25     # don't use Krylov if there are this many or fewer buses
 
-    @warn "keeping all ctgs!!"
-    frac_ctg_keep = 1.0
+    # adaptively the frac of ctgs to keep
+    max_ctg_to_keep = min(500, length(prm.ctg.id))
+    frac_ctg_keep   = max_ctg_to_keep/length(prm.ctg.id)
+    # this is the fraction of ctgs that are scored and differentiated
+    # i.e., 100*frac_ctg_keep% of them. half are random, and half a
+    # the worst case performers from the previous adam iteration.
+
+    # more finetuned:
+        # => if length(prm.ctg.id) < 250
+        # =>     # just keep all!
+        # =>     frac_ctg_keep = 1.0
+        # => elseif length(prm.ctg.id) < 1000
+        # =>     frac_ctg_keep = 0.5
+        # => elseif length(prm.ctg.id) < 2000
+        # =>     frac_ctg_keep = 0.25
+        # => elseif length(prm.ctg.id) < 5000
+        # =>     frac_ctg_keep = 0.15
+        # => else
+        # =>     frac_ctg_keep = 0.1
+        # => end
 
     # cg error: set the max allowable error (no error can be larger than this)
-    emax = 2e-5*sqrt(num_bus)
+    emax = 5e-5*sqrt(num_bus)
     # more generally, emax > sqrt((Ax-b)'(Ax-b)), which grows at sqrt(n) for
     # a constant error value, so we scale given error by sqrt(n) -- seems reasonable
     #
@@ -118,14 +138,19 @@ function initialize_qG(prm::quasiGrad.Param)
     # therefore, cutoff_level / memory is self-scaling! meaning, it automatically gets multuplied by "n"
     cutoff_level                 = 10     # for preconditioner -- let's be bullish here
     build_basecase_cholesky      = true   # we use this to compute the cholesky decomp of the base case
-    accuracy_sparsify_lr_updates = 0.95   # trim all (sorted) values in the lr update vectors which
+    accuracy_sparsify_lr_updates = 1.0   # trim all (sorted) values in the lr update vectors which
                                           # contribute (less than) beyond this goal
-    accuracy_sparsify_lr_updates = 1.0
+    # NOTE on "accuracy_sparsify_lr_updates" -- it is only helpful when 
+    #      the values of u[bit_vec] are applied to the input (y[bit_vec]),
+    #      but I never got this to actually be faster, so it isn't implemented
+    #      -- come back to this!
 
     # initialize adam parameters
-    eps        = 1e-9         # for numerical stability -- keep at 1e-8 (?)
-    beta1      = 0.9
-    beta2      = 0.99
+    eps        = 1e-8         # for numerical stability -- keep at 1e-8 (?)
+    beta1      = 0.75
+    beta2      = 0.9
+
+    # the following are NOT used
     alpha_min  = 0.001/10.0   # for cos decay
     alpha_max  = 0.001/0.5    # for cos decay
     Ti         = 100          # for cos decay -- at Tcurr == Ti, cos() => -1
@@ -137,7 +162,7 @@ function initialize_qG(prm::quasiGrad.Param)
     dc_scale      = 1e-5
     power_scale   = 1e-4
     reserve_scale = 1e-4
-    bin_scale     = 1e-2
+    bin_scale     = 1e-2 # bullish!!!
     alpha_0 = Dict(:vm     => vmva_scale,
                    :va     => vmva_scale,
                    # xfm
@@ -173,18 +198,21 @@ function initialize_qG(prm::quasiGrad.Param)
     # adam plotting
     plot_scale_up = 2.0
     plot_scale_dn = 1e8
+
+    # adam runtime
     adam_max_time = 60.0 # only one is true -- overwritten in GO iterations
     adam_max_its  = 300  # only one is true
     adam_stopper  = "time" # "iterations"
 
     # gradient modifications ====================================================
     apply_grad_weight_homotopy = true
+    # see the homotopy file for more parameters!!!
 
     # gradient modifications -- power balance
     pqbal_grad_type     = "quadratic_for_lbfgs" #"soft_abs", "standard"
     pqbal_grad_weight_p = prm.vio.p_bus # standard: prm.vio.p_bus
     pqbal_grad_weight_q = prm.vio.q_bus # standard: prm.vio.q_bus
-    pqbal_grad_eps2     = 1e-6
+    pqbal_grad_eps2     = 1e-5
 
     # gradient modification for constraints
     constraint_grad_is_soft_abs = true # "standard"
@@ -197,24 +225,30 @@ function initialize_qG(prm::quasiGrad.Param)
     acflow_grad_eps2 = 1e-4
 
     # gradient modification for ctg flow penalties
-    @warn "ctg gradient modification not yet implemented!"
+    # => @warn "ctg gradient modification not yet implemented!"
+    # NOTE -- we ran out of time in E3, and did NOT implement the softabs
+    #         on ctg gradients -- this is probably fine -- you can easily
+    #         compute it when the max() operator is applied, here:
+    #           => bit[:sfr_vio] .= (flw[:sfr_vio] .> qG.grad_ctg_tol) .&& (flw[:sfr_vio] .> flw[:sto_vio])
+    #           => bit[:sto_vio] .= (flw[:sto_vio] .> qG.grad_ctg_tol) .&& (flw[:sto_vio] .> flw[:sfr_vio])
     ctg_grad_is_soft_abs = true # "standard"
     ctg_grad_weight = prm.vio.s_flow
     ctg_grad_eps2 = 1e-4
 
-    # gradient modification for reserves (we do NOT perturb reserve gradeint weights -- they are small enough!)
+    # gradient modification for reserves (we do NOT perturb reserve gradient weights -- they are small enough!)
     reserve_grad_is_soft_abs = true # "standard"
     reserve_grad_eps2 = 1e-4
 
     # ===========================================================================
 
     # shall we compute injections when we build the Jacobian?
-    compute_pf_injs_with_Jac = true
-    max_pf_dx                = 7.5e-4  # stop when max delta < 5e-4
-    max_pf_dx_final_solve    = 5e-5    # final pf solve
-    max_linear_pfs           = 5       # stop when number of pfs > max_linear_pfs
-    max_linear_pfs_total     = 10      # this includes failures
-    Gurobi_pf_obj            = "min_dispatch_distance" # or, "min_dispatch_perturbation"
+    compute_pf_injs_with_Jac   = true
+    max_pf_dx                  = 1e-3    # stop when max delta < 5e-4
+    max_pf_dx_final_solve      = 5e-5    # final pf solve
+    max_linear_pfs             = 2       # stop when number of pfs > max_linear_pfs
+    max_linear_pfs_final_solve = 4       # stop when number of pfs > max_linear_pfs_final_solve
+    max_linear_pfs_total       = 6       # this includes failures
+    Gurobi_pf_obj              = "min_dispatch_distance" # or, "min_dispatch_perturbation"
 
     # don't use given initializations
     initialize_shunt_to_given_value = false
@@ -231,8 +265,6 @@ function initialize_qG(prm::quasiGrad.Param)
     # bias terms of solving bfgs
     include_energy_costs_lbfgs      = false
     include_lbfgs_p0_regularization = false
-    print_lbfgs_iterations          = true
-    print_linear_pf_iterations      = true
     initial_pf_lbfgs_step           = 0.1
     lbfgs_map_over_all_time         = false # assume the same set of variables
                                             # are optimized at each time step
@@ -247,12 +279,13 @@ function initialize_qG(prm::quasiGrad.Param)
         num_lbfgs_steps = 175
     end
 
-    # when we clip p/q in bounds, should we clip based on binary values?  
+    # when we clip p/q in bounds, should we clip based on binary values?
+    # generally, only do this on the LAST adam iteration,
     clip_pq_based_on_bins = true
 
     # for the_quasiGrad! solver itself
     first_qG_step      = true
-    first_qG_step_size = 1e-16
+    first_qG_step_size = 1e-15
 
     # skip ctg eval?
     skip_ctg_eval = false
@@ -264,6 +297,10 @@ function initialize_qG(prm::quasiGrad.Param)
 
     # build the mutable struct
     qG = QG(
+        print_projection_success,
+        print_reserve_cleanup_success,
+        compute_sus_on_each_iteration,
+        compute_sus_frequency,
         pcts_to_round,
         cdist_psolve,
         run_susd_updates,
@@ -280,7 +317,6 @@ function initialize_qG(prm::quasiGrad.Param)
         IntFeasTol,
         mip_gap,
         time_lim,
-        GRB_output_flag,
         print_zms,
         print_freq,
         scale_c_pbus_testing,
@@ -334,6 +370,7 @@ function initialize_qG(prm::quasiGrad.Param)
         max_pf_dx,
         max_pf_dx_final_solve,
         max_linear_pfs,
+        max_linear_pfs_final_solve,
         max_linear_pfs_total,
         print_linear_pf_iterations,
         Gurobi_pf_obj,
@@ -357,14 +394,14 @@ function initialize_qG(prm::quasiGrad.Param)
     return qG
 end
 
-function base_initialization(jsn::Dict{String, Any}; perturb_states::Bool=false, pert_size::Float64=1.0)
+function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, perturb_states::Bool=false, pert_size::Float64=1.0)
     # perform all initializations from the jsn data
     # 
     # parse the input jsn data
     prm, idx, sys = parse_json(jsn)
 
     # build the qg structure
-    qG = initialize_qG(prm)
+    qG = initialize_qG(prm, Div=Div)
 
     # intialize (empty) states
     bit, cgd, grd, mgd, scr, stt, msc = initialize_states(idx, prm, sys, qG)
@@ -949,32 +986,51 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
     if qG.base_solver == "pcg"
         if sys.nb <= qG.min_buses_for_krylov
             # too few buses -- use LU
-            @warn "Not enough buses for Krylov! using LU."
-            # => Ybr_ChPr = quasiGrad.I
-            Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
-        else
-            # test for negative reactances -- @info "Preconditioning is disabled."
-            if minimum(ac_b_params) < 0.0
-                # Amrit Pandey: "watch out for negatvive reactance! You will lose
-                #                pos-sem-def of the Cholesky preconditioner."
-                abs_b    = abs.(ac_b_params)
-                abs_Ybr  = (E'*quasiGrad.spdiagm(abs_b)*E)[2:end,2:end] 
-                Ybr_ChPr = quasiGrad.CholeskyPreconditioner(abs_Ybr, qG.cutoff_level)
-            else
-                Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
-            end
+            @warn "Not enough buses for Krylov! Using LU anyways."
         end
+
+        # time is short -- let's jsut always use ldl preconditioner -- it's just as fast
+        Ybr_ChPr = quasiGrad.lldl(Ybr, memory = qG.cutoff_level);
+
+        # OG#2 solution!
+            # can we build cholesky?
+            # if minimum(ac_b_params) < 0.0
+            #     Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
+            # else
+            #     @info "Unsing an ldl preconditioner."
+            #     Ybr_ChPr = quasiGrad.ldl(Ybr, qG.cutoff_level);
+            # end
+
+        # OG#1 solution!
+            # # test for negative reactances -- @info "Preconditioning is disabled."
+            # if minimum(ac_b_params) < 0.0
+            #     # Amrit Pandey: "watch out for negatvive reactance! You will lose
+            #     #                pos-sem-def of the Cholesky preconditioner."
+            #     abs_b    = abs.(ac_b_params)
+            #     abs_Ybr  = (E'*quasiGrad.spdiagm(abs_b)*E)[2:end,2:end] 
+            #     Ybr_ChPr = quasiGrad.CholeskyPreconditioner(abs_Ybr, qG.cutoff_level)
+            # else
+            #     Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
+            # end
     else
-        # => Ybr_ChPr = quasiGrad.I
-        Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
+        # time is short -- let's jsut always use ldl preconditioner -- it's just as fast
+        Ybr_ChPr = quasiGrad.lldl(Ybr, memory = qG.cutoff_level);
+            # # => Ybr_ChPr = quasiGrad.I
+            # Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
     end
     
     # should we build the cholesky decomposition of the base case
     # admittance matrix? we build this to compute high-fidelity
     # solutions of the rank-1 update matrices
     if qG.build_basecase_cholesky
-        Ybr_Ch = quasiGrad.cholesky(Ybr)
+        if minimum(ac_b_params) < 0.0
+            @info "Yb not PSd -- using ldlt (instead of cholesky) to construct WMI update vectors."
+            Ybr_Ch = quasiGrad.ldlt(Ybr)
+        else
+            Ybr_Ch = quasiGrad.cholesky(Ybr)
+        end
     else
+        # this is nonsense
         Ybr_Ch = quasiGrad.I
     end
 

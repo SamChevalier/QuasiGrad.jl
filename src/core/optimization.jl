@@ -913,7 +913,8 @@ function solve_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vect
         v_margin   = 0.0
 
         # 1. update the ideal dispatch point (active power) -- we do this just once
-        quasiGrad.ideal_dispatch!(idx, msc, stt, sys, tii)
+            # quasiGrad.ideal_dispatch!(idx, msc, stt, sys, tii)
+            # this is no longer needed, because we penalize device injections directly
 
         # 2. update y_bus and Jacobian and bias point -- this
         #    only needs to be done once per time, since xfm/shunt

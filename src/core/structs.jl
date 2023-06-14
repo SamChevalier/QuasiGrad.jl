@@ -18,6 +18,10 @@ end
 
 # record system size information
 mutable struct QG
+    print_projection_success::Bool
+    print_reserve_cleanup_success::Bool
+    compute_sus_on_each_iteration::Bool
+    compute_sus_frequency::Int64
     pcts_to_round::Vector{Float64}
     cdist_psolve::Float64
     run_susd_updates::Bool
@@ -34,7 +38,6 @@ mutable struct QG
     IntFeasTol::Float64
     mip_gap::Float64
     time_lim::Float64
-    GRB_output_flag::Int64
     print_zms::Bool
     print_freq::Int64
     scale_c_pbus_testing::Float64
@@ -88,6 +91,7 @@ mutable struct QG
     max_pf_dx::Float64   
     max_pf_dx_final_solve::Float64
     max_linear_pfs::Int64
+    max_linear_pfs_final_solve::Int64
     max_linear_pfs_total::Int64
     print_linear_pf_iterations::Bool
     Gurobi_pf_obj::String
@@ -434,7 +438,7 @@ struct Ntk
     id::Vector{String}              
     ctg_inds::LinearIndices{1, Tuple{Base.OneTo{Int64}}}    
     Ybr_Ch::Any #quasiGrad.SuiteSparse.CHOLMOD.Factor{Float64} #::Any   # quasiGrad.LinearAlgebra.Cholesky{Float64, Matrix{Float64}}   
-    Ybr_ChPr::quasiGrad.Preconditioners.CholeskyPreconditioner{quasiGrad.Preconditioners.LimitedLDLFactorizations.LimitedLDLFactorization{Float64, Int64, Vector{Int64}, Vector{Int64}}} # Any # quasiGrad.Preconditioners.CholeskyPreconditioner{quasiGrad.Preconditioners.LimitedLDLFactorizations.LimitedLDLFactorization{Float64, Int64}}        
+    Ybr_ChPr::quasiGrad.LimitedLDLFactorization{Float64, Int64, Vector{Int64}, Vector{Int64}}# Preconditioners.CholeskyPreconditioner{quasiGrad.Preconditioners.LimitedLDLFactorizations.LimitedLDLFactorization{Float64, Int64, Vector{Int64}, Vector{Int64}}} # Any # quasiGrad.Preconditioners.CholeskyPreconditioner{quasiGrad.Preconditioners.LimitedLDLFactorizations.LimitedLDLFactorization{Float64, Int64}}        
     u_k::Dict{Int64, Vector{Float64}} # Dict{Int64, SparseArrays.SparseVector{Float64, Int64}} # Dict{Int64, Vector{Float64}}             
     g_k::Dict{Int64, Float64}
     Ybus_acline_real::SparseArrays.SparseMatrixCSC{Float64, Int64}

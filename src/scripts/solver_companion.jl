@@ -8,17 +8,11 @@ using Makie
 # include("../core/plotting.jl")
 
 # ===============
-#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D2/C3S0N00073/scenario_002.json"
-#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
-path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D2/C3S1N00600/scenario_001.json"
-#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D1/C3S0N00073/scenario_002.json"
-#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_117.json"
-#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_129.json"
-#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N04200D1/scenario_111.json"
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
 
 # parameters
 InFile1               = path
-TimeLimitInSeconds    = 650.0
+TimeLimitInSeconds    = 600.0
 NewTimeLimitInSeconds = TimeLimitInSeconds - 35.0
 Division              = 1
 NetworkModel          = "test"
@@ -36,7 +30,7 @@ jsn = quasiGrad.load_json(InFile1)
 
 # I2. initialize the system
 adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
-stt, sys, upd, wct = quasiGrad.base_initialization(jsn);
+stt, sys, upd, wct = quasiGrad.base_initialization(jsn, Div=Division);
 
 @warn "homotopy ON"
 qG.apply_grad_weight_homotopy = true
@@ -44,7 +38,7 @@ qG.apply_grad_weight_homotopy = true
 # I3. run an economic dispatch and update the states
 quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
 
-# %% TT: time
+# TT: time
 time_spent_before_loop = time() - start_time
 
 # TT: how much time is left?
@@ -103,7 +97,7 @@ end
 #   E5. cleanup power flow
 #   E6. clearnup reserves
 #   E7. prepare (and clip) and write solution
-#   E6. post process (print stats)
+#   E7. post process (print stats)
 #   
 # ensure there are no more binaries/discrete variables:
 quasiGrad.count_active_binaries!(prm, upd)
@@ -135,4 +129,4 @@ quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
 # E8. post process
-quasiGrad.post_process_stats(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
