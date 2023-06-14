@@ -108,7 +108,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     min_buses_for_krylov     = 25     # don't use Krylov if there are this many or fewer buses
 
     # adaptively the frac of ctgs to keep
-    max_ctg_to_keep = min(500, length(prm.ctg.id))
+    max_ctg_to_keep = min(50, length(prm.ctg.id))
     frac_ctg_keep   = max_ctg_to_keep/length(prm.ctg.id)
     # this is the fraction of ctgs that are scored and differentiated
     # i.e., 100*frac_ctg_keep% of them. half are random, and half a
@@ -2185,7 +2185,7 @@ function manage_time!(time_left::Float64, qG::quasiGrad.QG)
     # scale to account for 50% of the time -- the rest is for Gurobi
     # and for printing the solution..
     # => we want: alpha*sum(adam_solve_times) = 0.5*time_left
-    alpha            = 0.50*time_left/sum(adam_solve_times)
+    alpha            = 0.30*time_left/sum(adam_solve_times)
     adam_solve_times = alpha*adam_solve_times
 
     # update qG

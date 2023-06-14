@@ -200,7 +200,7 @@ function update_states_and_grads!(
 
     # score the contingencies and take the gradients
     if qG.skip_ctg_eval
-        println("Skipping ctg evaluation!")
+        #println("Skipping ctg evaluation!")
     else
         quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
     end

@@ -129,12 +129,13 @@ function compute_quasiGrad_solution_timed(InFile1::String, NewTimeLimitInSeconds
     time_elapsed = start_time - time()
     println("I2: $(time_elapsed)")
 
+    qG.skip_ctg_eval = true
+
     # I3. run an economic dispatch and update the states
     quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
 
     time_elapsed = start_time - time()
     println("I3: $(time_elapsed)")
-
 
     # TT: time
     time_spent_before_loop = time() - start_time
