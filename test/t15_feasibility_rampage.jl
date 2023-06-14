@@ -218,7 +218,7 @@ else
 end
 
 # %% ===
-for ctg_ii in 1:50#sys.nctg
+for ctg_ii in 1:500#sys.nctg
     println(ctg_ii)
     # components
     cmpnts = prm.ctg.components[ctg_ii]
