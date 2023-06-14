@@ -104,10 +104,9 @@ println(-scr[:zsus])
 
 # %% fix choleky issue
 path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S3.1_20230606/C3S3N23643D1/scenario_001.json"
-path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
 
 InFile1 = path
-jsn = quasiGrad.load_json(InFile1)
+jsn     = quasiGrad.load_json(InFile1)
 
 prm, idx, sys = quasiGrad.parse_json(jsn)
 
@@ -126,9 +125,11 @@ adm = quasiGrad.initialize_adam_states(qG, sys)
 upd = quasiGrad.identify_update_states(prm, idx, stt, sys)
 
 # initialize the contingency network structure and reusable vectors in dicts
-ntk, flw = quasiGrad.initialize_ctg(sys, prm, qG, idx)
+# ntk, flw = quasiGrad.initialize_ctg(sys, prm, qG, idx)
 
-# %% note, the reference bus is always bus #1
+# %% note, the reference bus is always bus #1 ==============================
+#
+# note, the reference bus is always bus #1
 #
 # first, get the ctg limits
 s_max_ctg = [prm.acline.mva_ub_em; prm.xfm.mva_ub_em]
@@ -140,7 +141,7 @@ ac_ids = [prm.acline.id; prm.xfm.id ]
 ac_b_params = -[prm.acline.b_sr; prm.xfm.b_sr]
 
 # build the full incidence matrix: E = lines x buses
-E  = quasiGrad.build_incidence(idx, prm, sys)
+E  = build_incidence(idx, prm, sys)
 Er = E[:,2:end]
 ErT = copy(Er')
 
@@ -157,33 +158,51 @@ Ybr = Yb[2:end,2:end]  # use @view ?
 if qG.base_solver == "pcg"
     if sys.nb <= qG.min_buses_for_krylov
         # too few buses -- use LU
-        @warn "Not enough buses for Krylov! using LU."
-        # => Ybr_ChPr = quasiGrad.I
-        Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
-    else
-        # test for negative reactances -- @info "Preconditioning is disabled."
-        if minimum(ac_b_params) < 0.0
-            # Amrit Pandey: "watch out for negatvive reactance! You will lose
-            #                pos-sem-def of the Cholesky preconditioner."
-            abs_b    = abs.(ac_b_params)
-            abs_Ybr  = (E'*quasiGrad.spdiagm(abs_b)*E)[2:end,2:end] 
-            Ybr_ChPr = quasiGrad.CholeskyPreconditioner(abs_Ybr, qG.cutoff_level)
-        else
-            Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
-        end
+        @warn "Not enough buses for Krylov! Using LU anyways."
     end
+
+    # time is short -- let's jsut always use ldl preconditioner -- it's just as fast
+    Ybr_ChPr = quasiGrad.lldl(Ybr, memory = qG.cutoff_level);
+
+    # OG#2 solution!
+        # can we build cholesky?
+        # if minimum(ac_b_params) < 0.0
+        #     Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
+        # else
+        #     @info "Unsing an ldl preconditioner."
+        #     Ybr_ChPr = quasiGrad.ldl(Ybr, qG.cutoff_level);
+        # end
+
+    # OG#1 solution!
+        # # test for negative reactances -- @info "Preconditioning is disabled."
+        # if minimum(ac_b_params) < 0.0
+        #     # Amrit Pandey: "watch out for negatvive reactance! You will lose
+        #     #                pos-sem-def of the Cholesky preconditioner."
+        #     abs_b    = abs.(ac_b_params)
+        #     abs_Ybr  = (E'*quasiGrad.spdiagm(abs_b)*E)[2:end,2:end] 
+        #     Ybr_ChPr = quasiGrad.CholeskyPreconditioner(abs_Ybr, qG.cutoff_level)
+        # else
+        #     Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
+        # end
 else
-    # => Ybr_ChPr = quasiGrad.I
-    Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
+    # time is short -- let's jsut always use ldl preconditioner -- it's just as fast
+    Ybr_ChPr = quasiGrad.lldl(Ybr, memory = qG.cutoff_level);
+        # # => Ybr_ChPr = quasiGrad.I
+        # Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
 end
 
 # should we build the cholesky decomposition of the base case
 # admittance matrix? we build this to compute high-fidelity
-# solutions of the rank-1 update matrices ldlt(A)
+# solutions of the rank-1 update matrices
 if qG.build_basecase_cholesky
-    #Ybr_Ch = quasiGrad.cholesky(Ybr)
-    Ybr_Ch = quasiGrad.ldlt(Ybr)
+    if minimum(ac_b_params) < 0.0
+        @info "Yb not PSd -- using ldlt (instead of cholesky) to construct WMI update vectors."
+        Ybr_Ch = quasiGrad.ldlt(Ybr)
+    else
+        Ybr_Ch = quasiGrad.cholesky(Ybr)
+    end
 else
+    # this is nonsense
     Ybr_Ch = quasiGrad.I
 end
 
@@ -334,59 +353,3 @@ xfm_phi_scalars = Dict(bus => ac_b_params[xfm_at_bus[bus] .+ sys.nl].*sign.(xfm_
 
 # compute the constant acline Ybus matrix
 Ybus_acline_real, Ybus_acline_imag = quasiGrad.initialize_acline_Ybus(idx, prm, sys)
-
-# %% question if Ybr is NOT PSD, does the preconditioner still work pretty well?
-#
-# case 1: yes psd
-Ybs      = quasiGrad.spdiagm(ac_b_params)
-Yb       = E'*Ybs*E
-Ybr      = Yb[2:end,2:end]  # use @view ? 
-Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
-
-# solve
-b     = randn(616)
-x     = randn(616)
-t_ind = 1
-_, ch = quasiGrad.cg!(x, Ybr, b, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
-ch
-
-# %% ==================
-t_ind = 1
-
-ac_b_params_neg      = copy(ac_b_params)
-#ac_b_params_neg[5]   = -ac_b_params_neg[5]
-#ac_b_params_neg[12]  = -ac_b_params_neg[12]
-#ac_b_params_neg[18]  = -ac_b_params_neg[18]
-#ac_b_params_neg[22]  = -ac_b_params_neg[22]
-#ac_b_params_neg[55]  = -ac_b_params_neg[55]
-#ac_b_params_neg[58]  = -ac_b_params_neg[58]
-#ac_b_params_neg[59]  = -ac_b_params_neg[59]
-#ac_b_params_neg[100] = -ac_b_params_neg[100]
-#ac_b_params_neg[end] = -ac_b_params_neg[end]
-
-Ybs_neg      = quasiGrad.spdiagm(ac_b_params_neg)
-Yb_neg       = E'*Ybs_neg*E
-Ybr_neg      = Yb_neg[2:end,2:end]  # use @view ? 
-abs_b        = abs.(ac_b_params_neg)
-abs_Ybr      = (E'*quasiGrad.spdiagm(abs_b)*E)[2:end,2:end] 
-Ybr_ChPr_neg = quasiGrad.CholeskyPreconditioner(abs_Ybr, qG.cutoff_level);
-Ybr_diag     = quasiGrad.DiagonalPreconditioner(Ybr_neg);
-Ybr_ldl      = lldl(Ybr_neg, memory = qG.cutoff_level)
-
-# solve
-b = randn(616); 
-x = copy(b)
-@time _, ch = quasiGrad.cg!(x, Ybr_neg, b, abstol = qG.pcg_tol, Pl=Ybr_ChPr, maxiter = 1000, log = true)
-println(ch)
-
-x = copy(b)
-@time _, ch = quasiGrad.cg!(x, Ybr_neg, b, abstol = qG.pcg_tol, Pl=Ybr_diag, maxiter = 1000, log = true)
-println(ch)
-
-x = copy(b)
-@time _, ch = quasiGrad.cg!(x, Ybr_neg, b, abstol = qG.pcg_tol, Pl=Ybr_ldl, maxiter = 1000, log = true)
-println(ch)
-
-# %%
-
-@btime lldl(Ybr_neg, memory = qG.cutoff_level)

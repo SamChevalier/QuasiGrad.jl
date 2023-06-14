@@ -1,4 +1,4 @@
-function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=False)
+function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=false)
     # In this function, we hardcode a number of important parameters
     # and intructions related to how the qG solver will operate. 
     # It also contains all of the adam solver parameters!
