@@ -1001,7 +1001,7 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
         end
 
         # time is short -- let's jsut always use ldl preconditioner -- it's just as fast
-        Ybr_ChPr = quasiGrad.lldl(Ybr, memory = qG.cutoff_level);
+        Ybr_ChPr = quasiGrad.Preconditioners.lldl(Ybr, memory = qG.cutoff_level);
 
         # OG#2 solution!
             # can we build cholesky?
@@ -1025,7 +1025,7 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
             # end
     else
         # time is short -- let's jsut always use ldl preconditioner -- it's just as fast
-        Ybr_ChPr = quasiGrad.lldl(Ybr, memory = qG.cutoff_level);
+        Ybr_ChPr = quasiGrad.Preconditioners.lldl(Ybr, memory = qG.cutoff_level);
             # # => Ybr_ChPr = quasiGrad.I
             # Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
     end
