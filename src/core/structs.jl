@@ -53,6 +53,7 @@ mutable struct QG
     cutoff_level::Int64
     build_basecase_cholesky::Bool     
     accuracy_sparsify_lr_updates::Float64
+    save_sparse_WMI_updates::Bool
     base_solver::String
     ctg_solver::String
     build_ctg_full::Bool

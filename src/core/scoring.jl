@@ -38,45 +38,96 @@ function score_zt!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, s
     # reset:
     scr[:zt_original] = 0.0
     scr[:zt_penalty]  = 0.0
+    scr[:encs]        = 0.0
+    scr[:enpr]        = 0.0
+    scr[:zp]          = 0.0
+    scr[:zq]          = 0.0
+    scr[:acl]         = 0.0
+    scr[:xfm]         = 0.0
+    scr[:zone]        = 0.0
+    scr[:rsv]         = 0.0
+    scr[:zoud]        = 0.0
+    scr[:zsus]        = 0.0
 
     # fist, compute some useful scores to report
-    scr[:encs] = +sum(sum(stt[:zen_dev][tii][idx.cs_devs] for tii in prm.ts.time_keys))
-    scr[:enpr] = -sum(sum(stt[:zen_dev][tii][idx.pr_devs] for tii in prm.ts.time_keys))
-    scr[:zp]   = -sum(sum(stt[:zp][tii]                   for tii in prm.ts.time_keys))
-    scr[:zq]   = -sum(sum(stt[:zq][tii]                   for tii in prm.ts.time_keys))
-    scr[:acl]  = -sum(sum(stt[:zs_acline][tii]            for tii in prm.ts.time_keys)) 
-    scr[:xfm]  = -sum(sum(stt[:zs_xfm][tii]               for tii in prm.ts.time_keys)) 
+    for tii in prm.ts.time_keys
+        scr[:encs] += sum(@view stt[:zen_dev][tii][idx.cs_devs])
+        scr[:enpr] -= sum(@view stt[:zen_dev][tii][idx.pr_devs])
+        scr[:zp]   -= sum(stt[:zp][tii])
+        scr[:zq]   -= sum(stt[:zq][tii])
+        scr[:acl]  -= sum(stt[:zs_acline][tii])
+        scr[:xfm]  -= sum(stt[:zs_xfm][tii])
+    end
 
-    scr[:zone] = -(
-        # zonal reserve penalties (P) 
-        sum(sum(stt[:zrgu_zonal][tii] for tii in prm.ts.time_keys)) +  
-        sum(sum(stt[:zrgd_zonal][tii] for tii in prm.ts.time_keys)) + 
-        sum(sum(stt[:zscr_zonal][tii] for tii in prm.ts.time_keys)) + 
-        sum(sum(stt[:znsc_zonal][tii] for tii in prm.ts.time_keys)) + 
-        sum(sum(stt[:zrru_zonal][tii] for tii in prm.ts.time_keys)) +  
-        sum(sum(stt[:zrrd_zonal][tii] for tii in prm.ts.time_keys)) + 
-        # zonal reserve penalties (Q)
-        sum(sum(stt[:zqru_zonal][tii] for tii in prm.ts.time_keys)) + 
-        sum(sum(stt[:zqrd_zonal][tii] for tii in prm.ts.time_keys)))
-    scr[:rsv] = -(
-        # local reserve penalties
-        sum(sum(stt[:zrgu][tii] for tii in prm.ts.time_keys)) +
-        sum(sum(stt[:zrgd][tii] for tii in prm.ts.time_keys)) +
-        sum(sum(stt[:zscr][tii] for tii in prm.ts.time_keys)) +
-        sum(sum(stt[:znsc][tii] for tii in prm.ts.time_keys)) +
-        sum(sum(stt[:zrru][tii] for tii in prm.ts.time_keys)) +
-        sum(sum(stt[:zrrd][tii] for tii in prm.ts.time_keys)) +
-        sum(sum(stt[:zqru][tii] for tii in prm.ts.time_keys)) +
-        sum(sum(stt[:zqrd][tii] for tii in prm.ts.time_keys)))
-    scr[:zoud] = -(
-        sum(sum(stt[:zon_dev][tii]    for tii in prm.ts.time_keys)) + 
-        sum(sum(stt[:zsu_dev][tii]    for tii in prm.ts.time_keys)) + 
-        sum(sum(stt[:zsu_acline][tii] for tii in prm.ts.time_keys)) +
-        sum(sum(stt[:zsu_xfm][tii]    for tii in prm.ts.time_keys)) + 
-        sum(sum(stt[:zsd_dev][tii]    for tii in prm.ts.time_keys)) + 
-        sum(sum(stt[:zsd_acline][tii] for tii in prm.ts.time_keys)) + 
-        sum(sum(stt[:zsd_xfm][tii]    for tii in prm.ts.time_keys)))
-    scr[:zsus] = -sum(sum(stt[:zsus_dev][tii] for tii in prm.ts.time_keys))
+    # => scr[:encs] = +sum(sum(@view stt[:zen_dev][tii][idx.cs_devs] for tii in prm.ts.time_keys))
+    # => scr[:enpr] = -sum(sum(@view stt[:zen_dev][tii][idx.pr_devs] for tii in prm.ts.time_keys))
+    # => scr[:zp]   = -sum(sum(stt[:zp][tii]                   for tii in prm.ts.time_keys))
+    # => scr[:zq]   = -sum(sum(stt[:zq][tii]                   for tii in prm.ts.time_keys))
+    # => scr[:acl]  = -sum(sum(stt[:zs_acline][tii]            for tii in prm.ts.time_keys)) 
+    # => scr[:xfm]  = -sum(sum(stt[:zs_xfm][tii]               for tii in prm.ts.time_keys)) 
+    for tii in prm.ts.time_keys
+        scr[:zone] -= (
+            # zonal reserve penalties (P) 
+            sum(stt[:zrgu_zonal][tii]) +  
+            sum(stt[:zrgd_zonal][tii]) + 
+            sum(stt[:zscr_zonal][tii]) + 
+            sum(stt[:znsc_zonal][tii]) + 
+            sum(stt[:zrru_zonal][tii]) +  
+            sum(stt[:zrrd_zonal][tii]) + 
+            # zonal reserve penalties (Q)
+            sum(stt[:zqru_zonal][tii]) + 
+            sum(stt[:zqrd_zonal][tii]))
+        scr[:rsv] -= (
+            # local reserve penalties
+            sum(stt[:zrgu][tii]) +
+            sum(stt[:zrgd][tii]) +
+            sum(stt[:zscr][tii]) +
+            sum(stt[:znsc][tii]) +
+            sum(stt[:zrru][tii]) +
+            sum(stt[:zrrd][tii]) +
+            sum(stt[:zqru][tii]) +
+            sum(stt[:zqrd][tii]))
+        scr[:zoud] -= (
+            sum(stt[:zon_dev][tii]   ) + 
+            sum(stt[:zsu_dev][tii]   ) + 
+            sum(stt[:zsu_acline][tii]) +
+            sum(stt[:zsu_xfm][tii]   ) + 
+            sum(stt[:zsd_dev][tii]   ) + 
+            sum(stt[:zsd_acline][tii]) + 
+            sum(stt[:zsd_xfm][tii]   ))
+        scr[:zsus] = -sum(stt[:zsus_dev][tii])
+    end
+
+    # => scr[:zone] = -(
+    # =>     # zonal reserve penalties (P) 
+    # =>     sum(sum(stt[:zrgu_zonal][tii] for tii in prm.ts.time_keys)) +  
+    # =>     sum(sum(stt[:zrgd_zonal][tii] for tii in prm.ts.time_keys)) + 
+    # =>     sum(sum(stt[:zscr_zonal][tii] for tii in prm.ts.time_keys)) + 
+    # =>     sum(sum(stt[:znsc_zonal][tii] for tii in prm.ts.time_keys)) + 
+    # =>     sum(sum(stt[:zrru_zonal][tii] for tii in prm.ts.time_keys)) +  
+    # =>     sum(sum(stt[:zrrd_zonal][tii] for tii in prm.ts.time_keys)) + 
+    # =>     # zonal reserve penalties (Q)
+    # =>     sum(sum(stt[:zqru_zonal][tii] for tii in prm.ts.time_keys)) + 
+    # =>     sum(sum(stt[:zqrd_zonal][tii] for tii in prm.ts.time_keys)))
+    # => scr[:rsv] = -(
+    # =>     # local reserve penalties
+    # =>     sum(sum(stt[:zrgu][tii] for tii in prm.ts.time_keys)) +
+    # =>     sum(sum(stt[:zrgd][tii] for tii in prm.ts.time_keys)) +
+    # =>     sum(sum(stt[:zscr][tii] for tii in prm.ts.time_keys)) +
+    # =>     sum(sum(stt[:znsc][tii] for tii in prm.ts.time_keys)) +
+    # =>     sum(sum(stt[:zrru][tii] for tii in prm.ts.time_keys)) +
+    # =>     sum(sum(stt[:zrrd][tii] for tii in prm.ts.time_keys)) +
+    # =>     sum(sum(stt[:zqru][tii] for tii in prm.ts.time_keys)) +
+    # =>     sum(sum(stt[:zqrd][tii] for tii in prm.ts.time_keys)))
+    # => scr[:zoud] = -(
+    # =>     sum(sum(stt[:zon_dev][tii]    for tii in prm.ts.time_keys)) + 
+    # =>     sum(sum(stt[:zsu_dev][tii]    for tii in prm.ts.time_keys)) + 
+    # =>     sum(sum(stt[:zsu_acline][tii] for tii in prm.ts.time_keys)) +
+    # =>     sum(sum(stt[:zsu_xfm][tii]    for tii in prm.ts.time_keys)) + 
+    # =>     sum(sum(stt[:zsd_dev][tii]    for tii in prm.ts.time_keys)) + 
+    # =>     sum(sum(stt[:zsd_acline][tii] for tii in prm.ts.time_keys)) + 
+    # =>     sum(sum(stt[:zsd_xfm][tii]    for tii in prm.ts.time_keys)))
+    # => scr[:zsus] = -sum(sum(stt[:zsus_dev][tii] for tii in prm.ts.time_keys))
     
     # compute the original "zt" score
     scr[:zt_original] =  scr[:encs] + scr[:enpr] + scr[:zoud] + scr[:zsus] + scr[:acl] +

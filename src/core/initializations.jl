@@ -149,8 +149,9 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # therefore, cutoff_level / memory is self-scaling! meaning, it automatically gets multuplied by "n"
     cutoff_level                 = 10     # for preconditioner -- let's be bullish here
     build_basecase_cholesky      = true   # we use this to compute the cholesky decomp of the base case
-    accuracy_sparsify_lr_updates = 1.0   # trim all (sorted) values in the lr update vectors which
+    accuracy_sparsify_lr_updates = 1.0    # trim all (sorted) values in the lr update vectors which
                                           # contribute (less than) beyond this goal
+    save_sparse_WMI_updates      = false # this turns off the sparsification, which is expensive!
     # NOTE on "accuracy_sparsify_lr_updates" -- it is only helpful when 
     #      the values of u[bit_vec] are applied to the input (y[bit_vec]),
     #      but I never got this to actually be faster, so it isn't implemented
@@ -343,6 +344,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
         cutoff_level,
         build_basecase_cholesky,      
         accuracy_sparsify_lr_updates,
+        save_sparse_WMI_updates,
         base_solver,
         ctg_solver,
         build_ctg_full,
@@ -1079,16 +1081,19 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
     end
 
     for ctg_ii in 1:sys.nctg
+        if mod(ctg_ii-1,1000) == 0
+            @info "solving the next one thousand wmi factors"
+        end
         # components
         cmpnts = prm.ctg.components[ctg_ii]
         for (cmp_ii,cmp) in enumerate(cmpnts)
             # get the cmp index and b
             cmp_index = findfirst(x -> x == cmp, ac_ids) 
-            cmp_b     = -ac_b_params[cmp_index] # negative, because we subtract it out
+            # => cmp_b     = -ac_b_params[cmp_index] # negative, because we subtract it out
 
             # output
             ctg_out_ind[ctg_ii][cmp_ii] = cmp_index
-            ctg_params[ctg_ii][cmp_ii]  = cmp_b
+            ctg_params[ctg_ii][cmp_ii]  = -ac_b_params[cmp_index]
 
             # -> y_diag[cmp_index] = sqrt(cmp_b)
                 # we record these in ctg
@@ -1113,49 +1118,55 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
             # NOTE: this is written assuming only ONE element
             # can be outaged
 
-            # no need to save:
-                # v_k[ctg_ii] =  Er[ctg_out_ind[ctg_ii][1],:]
-                # b_k[ctg_ii] = -ac_b_params[ctg_out_ind[ctg_ii][1]]
-            v_k = Er[ctg_out_ind[ctg_ii][1],:]
-            b_k = -ac_b_params[ctg_out_ind[ctg_ii][1]]
-            #
-            # construction: 
-            # 
-            # Ybr_k[ctg_ii] = ctg[:Ybr] + v*beta*v'
-            #               = ctg[:Ybr] + vLR_k[ctg_ii]*beta*vLR_k[ctg_ii]
-            #
-            # if v, b saved:
-                # u_k[ctg_ii] = Ybr\Array(v_k[ctg_ii])
-                # w_k[ctg_ii] = b_k[ctg_ii]*u_k[ctg_ii]/(1+(v_k[ctg_ii]'*u_k[ctg_ii])*b_k[ctg_ii])
-            # LU fac => u_k[ctg_ii] = Ybr\Vector(v_k)
-                # this is very slow -- we need to us cg and then enforce sparsity!
-                # Float64.(Vector(v_k)) is not needed! cg can handle sparse :)
-                # quasiGrad.cg!(u_k[ctg_ii], Ybr, Vector(Float64.(v_k)), abstol = qG.pcg_tol, Pl=Ybr_ChPr)
-            # enforce sparsity -- should be sparse anyways
-                # u_k[ctg_ii][abs.(u_k[ctg_ii]) .< 1e-8] .= 0.0
+            if qG.save_sparse_WMI_updates
+                # no need to save:
+                    # v_k[ctg_ii] =  Er[ctg_out_ind[ctg_ii][1],:]
+                    # b_k[ctg_ii] = -ac_b_params[ctg_out_ind[ctg_ii][1]]
+                v_k = Er[ctg_out_ind[ctg_ii][1],:]
+                b_k = -ac_b_params[ctg_out_ind[ctg_ii][1]]
+                #
+                # construction: 
+                # 
+                # Ybr_k[ctg_ii] = ctg[:Ybr] + v*beta*v'
+                #               = ctg[:Ybr] + vLR_k[ctg_ii]*beta*vLR_k[ctg_ii]
+                #
+                # if v, b saved:
+                    # u_k[ctg_ii] = Ybr\Array(v_k[ctg_ii])
+                    # w_k[ctg_ii] = b_k[ctg_ii]*u_k[ctg_ii]/(1+(v_k[ctg_ii]'*u_k[ctg_ii])*b_k[ctg_ii])
+                # LU fac => u_k[ctg_ii] = Ybr\Vector(v_k)
+                    # this is very slow -- we need to us cg and then enforce sparsity!
+                    # Float64.(Vector(v_k)) is not needed! cg can handle sparse :)
+                    # quasiGrad.cg!(u_k[ctg_ii], Ybr, Vector(Float64.(v_k)), abstol = qG.pcg_tol, Pl=Ybr_ChPr)
+                # enforce sparsity -- should be sparse anyways
+                    # u_k[ctg_ii][abs.(u_k[ctg_ii]) .< 1e-8] .= 0.0
 
-            # we want to sparsify a high-fidelity solution:
-            # uk_d = Ybr_Ch\v_k[ctg_ii]
-            # quasiGrad.cg!(u_k[ctg_ii], Ybr, Vector(Float64.(v_k)), abstol = qG.pcg_tol, Pl=Ybr_ChPr)
-            # u_k[ctg_ii] = Ybr\Vector(v_k)
-            # u_k[ctg_ii] = C\Vector(v_k)
-            if qG.build_basecase_cholesky
-                u_k_local = (Ybr_Ch\v_k)[:]
+                # we want to sparsify a high-fidelity solution:
+                # uk_d = Ybr_Ch\v_k[ctg_ii]
+                # quasiGrad.cg!(u_k[ctg_ii], Ybr, Vector(Float64.(v_k)), abstol = qG.pcg_tol, Pl=Ybr_ChPr)
+                # u_k[ctg_ii] = Ybr\Vector(v_k)
+                # u_k[ctg_ii] = C\Vector(v_k)
+                if qG.build_basecase_cholesky
+                    u_k_local = (Ybr_Ch\v_k)[:]
+                else
+                    u_k_local = Ybr\Vector(v_k)
+                end
+                # sparsify
+                abs_u_k           = abs.(u_k_local)
+                u_k_ii_SmallToBig = sortperm(abs_u_k)
+                bit_vec           = cumsum(abs_u_k[u_k_ii_SmallToBig])/sum(abs_u_k) .> (1.0 - qG.accuracy_sparsify_lr_updates)
+                # edge case is caught! bit_vec will never be empty. Say, abs_u_k[u_k_ii_SmallToBig] = [0,0,1], then we have
+                # bit_vec = cumsum(abs_u_k[u_k_ii_SmallToBig])/sum(abs_u_k) .> 0.01%, say => bit_vec = [0,0,1] 
+                # 
+                # also, we use ".>" because we only want to include all elements that contribute to meeting the stated accuracy goal
+                u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]] = u_k_local[u_k_ii_SmallToBig[bit_vec]]
+                # this is ok, since u_k and w_k have the same sparsity pattern
+                # => for the "w_k" formulation: w_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]] = b_k*u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]]/(1.0+(quasiGrad.dot(v_k,u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]]))*b_k)
+                g_k[ctg_ii] = b_k/(1.0+(quasiGrad.dot(v_k,u_k[ctg_ii]))*b_k)
             else
-                u_k_local = Ybr\Vector(v_k)
+                # this code is optimized -- see above for comments
+                u_k[ctg_ii] .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
+                g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
             end
-            # sparsify
-            abs_u_k           = abs.(u_k_local)
-            u_k_ii_SmallToBig = sortperm(abs_u_k)
-            bit_vec           = cumsum(abs_u_k[u_k_ii_SmallToBig])/sum(abs_u_k) .> (1.0 - qG.accuracy_sparsify_lr_updates)
-            # edge case is caught! bit_vec will never be empty. Say, abs_u_k[u_k_ii_SmallToBig] = [0,0,1], then we have
-            # bit_vec = cumsum(abs_u_k[u_k_ii_SmallToBig])/sum(abs_u_k) .> 0.01%, say => bit_vec = [0,0,1] 
-            # 
-            # also, we use ".>" because we only want to include all elements that contribute to meeting the stated accuracy goal
-            u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]] = u_k_local[u_k_ii_SmallToBig[bit_vec]]
-            # this is ok, since u_k and w_k have the same sparsity pattern
-            # => for the "w_k" formulation: w_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]] = b_k*u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]]/(1.0+(quasiGrad.dot(v_k,u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]]))*b_k)
-            g_k[ctg_ii] = b_k/(1.0+(quasiGrad.dot(v_k,u_k[ctg_ii]))*b_k)
         end
     end
 
@@ -1764,7 +1775,7 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
         :acline_qfr      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
         :acline_pto      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
         :acline_qto      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
-        :u_on_acline     => Dict(tkeys[ii] => ones(sys.nl)                    for ii in 1:(sys.nT)),
+        :u_on_acline     => Dict(tkeys[ii] => prm.acline.init_on_status       for ii in 1:(sys.nT)),
         :u_su_acline     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
         :u_sd_acline     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
         # xfms
@@ -1774,7 +1785,7 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
         :xfm_qfr      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
         :xfm_pto      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
         :xfm_qto      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
-        :u_on_xfm     => Dict(tkeys[ii] => ones(sys.nx)                    for ii in 1:(sys.nT)),
+        :u_on_xfm     => Dict(tkeys[ii] => prm.xfm.init_on_status          for ii in 1:(sys.nT)),
         :u_su_xfm     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
         :u_sd_xfm     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
         # all reactive ac flows -- used for ctgs

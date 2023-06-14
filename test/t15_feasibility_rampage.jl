@@ -43,13 +43,25 @@ path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases
 path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S3.1_20230606/C3S3N00037D3/scenario_001.json"
 
 
-# %% death :)
+# ==================================== C3E2D2_20230510 ==================================== #
+path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E2D2_20230510/C3E2N01576D2/scenario_002.json"
+path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E2D2_20230510/C3E2N01576D2/scenario_130.json"
+path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E2D2_20230510/C3E2N04224D2/scenario_033.json"
+
 # path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S3.1_20230606/C3S3N23643D1/scenario_001.json"
-path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
-path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S3.1_20230606/C3S3N00037D2/scenario_001.json"
+# path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
+# path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S3.1_20230606/C3S3N00037D2/scenario_001.json"
 
 solution_file = "solution.jl"
 load_and_project(path, solution_file)
+
+# %% ===========
+path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S3.1_20230606/C3S3N23643D1/scenario_001.json"
+
+InFile1 = path
+jsn = quasiGrad.load_json(InFile1)
+adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn)
+
 
 
 # %% ============== zsus :) ===========
@@ -218,7 +230,7 @@ else
 end
 
 # %% ===
-for ctg_ii in 1:500#sys.nctg
+for ctg_ii in 1:sys.nctg
     println(ctg_ii)
     # components
     cmpnts = prm.ctg.components[ctg_ii]
@@ -249,6 +261,35 @@ for ctg_ii in 1:500#sys.nctg
 
     # and/or, should we build the low rank ctg elements?
     if qG.build_ctg_lowrank == true
+        # this code is optimized -- see above for comments
+        u_k[ctg_ii] .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
+        g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(v_k,u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
+    end
+end
+
+# %%
+dd = quasiGrad.Preconditioners.lldl(Ybr, memory = 45);
+vv = Er[ctg_out_ind[ctg_ii][1],:]
+vvv = Vector(Float64.(vv))
+@time Ybr_Ch\vv;
+@time dd\vvv;
+
+# %%
+A = Ybr
+
+LLDL = quasiGrad.Preconditioners.lldl(A, memory = 10)
+sol = ones(A.n)
+b = A * sol
+x = LLDL \ b
+
+
+# %% ===============
+t1 = time()
+for ctg_ii in 1:500 #sys.nctg
+    println(ctg_ii)
+    
+    # and/or, should we build the low rank ctg elements?
+    if qG.build_ctg_lowrank == true
         # .. vs low rank
         #
         # NOTE: this is written assuming only ONE element
@@ -257,8 +298,8 @@ for ctg_ii in 1:500#sys.nctg
         # no need to save:
             # v_k[ctg_ii] =  Er[ctg_out_ind[ctg_ii][1],:]
             # b_k[ctg_ii] = -ac_b_params[ctg_out_ind[ctg_ii][1]]
-        v_k = Er[ctg_out_ind[ctg_ii][1],:]
-        b_k = -ac_b_params[ctg_out_ind[ctg_ii][1]]
+        #v_k = Er[ctg_out_ind[ctg_ii][1],:]
+        #b_k = -ac_b_params[ctg_out_ind[ctg_ii][1]]
         #
         # construction: 
         # 
@@ -280,25 +321,33 @@ for ctg_ii in 1:500#sys.nctg
         # quasiGrad.cg!(u_k[ctg_ii], Ybr, Vector(Float64.(v_k)), abstol = qG.pcg_tol, Pl=Ybr_ChPr)
         # u_k[ctg_ii] = Ybr\Vector(v_k)
         # u_k[ctg_ii] = C\Vector(v_k)
-        if qG.build_basecase_cholesky
-            u_k_local = (Ybr_Ch\v_k)[:]
-        else
-            u_k_local = Ybr\Vector(v_k)
-        end
+        u_k[ctg_ii] .= (Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:])
+        g_k[ctg_ii] = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(v_k,u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
+
+        #u_k_local = (Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:])[:]
+
         # sparsify
-        abs_u_k           = abs.(u_k_local)
-        u_k_ii_SmallToBig = sortperm(abs_u_k)
-        bit_vec           = cumsum(abs_u_k[u_k_ii_SmallToBig])/sum(abs_u_k) .> (1.0 - qG.accuracy_sparsify_lr_updates)
+        #abs_u_k           = abs.(u_k_local)
+        #u_k_ii_SmallToBig = sortperm(abs_u_k)
+        #bit_vec           = cumsum(abs_u_k[u_k_ii_SmallToBig])/sum(abs_u_k) .> (1.0 - qG.accuracy_sparsify_lr_updates)
         # edge case is caught! bit_vec will never be empty. Say, abs_u_k[u_k_ii_SmallToBig] = [0,0,1], then we have
         # bit_vec = cumsum(abs_u_k[u_k_ii_SmallToBig])/sum(abs_u_k) .> 0.01%, say => bit_vec = [0,0,1] 
         # 
         # also, we use ".>" because we only want to include all elements that contribute to meeting the stated accuracy goal
-        u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]] = u_k_local[u_k_ii_SmallToBig[bit_vec]]
+        #u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]] = u_k_local[u_k_ii_SmallToBig[bit_vec]]
         # this is ok, since u_k and w_k have the same sparsity pattern
         # => for the "w_k" formulation: w_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]] = b_k*u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]]/(1.0+(quasiGrad.dot(v_k,u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]]))*b_k)
-        g_k[ctg_ii] = b_k/(1.0+(quasiGrad.dot(v_k,u_k[ctg_ii]))*b_k)
+        #g_k[ctg_ii] = b_k/(1.0+(quasiGrad.dot(v_k,u_k[ctg_ii]))*b_k)
     end
 end
+println(time() - t1)
+# %%
+u_k[ctg_ii] .= (Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:])
+
+# %%
+ctg_ii    = 17
+v_k       = Er[ctg_out_ind[ctg_ii][1],:]
+u_k_local = (Ybr_Ch\v_k)[:]
 
 # %% initialize ctg state
 tkeys = [Symbol("t"*string(ii)) for ii in 1:(sys.nT)]
@@ -333,3 +382,11 @@ xfm_phi_scalars = Dict(bus => ac_b_params[xfm_at_bus[bus] .+ sys.nl].*sign.(xfm_
 
 # compute the constant acline Ybus matrix
 Ybus_acline_real, Ybus_acline_imag = quasiGrad.initialize_acline_Ybus(idx, prm, sys)
+
+# %%
+v = zeros(10000)
+vv = randn(10000)
+
+@btime t= quasiGrad.dot($v,$v)
+
+@btime t = quasiGrad.dot($vv,$vv)

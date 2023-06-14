@@ -91,9 +91,9 @@ print("t17: ")
 print("t18: ")
 @time quasiGrad.score_zms!(scr)
 
-# %% compute the master grad
+# compute the master grad
 print("t19: ")
-@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
+@time quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 println("")
 
 # %%

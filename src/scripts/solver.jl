@@ -96,7 +96,7 @@ function compute_quasiGrad_solution_feas(InFile1::String, NewTimeLimitInSeconds:
     jsn = quasiGrad.load_json(InFile1)
 
     # initialize
-    adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn)
+    adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn, hpc_params=true)
 
     # solve
     fix       = true

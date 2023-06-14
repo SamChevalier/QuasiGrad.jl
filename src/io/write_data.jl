@@ -121,9 +121,10 @@ function post_process_stats(
         quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
         
         # flop, just in case
-        qG.eval_grad      = true
-        qG.score_all_ctgs = false
-
+        qG.eval_grad         = true
+        qG.score_all_ctgs    = false
+        qG.print_final_stats = true
+        
         # print some stats?
         if qG.print_final_stats
             zms     = scr[:zms]

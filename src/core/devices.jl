@@ -845,12 +845,12 @@ function device_startup_states!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vect
             stt[:zsus_dev][tii][dev] = 0.0
 
             # loop over sus (i.e., f in F)
-            for ii in 1:min(prm.dev.num_sus[dev],1)
+            for ii in 1:prm.dev.num_sus[dev] # min(prm.dev.num_sus[dev],1)
             #for ii in 1:prm.dev.num_sus[dev]
                 if prm.dev.startup_states[dev][ii][1] < 0.0 # skip if 0! why are these even here?
                     # grab the sets of T_sus
-                    #T_sus_jft = idx.Ts_sus_jft[dev][t_ind][ii] # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
-                    #T_sus_jf  = idx.Ts_sus_jf[dev][t_ind][ii]  # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
+                    # => T_sus_jft = idx.Ts_sus_jft[dev][t_ind][ii] # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
+                    # => T_sus_jf  = idx.Ts_sus_jf[dev][t_ind][ii]  # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
 
                     if tii in idx.Ts_sus_jf[dev][t_ind][ii]
                         if tii == :t1
@@ -862,8 +862,7 @@ function device_startup_states!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vect
                         else
                             u_on_max_ind = argmax([stt[:u_on_dev][tii_inst][dev] for tii_inst in idx.Ts_sus_jft[dev][t_ind][ii]])
                             u_sus_bnd    = stt[:u_on_dev][idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]][dev]
-
-                            # u_sus_bnd = maximum([stt[:u_on_dev][tii_inst][dev] for tii_inst in idx.Ts_sus_jft[dev][t_ind][ii]])
+                            # => u_sus_bnd = maximum([stt[:u_on_dev][tii_inst][dev] for tii_inst in idx.Ts_sus_jft[dev][t_ind][ii]])
                             
                             # => u_sus_bnd = maximum([stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft])
                             # ** stt[:u_sus_bnd][tii][dev][ii] = stt[:u_on_dev][T_sus_jft[u_on_max_ind]][dev]
