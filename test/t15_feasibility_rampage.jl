@@ -51,30 +51,8 @@ path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases
 solution_file = "solution.jl"
 load_and_project(path, solution_file)
 
-# %%
-path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
 
-InFile1 = path
-jsn = quasiGrad.load_json(InFile1)
-
-# initialize
-adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn, Div=1, perturb_states=true, pert_size=1.0)
-
-# solve
-fix       = true
-pct_round = 100.0
-#quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
-quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
-quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
-quasiGrad.snap_shunts!(true, prm, stt, upd)
-quasiGrad.write_solution(solution_file, prm, qG, stt, sys)
-quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
-
-
-
-
-
-# %% =========================
+# %% ============== zsus :) ===========
 path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S3.1_20230606/C3S3N01576D1/scenario_007.json"
 
 InFile1 = path
@@ -93,8 +71,7 @@ quasiGrad.snap_shunts!(true, prm, stt, upd)
 quasiGrad.write_solution(solution_file, prm, qG, stt, sys)
 quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
-# %% =====================
-
+# %% =====================:
 quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
 scr[:zsus] = -sum(sum(stt[:zsus_dev][tii] for tii in prm.ts.time_keys))
 println(-scr[:zsus])
@@ -141,7 +118,7 @@ ac_ids = [prm.acline.id; prm.xfm.id ]
 ac_b_params = -[prm.acline.b_sr; prm.xfm.b_sr]
 
 # build the full incidence matrix: E = lines x buses
-E  = build_incidence(idx, prm, sys)
+E  = quasiGrad.build_incidence(idx, prm, sys)
 Er = E[:,2:end]
 ErT = copy(Er')
 
@@ -150,6 +127,7 @@ Ybs = quasiGrad.spdiagm(ac_b_params)
 Yb  = E'*Ybs*E
 Ybr = Yb[2:end,2:end]  # use @view ? 
 
+# %% ===
 # should we precondition the base case?
 #
 # Note: Ybr should be sparse!! otherwise,
@@ -162,7 +140,7 @@ if qG.base_solver == "pcg"
     end
 
     # time is short -- let's jsut always use ldl preconditioner -- it's just as fast
-    Ybr_ChPr = quasiGrad.lldl(Ybr, memory = qG.cutoff_level);
+    Ybr_ChPr = quasiGrad.Preconditioners.lldl(Ybr, memory = qG.cutoff_level);
 
     # OG#2 solution!
         # can we build cholesky?
@@ -186,7 +164,7 @@ if qG.base_solver == "pcg"
         # end
 else
     # time is short -- let's jsut always use ldl preconditioner -- it's just as fast
-    Ybr_ChPr = quasiGrad.lldl(Ybr, memory = qG.cutoff_level);
+    Ybr_ChPr = quasiGrad.Preconditioners.lldl(Ybr, memory = qG.cutoff_level);
         # # => Ybr_ChPr = quasiGrad.I
         # Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
 end
@@ -239,7 +217,9 @@ else
     b_k = 0
 end
 
-for ctg_ii in 1:sys.nctg
+# %% ===
+for ctg_ii in 1:50#sys.nctg
+    println(ctg_ii)
     # components
     cmpnts = prm.ctg.components[ctg_ii]
     for (cmp_ii,cmp) in enumerate(cmpnts)
@@ -320,7 +300,7 @@ for ctg_ii in 1:sys.nctg
     end
 end
 
-# initialize ctg state
+# %% initialize ctg state
 tkeys = [Symbol("t"*string(ii)) for ii in 1:(sys.nT)]
 
 # build the phase angle solution dict -- this will have "sys.nb-1" angles for each solution,
