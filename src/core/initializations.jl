@@ -23,8 +23,12 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
         print_reserve_cleanup_success = true
     end
 
+    # how many threads?
+    num_threads = 12
+    nT          = length(prm.ts.time_keys)
+
     # should we run (or skip) line and ac binary updates?
-    run_ac_device_bins = false
+    change_ac_device_bins = false
 
     # compute sus on each adam iteration?
     compute_sus_on_each_iteration = false
@@ -312,7 +316,9 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
 
     # build the mutable struct
     qG = QG(
-        run_ac_device_bins,
+        nT,
+        num_threads,
+        change_ac_device_bins,
         print_projection_success,
         print_reserve_cleanup_success,
         compute_sus_on_each_iteration,
@@ -743,75 +749,75 @@ function initialize_states(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiG
 
     # vector of miscellaneous vectors (so I don't have to initialize a new one each time)
     msc = Dict(
-        :pinj_ideal => zeros(sys.nb),
-        :qinj_ideal => zeros(sys.nb),
-        :pb_slack   => zeros(sys.nb),
-        :qb_slack   => zeros(sys.nb),
-        :pub        => zeros(sys.nb),
-        :plb        => zeros(sys.nb),
-        :qub        => zeros(sys.nb),
-        :qlb        => zeros(sys.nb),
-        :pinj0      => zeros(sys.nb), # bias point
-        :qinj0      => zeros(sys.nb), # bias point
-        :pinj_dc    => zeros(sys.nb),
-        :cos_ftp    => zeros(sys.nl),
-        :sin_ftp    => zeros(sys.nl),
-        :vff        => zeros(sys.nl),
-        :vtt        => zeros(sys.nl),
-        :vft        => zeros(sys.nl),
-        :pfr        => zeros(sys.nl),
-        :pto        => zeros(sys.nl),
-        :qfr        => zeros(sys.nl),
-        :qto        => zeros(sys.nl),
-        :acline_pfr => zeros(sys.nl),
-        :acline_pto => zeros(sys.nl),
-        :acline_qfr => zeros(sys.nl),
-        :acline_qto => zeros(sys.nl),
-        :acline_sfr => zeros(sys.nl),
-        :acline_sto => zeros(sys.nl),
-        :acline_sfr_plus => zeros(sys.nl),
-        :acline_sto_plus => zeros(sys.nl),
-        :cos_ftp_x    => zeros(sys.nx),
-        :sin_ftp_x    => zeros(sys.nx),
-        :vff_x        => zeros(sys.nx),
-        :vtt_x        => zeros(sys.nx),
-        :vft_x        => zeros(sys.nx),
-        :vt_tau_x     => zeros(sys.nx),
-        :vf_tau_x     => zeros(sys.nx),
-        :vf_tau2_x    => zeros(sys.nx),
-        :vff_tau2_x   => zeros(sys.nx),
-        :vft_tau_x    => zeros(sys.nx),
-        :vft_tau2_x   => zeros(sys.nx),
-        :vff_tau3_x   => zeros(sys.nx),
-        :pfr_x        => zeros(sys.nx),
-        :pto_x        => zeros(sys.nx),
-        :qfr_x        => zeros(sys.nx),
-        :qto_x        => zeros(sys.nx),
-        :xfm_pfr_x    => zeros(sys.nx),
-        :xfm_pto_x    => zeros(sys.nx),
-        :xfm_qfr_x    => zeros(sys.nx),
-        :xfm_qto_x    => zeros(sys.nx),
-        :xfm_sfr_x    => zeros(sys.nx),
-        :xfm_sto_x    => zeros(sys.nx),
-        :xfm_sfr_plus_x  => zeros(sys.nx),
-        :xfm_sto_plus_x  => zeros(sys.nx),
-        :acline_scale_fr => zeros(sys.nl),
-        :acline_scale_to => zeros(sys.nl),
-        :scale_fr_x      => zeros(sys.nx),
-        :scale_to_x      => zeros(sys.nx),
-        :vm2_sh          => zeros(sys.nsh),
-        :g_tv_shunt      => zeros(sys.nsh),
-        :b_tv_shunt      => zeros(sys.nsh))
+        :pinj_ideal      => Dict(tkeys[ii] => zeros(sys.nb) for ii in 1:(sys.nT)),
+        :qinj_ideal      => Dict(tkeys[ii] => zeros(sys.nb) for ii in 1:(sys.nT)),
+        :pb_slack        => Dict(tkeys[ii] => zeros(sys.nb) for ii in 1:(sys.nT)),
+        :qb_slack        => Dict(tkeys[ii] => zeros(sys.nb) for ii in 1:(sys.nT)),
+        :pub             => Dict(tkeys[ii] => zeros(sys.nb) for ii in 1:(sys.nT)),
+        :plb             => Dict(tkeys[ii] => zeros(sys.nb) for ii in 1:(sys.nT)),
+        :qub             => Dict(tkeys[ii] => zeros(sys.nb) for ii in 1:(sys.nT)),
+        :qlb             => Dict(tkeys[ii] => zeros(sys.nb) for ii in 1:(sys.nT)),
+        :pinj0           => Dict(tkeys[ii] => zeros(sys.nb) for ii in 1:(sys.nT)),
+        :qinj0           => Dict(tkeys[ii] => zeros(sys.nb) for ii in 1:(sys.nT)),
+        :pinj_dc         => Dict(tkeys[ii] => zeros(sys.nb) for ii in 1:(sys.nT)),
+        :cos_ftp         => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :sin_ftp         => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :vff             => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :vtt             => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :vft             => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :pfr             => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :pto             => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :qfr             => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :qto             => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :acline_pfr      => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :acline_pto      => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :acline_qfr      => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :acline_qto      => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :acline_sfr      => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :acline_sto      => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :acline_sfr_plus => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :acline_sto_plus => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :cos_ftp_x       => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :sin_ftp_x       => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :vff_x           => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :vtt_x           => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :vft_x           => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :vt_tau_x        => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :vf_tau_x        => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :vf_tau2_x       => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :vff_tau2_x      => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :vft_tau_x       => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :vft_tau2_x      => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :vff_tau3_x      => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :pfr_x           => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :pto_x           => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :qfr_x           => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :qto_x           => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :xfm_pfr_x       => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :xfm_pto_x       => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :xfm_qfr_x       => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :xfm_qto_x       => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :xfm_sfr_x       => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :xfm_sto_x       => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :xfm_sfr_plus_x  => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :xfm_sto_plus_x  => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :acline_scale_fr => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :acline_scale_to => Dict(tkeys[ii] => zeros(sys.nl) for ii in 1:(sys.nT)),
+        :scale_fr_x      => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :scale_to_x      => Dict(tkeys[ii] => zeros(sys.nx) for ii in 1:(sys.nT)),
+        :vm2_sh          => Dict(tkeys[ii] => zeros(sys.nsh) for ii in 1:(sys.nT)),
+        :g_tv_shunt      => Dict(tkeys[ii] => zeros(sys.nsh) for ii in 1:(sys.nT)),
+        :b_tv_shunt      => Dict(tkeys[ii] => zeros(sys.nsh) for ii in 1:(sys.nT)),)
 
     bit = Dict(
-        :acline_sfr_plus => BitArray(zeros(Int, sys.nl)), # indices assocaited with acline_sfr_plus_x > acline_sto_plus_x && 0
-        :acline_sto_plus => BitArray(zeros(Int, sys.nl)), # indices assocaited with acline_sto_plus_x > acline_sfr_plus_x && 0
-        :xfm_sfr_plus_x  => BitArray(zeros(Int, sys.nx)), # indices assocaited with xfm_sfr_plus_x > xfm_sto_plus_x && 0
-        :xfm_sto_plus_x  => BitArray(zeros(Int, sys.nx)), # indices assocaited with xfm_sto_plus_x > xfm_sfr_plus_x && 0
-        :sfr_vio        => BitArray(zeros(Int, sys.nac)), # indices assocaited with ctg flows: sfr_vio
-        :sto_vio        => BitArray(zeros(Int, sys.nac)), # indices assocaited with ctg flows: sto_vio
-        )
-        
+        :acline_sfr_plus => Dict(tkeys[ii] => BitArray(zeros(Int, sys.nl))  for ii in 1:(sys.nT)), # indices assocaited with acline_sfr_plus_x > acline_sto_plus_x && 0
+        :acline_sto_plus => Dict(tkeys[ii] => BitArray(zeros(Int, sys.nl))  for ii in 1:(sys.nT)), # indices assocaited with acline_sto_plus_x > acline_sfr_plus_x && 0
+        :xfm_sfr_plus_x  => Dict(tkeys[ii] => BitArray(zeros(Int, sys.nx))  for ii in 1:(sys.nT)), # indices assocaited with xfm_sfr_plus_x > xfm_sto_plus_x && 0
+        :xfm_sto_plus_x  => Dict(tkeys[ii] => BitArray(zeros(Int, sys.nx))  for ii in 1:(sys.nT)), # indices assocaited with xfm_sto_plus_x > xfm_sfr_plus_x && 0
+        :sfr_vio         => Dict(tkeys[ii] => BitArray(zeros(Int, sys.nac)) for ii in 1:(sys.nT)), # indices assocaited with ctg flows: sfr_vio
+        :sto_vio         => Dict(tkeys[ii] => BitArray(zeros(Int, sys.nac)) for ii in 1:(sys.nT))) # indices assocaited with ctg flows: sto_vio
+
+
     # mgd = master grad -- this is the gradient which relates the negative market surplus function 
     # with all "basis" variables -- i.e., the variables for which all others are computed.
     # These are *exactly* (I think..) the variables which are reported in the solution file
@@ -1084,99 +1090,113 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
         b_k = 0
     end
 
+    # loop over components (see below for comments!!!)
     for ctg_ii in 1:sys.nctg
-        if mod(ctg_ii-1,1000) == 0
-            if ctg_ii == 1
-                @info "Solving the first one thousand wmi factors..."
-            else
-                @info "Solving the next one thousand wmi factors..."
-            end
-        end
-        # components
         cmpnts = prm.ctg.components[ctg_ii]
         for (cmp_ii,cmp) in enumerate(cmpnts)
-            # get the cmp index and b
             cmp_index = findfirst(x -> x == cmp, ac_ids) 
-            # => cmp_b     = -ac_b_params[cmp_index] # negative, because we subtract it out
-
-            # output
             ctg_out_ind[ctg_ii][cmp_ii] = cmp_index
             ctg_params[ctg_ii][cmp_ii]  = -ac_b_params[cmp_index]
-
-            # -> y_diag[cmp_index] = sqrt(cmp_b)
-                # we record these in ctg
-                # ctg_out_ind[ctg_ii]
-        end
-
-        # next, should we build the actual, full ctg matrix?
-        if qG.build_ctg_full == true
-            # direct construction..
-            #
-            # NOTE: this is written assuming multiple elements can be
-            # simultaneously outaged
-            Ybs_k = copy(Ybs)
-            Ybs_k[CartesianIndex.(tuple.(ctg_out_ind[ctg_ii],ctg_out_ind[ctg_ii]))] .= 0.0
-            Ybr_k[ctg_ii] = Er'*Ybs_k*Er
-        end
-
-        # and/or, should we build the low rank ctg elements?
-        if qG.build_ctg_lowrank == true
-            # .. vs low rank
-            #
-            # NOTE: this is written assuming only ONE element
-            # can be outaged
-
-            if qG.save_sparse_WMI_updates
-                # no need to save:
-                    # v_k[ctg_ii] =  Er[ctg_out_ind[ctg_ii][1],:]
-                    # b_k[ctg_ii] = -ac_b_params[ctg_out_ind[ctg_ii][1]]
-                v_k = Er[ctg_out_ind[ctg_ii][1],:]
-                b_k = -ac_b_params[ctg_out_ind[ctg_ii][1]]
-                #
-                # construction: 
-                # 
-                # Ybr_k[ctg_ii] = ctg[:Ybr] + v*beta*v'
-                #               = ctg[:Ybr] + vLR_k[ctg_ii]*beta*vLR_k[ctg_ii]
-                #
-                # if v, b saved:
-                    # u_k[ctg_ii] = Ybr\Array(v_k[ctg_ii])
-                    # w_k[ctg_ii] = b_k[ctg_ii]*u_k[ctg_ii]/(1+(v_k[ctg_ii]'*u_k[ctg_ii])*b_k[ctg_ii])
-                # LU fac => u_k[ctg_ii] = Ybr\Vector(v_k)
-                    # this is very slow -- we need to us cg and then enforce sparsity!
-                    # Float64.(Vector(v_k)) is not needed! cg can handle sparse :)
-                    # quasiGrad.cg!(u_k[ctg_ii], Ybr, Vector(Float64.(v_k)), abstol = qG.pcg_tol, Pl=Ybr_ChPr)
-                # enforce sparsity -- should be sparse anyways
-                    # u_k[ctg_ii][abs.(u_k[ctg_ii]) .< 1e-8] .= 0.0
-
-                # we want to sparsify a high-fidelity solution:
-                # uk_d = Ybr_Ch\v_k[ctg_ii]
-                # quasiGrad.cg!(u_k[ctg_ii], Ybr, Vector(Float64.(v_k)), abstol = qG.pcg_tol, Pl=Ybr_ChPr)
-                # u_k[ctg_ii] = Ybr\Vector(v_k)
-                # u_k[ctg_ii] = C\Vector(v_k)
-                if qG.build_basecase_cholesky
-                    u_k_local = (Ybr_Ch\v_k)[:]
-                else
-                    u_k_local = Ybr\Vector(v_k)
-                end
-                # sparsify
-                abs_u_k           = abs.(u_k_local)
-                u_k_ii_SmallToBig = sortperm(abs_u_k)
-                bit_vec           = cumsum(abs_u_k[u_k_ii_SmallToBig])/sum(abs_u_k) .> (1.0 - qG.accuracy_sparsify_lr_updates)
-                # edge case is caught! bit_vec will never be empty. Say, abs_u_k[u_k_ii_SmallToBig] = [0,0,1], then we have
-                # bit_vec = cumsum(abs_u_k[u_k_ii_SmallToBig])/sum(abs_u_k) .> 0.01%, say => bit_vec = [0,0,1] 
-                # 
-                # also, we use ".>" because we only want to include all elements that contribute to meeting the stated accuracy goal
-                u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]] = u_k_local[u_k_ii_SmallToBig[bit_vec]]
-                # this is ok, since u_k and w_k have the same sparsity pattern
-                # => for the "w_k" formulation: w_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]] = b_k*u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]]/(1.0+(quasiGrad.dot(v_k,u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]]))*b_k)
-                g_k[ctg_ii] = b_k/(1.0+(quasiGrad.dot(v_k,u_k[ctg_ii]))*b_k)
-            else
-                # this code is optimized -- see above for comments
-                u_k[ctg_ii] .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
-                g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
-            end
         end
     end
+
+    #@info "Solving $(sys.nctg) wmi factors..."
+    FLoops.assistant(false)
+    @floop ThreadedEx(basesize = sys.nctg ÷ qG.num_threads) for ctg_ii in 1:sys.nctg
+        # this code is optimized -- see above for comments!!!
+        u_k[ctg_ii] .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
+        g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
+    end
+    FLoops.assistant(true)
+    #@info "Done."
+
+    # original code:
+        #for ctg_ii in 1:sys.nctg
+        #    # components
+        #    cmpnts = prm.ctg.components[ctg_ii]
+        #    for (cmp_ii,cmp) in enumerate(cmpnts)
+        #        # get the cmp index and b
+        #        cmp_index = findfirst(x -> x == cmp, ac_ids) 
+        #        # => cmp_b     = -ac_b_params[cmp_index] # negative, because we subtract it out
+        #
+        #        # output
+        #        ctg_out_ind[ctg_ii][cmp_ii] = cmp_index
+        #        ctg_params[ctg_ii][cmp_ii]  = -ac_b_params[cmp_index]
+        #
+        #        # -> y_diag[cmp_index] = sqrt(cmp_b)
+        #            # we record these in ctg
+        #            # ctg_out_ind[ctg_ii]
+        #    end
+        #
+        #    # next, should we build the actual, full ctg matrix?
+        #    if qG.build_ctg_full == true
+        #        # direct construction..
+        #        #
+        #        # NOTE: this is written assuming multiple elements can be
+        #        # simultaneously outaged
+        #        Ybs_k = copy(Ybs)
+        #        Ybs_k[CartesianIndex.(tuple.(ctg_out_ind[ctg_ii],ctg_out_ind[ctg_ii]))] .= 0.0
+        #        Ybr_k[ctg_ii] = Er'*Ybs_k*Er
+        #    end
+        #
+        #    # and/or, should we build the low rank ctg elements?
+        #    if qG.build_ctg_lowrank == true
+        #        # .. vs low rank
+        #        #
+        #        # NOTE: this is written assuming only ONE element
+        #        # can be outaged
+        #
+        #        if qG.save_sparse_WMI_updates
+        #            # no need to save:
+        #                # v_k[ctg_ii] =  Er[ctg_out_ind[ctg_ii][1],:]
+        #                # b_k[ctg_ii] = -ac_b_params[ctg_out_ind[ctg_ii][1]]
+        #            v_k = Er[ctg_out_ind[ctg_ii][1],:]
+        #            b_k = -ac_b_params[ctg_out_ind[ctg_ii][1]]
+        #            #
+        #            # construction: 
+        #            # 
+        #            # Ybr_k[ctg_ii] = ctg[:Ybr] + v*beta*v'
+        #            #               = ctg[:Ybr] + vLR_k[ctg_ii]*beta*vLR_k[ctg_ii]
+        #            #
+        #            # if v, b saved:
+        #                # u_k[ctg_ii] = Ybr\Array(v_k[ctg_ii])
+        #                # w_k[ctg_ii] = b_k[ctg_ii]*u_k[ctg_ii]/(1+(v_k[ctg_ii]'*u_k[ctg_ii])*b_k[ctg_ii])
+        #            # LU fac => u_k[ctg_ii] = Ybr\Vector(v_k)
+        #                # this is very slow -- we need to us cg and then enforce sparsity!
+        #                # Float64.(Vector(v_k)) is not needed! cg can handle sparse :)
+        #                # quasiGrad.cg!(u_k[ctg_ii], Ybr, Vector(Float64.(v_k)), abstol = qG.pcg_tol, Pl=Ybr_ChPr)
+        #            # enforce sparsity -- should be sparse anyways
+        #                # u_k[ctg_ii][abs.(u_k[ctg_ii]) .< 1e-8] .= 0.0
+        #
+        #            # we want to sparsify a high-fidelity solution:
+        #            # uk_d = Ybr_Ch\v_k[ctg_ii]
+        #            # quasiGrad.cg!(u_k[ctg_ii], Ybr, Vector(Float64.(v_k)), abstol = qG.pcg_tol, Pl=Ybr_ChPr)
+        #            # u_k[ctg_ii] = Ybr\Vector(v_k)
+        #            # u_k[ctg_ii] = C\Vector(v_k)
+        #            if qG.build_basecase_cholesky
+        #                u_k_local = (Ybr_Ch\v_k)[:]
+        #            else
+        #                u_k_local = Ybr\Vector(v_k)
+        #            end
+        #            # sparsify
+        #            abs_u_k           = abs.(u_k_local)
+        #            u_k_ii_SmallToBig = sortperm(abs_u_k)
+        #            bit_vec           = cumsum(abs_u_k[u_k_ii_SmallToBig])/sum(abs_u_k) .> (1.0 - qG.accuracy_sparsify_lr_updates)
+        #            # edge case is caught! bit_vec will never be empty. Say, abs_u_k[u_k_ii_SmallToBig] = [0,0,1], then we have
+        #            # bit_vec = cumsum(abs_u_k[u_k_ii_SmallToBig])/sum(abs_u_k) .> 0.01%, say => bit_vec = [0,0,1] 
+        #            # 
+        #            # also, we use ".>" because we only want to include all elements that contribute to meeting the stated accuracy goal
+        #            u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]] = u_k_local[u_k_ii_SmallToBig[bit_vec]]
+        #            # this is ok, since u_k and w_k have the same sparsity pattern
+        #            # => for the "w_k" formulation: w_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]] = b_k*u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]]/(1.0+(quasiGrad.dot(v_k,u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]]))*b_k)
+        #            g_k[ctg_ii] = b_k/(1.0+(quasiGrad.dot(v_k,u_k[ctg_ii]))*b_k)
+        #        else
+        #            # this code is optimized -- see above for comments
+        #            u_k[ctg_ii] .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
+        #            g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
+        #        end
+        #    end
+        #end
 
     # initialize ctg state
     tkeys = [Symbol("t"*string(ii)) for ii in 1:(sys.nT)]

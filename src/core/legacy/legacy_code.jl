@@ -2558,7 +2558,7 @@ pr_AND_Jpqe_on_bus = intersect(pr_devs_on_bus, idx.J_pqe)
 cs_AND_Jpqe_on_bus = intersect(cs_devs_on_bus, idx.J_pqe)
 
 # solve power flow (to some degree of accuracy)
-function solve_linear_pf_with_Gurobi!(Jac::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
+function solve_linear_pf_with_Gurobi!(Jac::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
     # ask Gurobi to solve a linearize power flow. two options here:
     #   1) define device variables which are bounded, and then insert them into the power balance expression
     #   2) just define power balance bounds based on device characteristics, and then, at the end, optimally
@@ -2996,7 +2996,7 @@ end
 
 # solve power flow (to some degree of accuracy)
 #=
-function solve_linear_pf_with_Gurobi_simple_bounds!(Jac::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
+function solve_linear_pf_with_Gurobi_simple_bounds!(Jac::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
     # ask Gurobi to solve a linearize power flow
     #
     # here is power balance:
@@ -3288,7 +3288,7 @@ function apply_economic_dispatch_projection!()
 
     # update the u_sum and powers (used in clipping, so must be correct!)
     qG.run_susd_updates = true
-    quasiGrad.simple_device_statuses!(idx, prm, stt)
+    quasiGrad.simple_device_statuses!(idx, prm, qG, stt)
     quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
 end
 
@@ -4183,7 +4183,7 @@ end
         end
 
 
-        function power_balance_old!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+        function power_balance_old!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
             # call penalty cost
             cp = prm.vio.p_bus * qG.scale_c_pbus_testing
             cq = prm.vio.q_bus * qG.scale_c_qbus_testing
@@ -4284,7 +4284,7 @@ end
 
 
 
-        function reserve_balance_experimental!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+        function reserve_balance_experimental!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
             # we need access to the time index itself
             for (t_ind, tii) in enumerate(prm.ts.time_keys)
                 # duration
@@ -4394,7 +4394,7 @@ end
         end
         
         # reserve sum
-        function reserve_sum!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, reserve_type::Symbol, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, tii::Symbol, zone::Int64, zone_type::Symbol)
+        function reserve_sum!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, reserve_type::Symbol, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, tii::Symbol, zone::Int64, zone_type::Symbol)
             if zone_type == :Pz
                 msc[reserve_type][zone] = 0.0
                 for dev in idx.dev_pzone[zone]
@@ -4411,7 +4411,7 @@ end
         end
         
         # reserve power sum
-        function reserve_p_sum!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, tii::Symbol, zone::Int64)
+        function reserve_p_sum!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, tii::Symbol, zone::Int64)
             msc[:pz_sum][zone] = 0.0
             for dev in idx.cs_pzone[zone]
                 msc[:pz_sum][zone] += stt[:dev_p][tii][dev]
@@ -4419,7 +4419,7 @@ end
         end
         
         # reserve power max
-        function reserve_p_max!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, tii::Symbol, zone::Int64)
+        function reserve_p_max!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, tii::Symbol, zone::Int64)
             msc[:pz_max][zone] = 0.0
             for dev in idx.cs_pzone[zone]
                 if stt[:dev_p][tii][dev] > msc[:pz_max][zone]
@@ -4570,7 +4570,7 @@ end
         end
 
 
-        function master_grad_zs_acline_fastesttt!(tii::Symbol, idx::quasiGrad.Idx, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, sys::quasiGrad.System)
+        function master_grad_zs_acline_fastesttt!(tii::Symbol, idx::quasiGrad.Idx, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
             # =========== =========== =========== #
                         # zs (acline flows)
             # =========== =========== =========== #
@@ -4653,7 +4653,7 @@ end
         end
 
 # cleanup power flow (to some degree of accuracy)
-function cleanup_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+function cleanup_pf_with_Gurobi!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # device p/q stay fixed -- just tune v, theta, and dc
     # here is power balance:
     #
@@ -4901,7 +4901,7 @@ function soft_abs_grad_ac_old(x::Float64, qG::quasiGrad.QG)
 end
 
 
-function soft_abs_grad_ac(ind::Int64, msc::Dict{Symbol, Vector{Float64}}, qG::quasiGrad.QG, s::Symbol)
+function soft_abs_grad_ac(ind::Int64, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, qG::quasiGrad.QG, s::Symbol)
     # soft_abs(x)      = sqrt(x^2 + eps^2)
     # soft_abs_grad(x) = x/sqrt(x^2 + eps^2)
     #
@@ -4911,7 +4911,7 @@ function soft_abs_grad_ac(ind::Int64, msc::Dict{Symbol, Vector{Float64}}, qG::qu
 end
 
 # soft abs derviative
-function soft_abs_grad_vec!(bit::Dict{Symbol, BitVector}, msc::Dict{Symbol, Vector{Float64}}, qG::quasiGrad.QG, s_bit::Symbol, s_in::Symbol, s_out::Symbol)
+function soft_abs_grad_vec!(bit::Dict{Symbol, Dict{Symbol, BitVector}}, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, qG::quasiGrad.QG, s_bit::Symbol, s_in::Symbol, s_out::Symbol)
     # soft_abs(x)      = sqrt(x^2 + eps^2)
     # soft_abs_grad(x) = x/sqrt(x^2 + eps^2)
     #
@@ -5667,7 +5667,7 @@ function solve_economic_dispatch_with_sus!(idx::quasiGrad.Idx, prm::quasiGrad.Pa
 
         # update the u_sum and powers (used in clipping, so must be correct!)
         qG.run_susd_updates = true
-        quasiGrad.simple_device_statuses!(idx, prm, stt)
+        quasiGrad.simple_device_statuses!(idx, prm, qG, stt)
         quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
 
         # update the objective value score
@@ -6094,5 +6094,222 @@ function zctgs_grad_q_acline!(tii::Symbol, idx::quasiGrad.Idx, grd::Dict{Symbol,
         mgd[:va][tii][idx.acline_fr_bus[ln]] += vafrqto[ii]
         mgd[:va][tii][idx.acline_to_bus[ln]] += vatoqto[ii]
         mgd[:u_on_acline][tii][ln]           += uonqto[ii]
+    end
+end
+
+
+
+
+function clip_for_feasibility!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+    # sequentially clip -- order does not matter
+    #
+    @warn "this isn't totally validated.. or used."
+    # note: "clamp" is much faster than the alternatives!
+    clip_onoff_binaries!(prm, stt)
+    clip_reserves!(prm, stt)
+    clip_pq!(prm, qG, stt)
+
+    # target the problematic one
+    clip_17c!(idx, prm, qG, stt, sys)
+end
+
+function clip_17c!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+    # loop over time/devices and look for violations
+    for (t_ind, tii) in enumerate(prm.ts.time_keys)
+        for dev in 1:sys.ndev
+            if dev in idx.cs_devs
+                val = stt[:q_qru][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev]
+                if val > 0.0
+                    # is this case, q is below its lower bound!
+                    #
+                    # first, try to clip :q_qru, since this is safe
+                    stt[:q_qru][tii][dev] = max(prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev], 0.0)
+
+                    # did this work?
+                    if stt[:q_qru][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev] > 0
+                        # if not, clip stt[:dev_q] (generally, not safe, but desperate times..)
+                        stt[:dev_q][tii][dev] = stt[:q_qru][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev]
+                    end
+                end
+            end
+        end
+    end
+end
+
+function get_largest_indices(Dict{Symbol, Dict{Symbol, Vector{Float64}}}, bit::Dict{Symbol, Dict{Symbol, BitVector}}, s1::Symbol, s2::Symbol)
+    for ii in 1:length(msc[s1])
+        if (msc[s1][ii] >= msc[s2][ii]) && (msc[s1][ii] > 0.0)
+            bit[s1][ii] = 1
+            bit[s2][ii] = 0
+        elseif msc[s2][ii] > 0.0 # no need to check v2[ii] > v1[ii]
+            bit[s2][ii] = 1
+            bit[s1][ii] = 0
+        else
+            bit[s1][ii] = 0  
+            bit[s2][ii] = 0
+        end
+    end
+end
+
+# final, manual projection
+function final_projection___BROKEN!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}; final_projection::Bool=false)
+    
+    for (t_ind, tii) in enumerate(prm.ts.time_keys)
+        # duration
+        dt = prm.ts.duration[tii]
+
+        # for now, we use "del" in the scoring function to penalize all
+        # constraint violations -- thus, don't call the "c_hat" constants
+
+        for dev in 1:sys.ndev
+            # 1. Minimum downtime -- nothing to do here
+            # 2. Minimum uptime  -- nothing to do here
+
+            # define the previous power value (used by both up and down ramping!)
+            if tii == :t1
+                # note: p0 = prm.dev.init_p[dev]
+                dev_p_previous = prm.dev.init_p[dev]
+            else
+                # grab previous time
+                dev_p_previous = stt[:dev_p][prm.ts.tmin1[tii]][dev] 
+            end
+
+            # 3. Ramping limits (up) -- zhat_rup
+            cvio = stt[:dev_p][tii][dev] - dev_p_previous
+                    - dt*(prm.dev.p_ramp_up_ub[dev]     *(stt[:u_on_dev][tii][dev] - stt[:u_su_dev][tii][dev])
+                    +     prm.dev.p_startup_ramp_ub[dev]*(stt[:u_su_dev][tii][dev] + 1.0 - stt[:u_on_dev][tii][dev]))
+            
+            if cvio > quasiGrad.eps_constr
+                # clip
+                if stt[:dev_p][tii][dev] > cvio
+                    stt[:dev_p][tii][dev] -= cvio
+                elseif tii != :tii
+                    # last resort
+                    stt[:dev_p][prm.ts.tmin1[tii]][dev] -= cvio
+                end
+            end
+
+
+            # 4. Ramping limits (down)
+            cvio = max(dev_p_previous - stt[:dev_p][tii][dev]
+                    - dt*(prm.dev.p_ramp_down_ub[dev]*stt[:u_on_dev][tii][dev]
+                    +     prm.dev.p_shutdown_ramp_ub[dev]*(1.0-stt[:u_on_dev][tii][dev])),0.0)
+            stt[:zhat_rd][tii][dev] = dt* cvio
+
+
+            # 5. Regulation up
+            cvio                     = max(stt[:p_rgu][tii][dev] - prm.dev.p_reg_res_up_ub[dev]*stt[:u_on_dev][tii][dev], 0.0)
+            stt[:zhat_rgu][tii][dev] = dt* cvio
+
+            # 6. Regulation down
+            cvio                     = max(stt[:p_rgd][tii][dev] - prm.dev.p_reg_res_down_ub[dev]*stt[:u_on_dev][tii][dev], 0.0)
+            stt[:zhat_rgd][tii][dev] = dt* cvio
+
+            # 7. Synchronized reserve
+            cvio                     = max(stt[:p_rgu][tii][dev] + stt[:p_scr][tii][dev] - prm.dev.p_syn_res_ub[dev]*stt[:u_on_dev][tii][dev], 0.0)
+            stt[:zhat_scr][tii][dev] = dt* cvio
+
+
+            # 8. Synchronized reserve
+            cvio                     = max(stt[:p_nsc][tii][dev] - prm.dev.p_nsyn_res_ub[dev]*(1.0 - stt[:u_on_dev][tii][dev]), 0.0)
+            stt[:zhat_nsc][tii][dev] = dt* cvio
+
+            # 9. Ramping reserve up (on)
+            cvio                       = max(stt[:p_rgu][tii][dev] + stt[:p_scr][tii][dev] + stt[:p_rru_on][tii][dev] - prm.dev.p_ramp_res_up_online_ub[dev]*stt[:u_on_dev][tii][dev], 0.0)
+            stt[:zhat_rruon][tii][dev] = dt* cvio
+
+
+            # 10. Ramping reserve up (off)
+            cvio                        = max(stt[:p_nsc][tii][dev] + stt[:p_rru_off][tii][dev] - prm.dev.p_ramp_res_up_offline_ub[dev]*(1.0-stt[:u_on_dev][tii][dev]), 0.0)
+            stt[:zhat_rruoff][tii][dev] = dt* cvio
+
+            # 11. Ramping reserve down (on)
+            cvio                       = max(stt[:p_rgd][tii][dev] + stt[:p_rrd_on][tii][dev] - prm.dev.p_ramp_res_down_online_ub[dev]*stt[:u_on_dev][tii][dev], 0.0)
+            stt[:zhat_rrdon][tii][dev] = dt* cvio
+
+            # 12. Ramping reserve down (off)
+            cvio                        = max(stt[:p_rrd_off][tii][dev] - prm.dev.p_ramp_res_down_offline_ub[dev]*(1-stt[:u_on_dev][tii][dev]), 0.0)
+            stt[:zhat_rrdoff][tii][dev] = dt* cvio
+
+            # Now, we must separate: producers vs consumers
+            if dev in idx.pr_devs
+                # 13p. Maximum reserve limits (producers)
+                cvio                      = max(stt[:p_on][tii][dev] + stt[:p_rgu][tii][dev] + stt[:p_scr][tii][dev] + stt[:p_rru_on][tii][dev] - prm.dev.p_ub[dev][t_ind]*stt[:u_on_dev][tii][dev], 0.0)
+                stt[:zhat_pmax][tii][dev] = dt* cvio
+
+                # 14p. Minimum reserve limits (producers)
+                cvio                      = max(prm.dev.p_lb[dev][t_ind]*stt[:u_on_dev][tii][dev] + stt[:p_rrd_on][tii][dev] + stt[:p_rgd][tii][dev] - stt[:p_on][tii][dev], 0.0)
+                stt[:zhat_pmin][tii][dev] = dt* cvio
+                
+                # 15p. Off reserve limits (producers)
+                cvio                         = max(stt[:p_su][tii][dev] + stt[:p_sd][tii][dev] + stt[:p_nsc][tii][dev] + stt[:p_rru_off][tii][dev] - prm.dev.p_ub[dev][t_ind]*(1.0 - stt[:u_on_dev][tii][dev]), 0.0)
+                stt[:zhat_pmaxoff][tii][dev] = dt* cvio
+
+                # get common "u_sum" terms that will be used in the subsequent four equations 
+                T_supc = idx.Ts_supc[dev][t_ind] # => get_supc(tii, dev, prm)
+                T_sdpc = idx.Ts_sdpc[dev][t_ind] # => get_sdpc(tii, dev, prm)
+                stt[:u_sum][tii][dev] = stt[:u_on_dev][tii][dev] + sum(stt[:u_su_dev][tii_inst][dev] for tii_inst in T_supc; init=0.0) + sum(stt[:u_sd_dev][tii_inst][dev] for tii_inst in T_sdpc; init=0.0)
+
+                # 16p. Maximum reactive power reserves (producers)
+                cvio                      = max(stt[:dev_q][tii][dev] + stt[:q_qru][tii][dev] - prm.dev.q_ub[dev][t_ind]*stt[:u_sum][tii][dev], 0.0)
+                stt[:zhat_qmax][tii][dev] = dt* cvio
+
+                # 17p. Minimum reactive power reserves (producers)
+                cvio                      = max(stt[:q_qrd][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev], 0.0)
+                stt[:zhat_qmin][tii][dev] = dt* cvio
+
+                # 18p. Linked maximum reactive power reserves (producers)
+                if dev in idx.J_pqmax
+                    cvio                           = max(stt[:dev_q][tii][dev] + stt[:q_qru][tii][dev] - prm.dev.q_0_ub[dev]*stt[:u_sum][tii][dev] - prm.dev.beta_ub[dev]*stt[:dev_p][tii][dev], 0.0)
+                    stt[:zhat_qmax_beta][tii][dev] = dt* cvio
+
+                end 
+                
+                # 19p. Linked minimum reactive power reserves (producers)
+                if dev in idx.J_pqmin
+                    cvio                           = max(prm.dev.q_0_lb[dev]*stt[:u_sum][tii][dev] + prm.dev.beta_lb[dev]*stt[:dev_p][tii][dev] + stt[:q_qrd][tii][dev] - stt[:dev_q][tii][dev], 0.0)
+                    stt[:zhat_qmin_beta][tii][dev] = dt* cvio
+                end
+
+            # consumers
+            else  # => dev in idx.cs_devs
+                # 13c. Maximum reserve limits (consumers)
+                cvio                      = max(stt[:p_on][tii][dev] + stt[:p_rgd][tii][dev] + stt[:p_rrd_on][tii][dev] - prm.dev.p_ub[dev][t_ind]*stt[:u_on_dev][tii][dev], 0.0)
+                stt[:zhat_pmax][tii][dev] = dt* cvio
+
+                # 14c. Minimum reserve limits (consumers)
+                cvio                      = max(prm.dev.p_lb[dev][t_ind]*stt[:u_on_dev][tii][dev] + stt[:p_rru_on][tii][dev] + stt[:p_scr][tii][dev] + stt[:p_rgu][tii][dev] - stt[:p_on][tii][dev], 0.0)
+                stt[:zhat_pmin][tii][dev] = dt* cvio
+
+                # 15c. Off reserve limits (consumers)
+                cvio                         = max(stt[:p_su][tii][dev] + stt[:p_sd][tii][dev] + stt[:p_rrd_off][tii][dev] - prm.dev.p_ub[dev][t_ind]*(1.0 - stt[:u_on_dev][tii][dev]), 0.0)
+                stt[:zhat_pmaxoff][tii][dev] = dt* cvio
+
+                # get common "u_sum" terms that will be used in the subsequent four equations 
+                T_supc = idx.Ts_supc[dev][t_ind] # => get_supc(tii, dev, prm)
+                T_sdpc = idx.Ts_sdpc[dev][t_ind] # => get_sdpc(tii, dev, prm)
+                stt[:u_sum][tii][dev] = stt[:u_on_dev][tii][dev] + sum(stt[:u_su_dev][tii_inst][dev] for tii_inst in T_supc; init=0.0) + sum(stt[:u_sd_dev][tii_inst][dev] for tii_inst in T_sdpc; init=0.0)
+
+                # 16c. Maximum reactive power reserves (consumers)
+                cvio                      = max(stt[:dev_q][tii][dev] + stt[:q_qrd][tii][dev] - prm.dev.q_ub[dev][t_ind]*stt[:u_sum][tii][dev], 0.0)
+                stt[:zhat_qmax][tii][dev] = dt* cvio
+
+                # 17c. Minimum reactive power reserves (consumers)
+                cvio                      = max(stt[:q_qru][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev], 0.0)
+                stt[:zhat_qmin][tii][dev] = dt* cvio
+
+                # 18c. Linked maximum reactive power reserves (consumers)
+                if dev in idx.J_pqmax
+                    cvio                           = max(stt[:dev_q][tii][dev] + stt[:q_qrd][tii][dev] - prm.dev.q_0_ub[dev]*stt[:u_sum][tii][dev] - prm.dev.beta_ub[dev]*stt[:dev_p][tii][dev], 0.0)
+                    stt[:zhat_qmax_beta][tii][dev] = dt* cvio
+                end 
+
+                # 19c. Linked minimum reactive power reserves (consumers)
+                if dev in idx.J_pqmin
+                    cvio                           = max(prm.dev.q_0_lb[dev]*stt[:u_sum][tii][dev] + prm.dev.beta_lb[dev]*stt[:dev_p][tii][dev] + stt[:q_qru][tii][dev] - stt[:dev_q][tii][dev], 0.0)
+                    stt[:zhat_qmin_beta][tii][dev] = dt* cvio
+                end
+            end
+        end
     end
 end

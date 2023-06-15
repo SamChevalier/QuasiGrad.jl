@@ -7,6 +7,7 @@ module quasiGrad
 
 using JSON
 using JuMP
+using FLoops
 using Gurobi
 using Random
 using Statistics
@@ -53,6 +54,9 @@ const eps_constr = 1e-8::Float64
 const eps_beta   = 1e-6::Float64
 const eps_susd   = 1e-6::Float64
 const d_unit     = 5e-3::Float64
+
+# define a gurobi licence
+const GUROBI_ENV = Gurobi.Env()
 
 # export?
 export JuMP

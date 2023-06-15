@@ -1,5 +1,11 @@
 using quasiGrad
+using GLMakie
 using Revise
+using Plots
+using Makie
+
+# call the plotting tools
+# include("../core/plotting.jl")
 
 # ===============
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
@@ -41,6 +47,13 @@ time_left = NewTimeLimitInSeconds - time_spent_before_loop
 # TT: time management:
 quasiGrad.manage_time!(time_left, qG)
 
+# TT: plot
+plt = Dict(:plot            => false,
+           :first_plot      => true,
+           :N_its           => 150,
+           :global_adm_step => 0,
+           :disp_freq       => 5)
+
 # loop and solve: adam -> projection -> IBR
 n_its = length(qG.pcts_to_round)
 for (solver_itr, pct_round) in enumerate(qG.pcts_to_round)
@@ -55,7 +68,14 @@ for (solver_itr, pct_round) in enumerate(qG.pcts_to_round)
     quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 
     # L3. run adam
-    quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+    if plt[:plot]
+        if plt[:first_plot] 
+            ax, fig, z_plt  = quasiGrad.initialize_plot(cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, plt, prm, qG, scr, stt, sys, wct) 
+        end
+        quasiGrad.run_adam_with_plotting!(adm, ax, cgd, ctb, ctd, fig, flw, grd, idx, mgd, msc, ntk, plt, prm, qG, scr, stt, sys, upd, wct, z_plt)
+    else
+        quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+    end
 
     # L4. solve and apply projection
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
@@ -90,7 +110,11 @@ quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 
 # E3. run adam
 qG.adam_max_time = qG.adam_solve_times[end]
-quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+if plt[:plot]
+    quasiGrad.run_adam_with_plotting!(adm, ax, cgd, ctb, ctd, flw, fig, grd, idx, mgd, msc, ntk, plt, prm, qG, scr, stt, sys, upd, wct, z_plt)
+else
+    quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+end
 
 # E4. LP projection
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)

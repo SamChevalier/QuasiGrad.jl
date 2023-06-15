@@ -50,7 +50,7 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Sy
         #    end
     
         # loop over time
-        for tii in prm.ts.time_keys
+        @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for (t_ind, tii) in enumerate(prm.ts.time_keys)
             # g1 (zen): nzms => zbase => zt => => zen => (dev_p, u_on_dev)
             #
             # all devices
@@ -66,7 +66,7 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Sy
             # OG=> gc_d = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsu_dev] * grd[:zsu_dev][:u_su_dev]
             mgd[:u_on_dev][tii] .+= prm.dev.startup_cost .* grd[:u_su_dev][:u_on_dev][tii]
             
-            if qG.run_ac_device_bins
+            if qG.change_ac_device_bins
                 # acline
                 # OG => gc_l = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsu_acline] * grd[:zsu_acline][:u_su_acline]
                 mgd[:u_on_acline][tii] .+= prm.acline.connection_cost .* grd[:u_su_acline][:u_on_acline][tii]
@@ -79,7 +79,7 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Sy
             # include previous times?
             if tii != :t1
                 mgd[:u_on_dev][prm.ts.tmin1[tii]]    .+= prm.dev.startup_cost       .* grd[:u_su_dev][:u_on_dev_prev][tii]
-                if qG.run_ac_device_bins
+                if qG.change_ac_device_bins
                     mgd[:u_on_acline][prm.ts.tmin1[tii]] .+= prm.acline.connection_cost .* grd[:u_su_acline][:u_on_acline_prev][tii]
                     mgd[:u_on_xfm][prm.ts.tmin1[tii]]    .+= prm.xfm.connection_cost    .* grd[:u_su_xfm][:u_on_xfm_prev][tii]
                 end
@@ -91,7 +91,7 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Sy
             # OG => grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsd_dev] * grd[:zsd_dev][:u_sd_dev]
             mgd[:u_on_dev][tii] .+= prm.dev.shutdown_cost .* grd[:u_sd_dev][:u_on_dev][tii]
 
-            if qG.run_ac_device_bins
+            if qG.change_ac_device_bins
                 # acline
                 # OG => gc_l = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsd_acline] * grd[:zsd_acline][:u_sd_acline]
                 mgd[:u_on_acline][tii] .+= prm.acline.disconnection_cost .* grd[:u_sd_acline][:u_on_acline][tii]
@@ -103,7 +103,7 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Sy
             # include previous times?
             if tii != :t1
                 mgd[:u_on_dev][prm.ts.tmin1[tii]]    .+= prm.dev.shutdown_cost         .* grd[:u_sd_dev][:u_on_dev_prev][tii]
-                if qG.run_ac_device_bins
+                if qG.change_ac_device_bins
                     mgd[:u_on_acline][prm.ts.tmin1[tii]] .+= prm.acline.disconnection_cost .* grd[:u_sd_acline][:u_on_acline_prev][tii]
                     mgd[:u_on_xfm][prm.ts.tmin1[tii]]    .+= prm.xfm.disconnection_cost    .* grd[:u_sd_xfm][:u_on_xfm_prev][tii]
                 end
@@ -291,11 +291,10 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol, Dict{Sy
                     mgd[:q_qrd][tii][idx.dev_qzone[zone]] .-= cgd.dzqrd_zonal_dq_qrd_zonal_penalty[tii][zone]*sign(stt[:q_qrd_zonal_penalty][tii][zone])
                 end
             end
-        end
 
-        # loop over time -- compute the partial derivative contributions
-        for (t_ind, tii) in enumerate(prm.ts.time_keys)
-            # loop over devices
+            # => # loop over time -- compute the partial derivative contributions
+            # => for (t_ind, tii) in enumerate(prm.ts.time_keys)
+            # loop over devices -- compute the partial derivative contributions
             for dev in 1:sys.ndev
                 apply_dev_q_grads!(tii, t_ind, prm, qG, idx, stt, grd, mgd, dev, grd[:dx][:dq][tii][dev])
 
@@ -314,7 +313,7 @@ function master_grad_solve_pf!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol
     # problems, we can still use this case exactly, since:
     # dzms_dv => dpftii_dv maps without any issue
 
-    for tii in prm.ts.time_keys
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for (t_ind, tii) in enumerate(prm.ts.time_keys)
         # g1 (zen): nzms => zbase => zt => => zen => (dev_p, u_on_dev)
         #
         # all devices
@@ -330,10 +329,9 @@ function master_grad_solve_pf!(cgd::quasiGrad.Cgd, grd::Dict{Symbol, Dict{Symbol
         master_grad_zp!(tii, prm, idx, grd, mgd, sys)
         # g16 (zq): nzms => zbase => zt => zq => (all q injection variables)
         master_grad_zq!(tii, prm, idx, grd, mgd, sys)
-    end
 
-    # loop over time -- compute the partial derivative contributions
-    for (t_ind, tii) in enumerate(prm.ts.time_keys)
+        # => # loop over time -- compute the partial derivative contributions
+        # => for (t_ind, tii) in enumerate(prm.ts.time_keys)
         # loop over devices
         for dev in 1:sys.ndev
             apply_dev_q_grads!(tii, t_ind, prm, qG, idx, stt, grd, mgd, dev, grd[:dx][:dq][tii][dev])
@@ -407,7 +405,7 @@ function master_grad_zs_acline!(tii::Symbol, idx::quasiGrad.Idx, grd::Dict{Symbo
     vafrqto = qto_com.*grd[:acline_qto][:vafr][tii]
     vatoqto = qto_com.*grd[:acline_qto][:vato][tii]
 
-    if qG.run_ac_device_bins
+    if qG.change_ac_device_bins
         uonpfr  = pfr_com.*grd[:acline_pfr][:uon][tii]
         uonqfr  = qfr_com.*grd[:acline_qfr][:uon][tii]
         uonpto  = pto_com.*grd[:acline_pto][:uon][tii]
@@ -442,7 +440,7 @@ function master_grad_zs_acline!(tii::Symbol, idx::quasiGrad.Idx, grd::Dict{Symbo
         mgd[:va][tii][idx.acline_fr_bus[ln]] += vafrqto[ln]
         mgd[:va][tii][idx.acline_to_bus[ln]] += vatoqto[ln]
 
-        if qG.run_ac_device_bins
+        if qG.change_ac_device_bins
             mgd[:u_on_acline][tii][ln]           += uonpfr[ln]
             mgd[:u_on_acline][tii][ln]           += uonqfr[ln]
             mgd[:u_on_acline][tii][ln]           += uonpto[ln]
@@ -505,7 +503,7 @@ function master_grad_zs_xfm!(tii::Symbol, idx::quasiGrad.Idx, grd::Dict{Symbol, 
     tauqto  = qto_com.*grd[:xfm_qto][:tau][tii]
     phiqto  = qto_com.*grd[:xfm_qto][:phi][tii]
 
-    if qG.run_ac_device_bins
+    if qG.change_ac_device_bins
         uonpfr  = pfr_com.*grd[:xfm_pfr][:uon][tii]
         uonqfr  = qfr_com.*grd[:xfm_qfr][:uon][tii]
         uonpto  = pto_com.*grd[:xfm_pto][:uon][tii]
@@ -548,7 +546,7 @@ function master_grad_zs_xfm!(tii::Symbol, idx::quasiGrad.Idx, grd::Dict{Symbol, 
         mgd[:tau][tii][xfm]                += tauqto[xfm]
         mgd[:phi][tii][xfm]                += phiqto[xfm]
 
-        if qG.run_ac_device_bins
+        if qG.change_ac_device_bins
             mgd[:u_on_xfm][tii][xfm]  += uonpfr[xfm]
             mgd[:u_on_xfm][tii][xfm]  += uonqfr[xfm]
             mgd[:u_on_xfm][tii][xfm]  += uonpto[xfm]
@@ -997,8 +995,8 @@ function du_sum!(tii::Symbol, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbo
 end
 
 # flush the master grad and other key gradients terms :)
-function flush_gradients!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, sys::quasiGrad.System)
-    for tii in prm.ts.time_keys
+function flush_gradients!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System)
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # set all to 0
         mgd[:vm][tii]           .= 0.0    
         mgd[:va][tii]           .= 0.0        

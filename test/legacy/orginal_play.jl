@@ -3382,7 +3382,7 @@ using BenchmarkTools
 @btime mgd[:vm][:t1] .= zeros(sys.nb);
 # %%
 
-@btime quasiGrad.flush_gradients!(grd, mgd, prm, sys);
+@btime quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys);
 # %%
 
 # %%

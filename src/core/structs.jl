@@ -18,7 +18,9 @@ end
 
 # record system size information
 mutable struct QG
-    run_ac_device_bins::Bool
+    nT::Int64
+    num_threads::Int64
+    change_ac_device_bins::Bool
     print_projection_success::Bool
     print_reserve_cleanup_success::Bool
     compute_sus_on_each_iteration::Bool
@@ -243,7 +245,7 @@ struct Timeseries
     end_time::Vector{Float64}
     start_time_dict::Dict{Symbol, Float64}
     end_time_dict::Dict{Symbol, Float64}  
-    time_key_ind::Dict{Symbol, Int64}   
+    time_key_ind::Dict{Symbol, Int64}  
 end
 
 struct Device

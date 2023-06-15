@@ -26,7 +26,7 @@ stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 # 
 # flush the gradient -- both master grad and some of the gradient terms
 print("t1: ")
-@time quasiGrad.flush_gradients!(grd, mgd, prm, sys)
+@time quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 
 # clip all basic states (i.e., the states which are iterated on)
 print("t2: ")
@@ -55,7 +55,7 @@ print("t8a: ")
 @time quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
 
 print("t8b: ")
-@time quasiGrad.device_reactive_powers!(idx, prm, stt, sys)
+@time quasiGrad.device_reactive_powers!(idx, prm, qG, stt, sys)
 
 print("t9: ")
 @time quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
@@ -68,7 +68,7 @@ print("t11: ")
 @time quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
 
 print("t12: ")
-@time quasiGrad.device_reserve_costs!(prm, stt)
+@time quasiGrad.device_reserve_costs!(prm, qG, stt)
 
 # now, we can compute the power balances
 print("t13: ")
@@ -76,7 +76,7 @@ print("t13: ")
 
 # compute reserve margins and penalties
 print("t14: ")
-@time quasiGrad.reserve_balance!(idx, prm, stt, sys)
+@time quasiGrad.reserve_balance!(idx, prm, qG, stt, sys)
 
 # score the contingencies and take the gradients
 print("t15: ")

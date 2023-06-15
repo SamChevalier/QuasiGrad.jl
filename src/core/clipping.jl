@@ -2,29 +2,29 @@ function clip_all!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dic
     # sequentially clip -- order does not matter
     #
     # note: "clamp" is much faster than the alternatives!
-    clip_dc!(prm, stt)
-    clip_xfm!(prm, stt)
-    clip_shunts!(prm, stt)
-    clip_voltage!(prm, stt)
-    clip_onoff_binaries!(prm, stt)
-    clip_reserves!(prm, stt)
+    clip_dc!(prm, qG, stt)
+    clip_xfm!(prm, qG, stt)
+    clip_shunts!(prm, qG, stt)
+    clip_voltage!(prm, qG, stt)
+    clip_onoff_binaries!(prm, qG, stt)
+    clip_reserves!(prm, qG, stt)
 
     # clip dev_p and dev_q after binaries, since p_on clipping MAY depend on u_on
     clip_pq!(prm, qG, stt)
 end
 
-function clip_for_adam_pf!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+function clip_for_adam_pf!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
     # sequentially clip -- order does not matter
     #
     # note: "clamp" is much faster than the alternatives!
-    clip_dc!(prm, stt)
-    clip_xfm!(prm, stt)
-    clip_shunts!(prm, stt)
-    clip_voltage!(prm, stt)
+    clip_dc!(prm, qG, stt)
+    clip_xfm!(prm, qG, stt)
+    clip_shunts!(prm, qG, stt)
+    clip_voltage!(prm, qG, stt)
 end
 
-function clip_dc!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
-    for tii in prm.ts.time_keys
+function clip_dc!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
 
         # clip all flows
             # stt[:dc_qfr][tii] = min.(max.(stt[:dc_qfr][tii],  prm.dc.qdc_fr_lb), prm.dc.qdc_fr_ub)
@@ -39,8 +39,8 @@ function clip_dc!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Fl
     end
 end
 
-function clip_xfm!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
-    for tii in prm.ts.time_keys
+function clip_xfm!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # stt[:phi][tii] = min.(max.(stt[:phi][tii], prm.xfm.ta_lb), prm.xfm.ta_ub)
         # stt[:tau][tii] = min.(max.(stt[:tau][tii], prm.xfm.tm_lb), prm.xfm.tm_ub)
         stt[:phi][tii] .= clamp.(stt[:phi][tii], prm.xfm.ta_lb, prm.xfm.ta_ub)
@@ -48,15 +48,15 @@ function clip_xfm!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{F
     end
 end
 
-function clip_shunts!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
-    for tii in prm.ts.time_keys
+function clip_shunts!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         #stt[:u_step_shunt][tii] = min.(max.(stt[:u_step_shunt][tii], prm.shunt.step_lb), prm.shunt.step_ub)
         stt[:u_step_shunt][tii] .= clamp.(stt[:u_step_shunt][tii], prm.shunt.step_lb, prm.shunt.step_ub)
     end
 end
 
-function clip_voltage!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
-    for tii in prm.ts.time_keys
+function clip_voltage!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # comute the deviation (0 if within bounds!)
         #del = min.(stt[:vm][tii] - prm.bus.vm_lb  , 0.0) + max.(stt[:vm][tii] - prm.bus.vm_ub, 0.0)
         #stt[:vm][tii] = stt[:vm][tii] - del
@@ -66,8 +66,8 @@ function clip_voltage!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vect
     end
 end
 
-function clip_reserves!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
-    for (t_ind, tii) in enumerate(prm.ts.time_keys)
+function clip_reserves!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for (t_ind, tii) in enumerate(prm.ts.time_keys)
         stt[:p_rgu][tii]     .= max.(stt[:p_rgu][tii],0.0)
         stt[:p_rgd][tii]     .= max.(stt[:p_rgd][tii],0.0)
         stt[:p_scr][tii]     .= max.(stt[:p_scr][tii],0.0)
@@ -81,8 +81,8 @@ function clip_reserves!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vec
     end
 end
 
-function clip_onoff_binaries!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
-    for tii in prm.ts.time_keys
+function clip_onoff_binaries!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         stt[:u_on_dev][tii]    .= clamp.(stt[:u_on_dev][tii],    0.0, 1.0)
         stt[:u_on_acline][tii] .= clamp.(stt[:u_on_acline][tii], 0.0, 1.0)
         stt[:u_on_xfm ][tii]   .= clamp.(stt[:u_on_xfm ][tii],   0.0, 1.0)
@@ -96,8 +96,8 @@ function clip_onoff_binaries!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbo
 end
 
 # in the second-to-last iteration, we snap all shunts
-function snap_shunts!(fix::Bool, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
-    for tii in prm.ts.time_keys
+function snap_shunts!(fix::Bool, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}})
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # clamp, to be safe
         stt[:u_step_shunt][tii] .= clamp.(stt[:u_step_shunt][tii], prm.shunt.step_lb, prm.shunt.step_ub)
 
@@ -115,7 +115,7 @@ function clip_pq!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict
     # qG.clip_pq_based_on_bins: should we clip p and q based on the current values of the binaries?
     #                           there are pros and cons to both decisions, so it is probably best
     #                           to alternate..
-    for (t_ind, tii) in enumerate(prm.ts.time_keys)
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for (t_ind, tii) in enumerate(prm.ts.time_keys)
         # we also clip p_on, even though its value isn't explicitly set \ge 0
             # for justification, see (254) and (110)
             # note: stt[:u_on_dev][tii].*prm.dev.p_lb_tmdv[t_ind] \ge 0, since p_lb \ge 0
@@ -153,40 +153,4 @@ function count_active_binaries!(prm::quasiGrad.Param, upd::Dict{Symbol, Dict{Sym
 
     # the following will error out if upd has active binaries or discrete values left
     @assert (num_bin+num_sh) == 0 "Some discrete or binary variables are still active!"
-end
-
-function clip_for_feasibility!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
-    # sequentially clip -- order does not matter
-    #
-    @warn "this isn't totally validated.. or used."
-    # note: "clamp" is much faster than the alternatives!
-    clip_onoff_binaries!(prm, stt)
-    clip_reserves!(prm, stt)
-    clip_pq!(prm, qG, stt)
-
-    # target the problematic one
-    clip_17c!(idx, prm, qG, stt, sys)
-end
-
-function clip_17c!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
-    # loop over time/devices and look for violations
-    for (t_ind, tii) in enumerate(prm.ts.time_keys)
-        for dev in 1:sys.ndev
-            if dev in idx.cs_devs
-                val = stt[:q_qru][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev]
-                if val > 0.0
-                    # is this case, q is below its lower bound!
-                    #
-                    # first, try to clip :q_qru, since this is safe
-                    stt[:q_qru][tii][dev] = max(prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev], 0.0)
-
-                    # did this work?
-                    if stt[:q_qru][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev] - stt[:dev_q][tii][dev] > 0
-                        # if not, clip stt[:dev_q] (generally, not safe, but desperate times..)
-                        stt[:dev_q][tii][dev] = stt[:q_qru][tii][dev] + prm.dev.q_lb[dev][t_ind]*stt[:u_sum][tii][dev]
-                    end
-                end
-            end
-        end
-    end
 end

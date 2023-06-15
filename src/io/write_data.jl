@@ -96,7 +96,7 @@ end
 # post process
 function post_process_stats(
     run::Bool,  
-    bit::Dict{Symbol, BitVector},  
+    bit::Dict{Symbol, Dict{Symbol, BitVector}},  
     cgd::quasiGrad.Cgd, 
     ctb::Vector{Vector{Float64}},
     ctd::Vector{Vector{Float64}}, 
@@ -104,7 +104,7 @@ function post_process_stats(
     grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, 
     idx::quasiGrad.Idx, 
     mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
-    msc::Dict{Symbol, Vector{Float64}}, 
+    msc::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
     ntk::quasiGrad.Ntk, 
     prm::quasiGrad.Param, 
     qG::quasiGrad.QG, 

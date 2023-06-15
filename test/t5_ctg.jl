@@ -198,7 +198,7 @@ idx.pr[fr_bus]
 idx.cs[fr_bus]
 
 # %% 1. test if the gradient solution is correct -- p_on
-quasiGrad.flush_gradients!(grd, mgd, prm, sys)
+quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 qG.pcg_tol = 0.00000001
 
 qG.scale_c_sflow_testing = 1000.0
@@ -220,7 +220,7 @@ dzdx    = copy(mgd[:p_on][tii][ind])
 # update device power
 stt[:p_on][tii][ind] += epsilon
 stt[:dev_p][tii] = stt[:p_on][tii] + stt[:p_su][tii] + stt[:p_sd][tii]
-quasiGrad.flush_gradients!(grd, mgd, prm, sys)
+quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 zp      = copy(-(scr[:zbase] + scr[:zctg_min] + scr[:zctg_avg]))
 dzdx_num = (zp - z0)/epsilon
@@ -228,7 +228,7 @@ println(dzdx)
 println(dzdx_num)
 
 # %% 1. test if the gradient solution is correct -- vm
-quasiGrad.flush_gradients!(grd, mgd, prm, sys)
+quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 qG.pcg_tol = 0.000000001
 
 epsilon = 1e-4
@@ -248,7 +248,7 @@ dzdx    = copy(mgd[:vm][tii][ind])
 
 # update device power
 stt[:vm][tii][ind] += epsilon
-quasiGrad.flush_gradients!(grd, mgd, prm, sys)
+quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 zp      = copy(-(scr[:zbase] + scr[:zctg_min] + scr[:zctg_avg]))
 dzdx_num = (zp - z0)/epsilon

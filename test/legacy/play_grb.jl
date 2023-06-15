@@ -1,5 +1,5 @@
 
-@btime quasiGrad.flush_gradients!(grd, mgd, prm, sys);
+@btime quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys);
 
 # %%
 @btime quasiGrad.clip_all!(prm, qG, stt)
@@ -148,7 +148,7 @@ function f(x::Vector{Float64}, v::Vector{Float64}, vv::Vector{Int64})
 end
 
 # %%
-@btime quasiGrad.device_reserve_costs!(prm, stt)
+@btime quasiGrad.device_reserve_costs!(prm, qG, stt)
 
 # %%
 @btime quasiGrad.device_reserve_costs_new!(prm, stt)
@@ -211,7 +211,7 @@ zone_type = :Pz
 @btime quasiGrad.ideal_dispatch_faster!(idx, msc, stt, sys, tii)
 
 # %%
-@btime quasiGrad.device_reactive_powers!(idx, prm, stt, sys)
+@btime quasiGrad.device_reactive_powers!(idx, prm, qG, stt, sys)
 
 # %%
 @btime quasiGrad.all_device_statuses_and_costs!(grd, prm, qG, stt)

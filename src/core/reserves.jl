@@ -1,4 +1,4 @@
-function reserve_balance!(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+function reserve_balance!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # for the "endogenous" reserve requirements
     rgu_sigma = prm.reserve.rgu_sigma
     rgd_sigma = prm.reserve.rgd_sigma 
@@ -16,7 +16,7 @@ function reserve_balance!(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::Dict{Sy
     cqrd = prm.vio.qrd_zonal
     
     # we need access to the time index itself
-    for (t_ind, tii) in enumerate(prm.ts.time_keys)
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for (t_ind, tii) in enumerate(prm.ts.time_keys)
         # duration
         dt = prm.ts.duration[tii]
 

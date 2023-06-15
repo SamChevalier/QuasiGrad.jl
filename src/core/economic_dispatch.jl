@@ -6,6 +6,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
 
     # build and empty the model!
     model = Model(Gurobi.Optimizer; add_bridges = false)
+    set_optimizer_attribute(model, "Threads", qG.num_threads)
     set_string_names_on_creation(model, false)
     set_silent(model)
 
@@ -561,7 +562,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
 
         # update the u_sum and powers (used in clipping, so must be correct!)
         qG.run_susd_updates = true
-        quasiGrad.simple_device_statuses!(idx, prm, stt)
+        quasiGrad.simple_device_statuses!(idx, prm, qG, stt)
         quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
 
         # update the objective value score
@@ -572,7 +573,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
     end
 end
 
-function dcpf_initialization!(flw::Dict{Symbol, Vector{Float64}}, idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+function dcpf_initialization!(flw::Dict{Symbol, Vector{Float64}}, idx::quasiGrad.Idx, msc::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # apply dcpf to the economic dispatch solution
     #
     # NOTE -- I have commented out the linearized voltage solver -- it doesn't really work.
@@ -589,7 +590,7 @@ function dcpf_initialization!(flw::Dict{Symbol, Vector{Float64}}, idx::quasiGrad
             # active power balance -- just devices
             # !! don't include shunt or dc constributions, 
             #    since power might not balance !!
-            msc[:pinj_dc][bus] = 
+            msc[:pinj_dc][tii][bus] = 
                 sum(stt[:dev_p][tii][pr] for pr in idx.pr[bus]; init=0.0) - 
                 sum(stt[:dev_p][tii][cs] for cs in idx.cs[bus]; init=0.0)
 
@@ -605,7 +606,7 @@ function dcpf_initialization!(flw::Dict{Symbol, Vector{Float64}}, idx::quasiGrad
         # now, we need to solve Yb*theta = pinj, but we need to 
         # take phase shifters into account first:
         bt = -flw[:ac_phi].*ntk.b
-        c  = msc[:pinj_dc][2:end] - ntk.Er'*bt
+        c  = msc[:pinj_dc][tii][2:end] - ntk.Er'*bt
         # now, we need to solve Yb_r*theta_r = c via pcg
 
         if sys.nb <= qG.min_buses_for_krylov
@@ -648,7 +649,7 @@ function dcpf_initialization!(flw::Dict{Symbol, Vector{Float64}}, idx::quasiGrad
     end
 end
 
-function economic_dispatch_initialization!(bit::Dict{Symbol, BitVector}, cgd::quasiGrad.Cgd, ctb::Vector{Vector{Float64}}, ctd::Vector{Vector{Float64}}, flw::Dict{Symbol, Vector{Float64}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Vector{Float64}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, wct::Vector{Vector{Int64}})
+function economic_dispatch_initialization!(bit::Dict{Symbol, Dict{Symbol, BitVector}}, cgd::quasiGrad.Cgd, ctb::Vector{Vector{Float64}}, ctd::Vector{Vector{Float64}}, flw::Dict{Symbol, Vector{Float64}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, wct::Vector{Vector{Int64}})
     # 1. run ED (global upper bound)
     quasiGrad.solve_economic_dispatch!(idx, prm, qG, scr, stt, sys, upd)
 

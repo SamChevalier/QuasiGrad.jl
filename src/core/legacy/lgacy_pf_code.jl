@@ -1,5 +1,5 @@
 # get injection bounds
-function get_injection_bounds!(idx::quasiGrad.Idx, msc::Dict{Symbol, Vector{Float64}}, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
+function get_injection_bounds!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
     # note 1: this function DOES take reactive power equality constrained injections
     #         into account: i.e., dev_q ∈ Jpqe is fixed constant.
 
@@ -597,7 +597,7 @@ function power_flow_residual!(idx::quasiGrad.Idx, residual::Vector{Float64}, stt
     end
 end
 
-function update_states_for_distributed_slack_pf!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+function update_states_for_distributed_slack_pf!(bit::Dict{Symbol, Dict{Symbol, BitVector}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
     # in this function, we only update the flow, xfm, and shunt states
     #
     # clip voltage

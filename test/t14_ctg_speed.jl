@@ -125,8 +125,8 @@ bit[:xfm_sto_plus_x]
 @btime 1 in bit[:xfm_sfr_plus_x];
 
 # %%
-f1(bit::Dict{Symbol, BitVector}) = sum(bit[:xfm_sfr_plus_x])
-f2(bit::Dict{Symbol, BitVector}) = 1 in bit[:xfm_sfr_plus_x]
+f1(bit::Dict{Symbol, Dict{Symbol, BitVector}}) = sum(bit[:xfm_sfr_plus_x])
+f2(bit::Dict{Symbol, Dict{Symbol, BitVector}}) = 1 in bit[:xfm_sfr_plus_x]
 
 # %%
 @btime f1($bit)

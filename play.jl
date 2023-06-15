@@ -1890,7 +1890,7 @@ if soln_valid == true
     # the u_sum and powers right here (used in clipping, so must be correct!)
     if final_projection == true
         qG.run_susd_updates = true
-        quasiGrad.simple_device_statuses!(idx, prm, stt)
+        quasiGrad.simple_device_statuses!(idx, prm, qG, stt)
         quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
     end
 else

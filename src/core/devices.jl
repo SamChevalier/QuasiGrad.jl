@@ -3,14 +3,12 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
     #
     # Note -- delta penalty (qG.constraint_grad_weight) applied later in the scoring
     #         function, but it is applied to the gradient here!
-    for (t_ind, tii) in enumerate(prm.ts.time_keys)
-        # duration
-        dt = prm.ts.duration[tii]
-
-        # for now, we use "del" in the scoring function to penalize all
+    @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in 1:sys.ndev
+        # for now, we use "del" thing in the scoring function to penalize all
         # constraint violations -- thus, don't call the "c_hat" constants
-
-        for dev in 1:sys.ndev
+        for (t_ind, tii) in enumerate(prm.ts.time_keys)
+            # duration
+            dt = prm.ts.duration[tii]
             # in the following constraints, we need to sum over previous constraints
             # in time -- so, say t = 10, and d = 5, then we need to sum over all time
             # state between t < 10 and and t = 5.0
@@ -550,9 +548,9 @@ function penalized_device_constraints!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbo
     end
 end
 
-function device_reserve_costs!(prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+function device_reserve_costs!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
     # compute the costs associated with device reserve offers
-    for (t_ind, tii) in enumerate(prm.ts.time_keys)
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for (t_ind, tii) in enumerate(prm.ts.time_keys)
         # duration
         dt = prm.ts.duration[tii]
         
@@ -573,7 +571,7 @@ end
 function energy_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
 
     # loop over each time period
-    for (t_ind,tii) in enumerate(prm.ts.time_keys)
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for (t_ind, tii) in enumerate(prm.ts.time_keys)
         # duration
         dt = prm.ts.duration[tii]
 
@@ -615,7 +613,7 @@ function energy_penalties!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Fl
     # initialize
     scr[:z_enmax] = 0.0
     scr[:z_enmin] = 0.0
-    for dev in 1:sys.ndev
+    @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in 1:sys.ndev
         Wub = prm.dev.energy_req_ub[dev]
         Wlb = prm.dev.energy_req_lb[dev]
 
@@ -666,7 +664,7 @@ end
 
 function all_device_statuses_and_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
     # loop over each time period
-    for tii in prm.ts.time_keys
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # duration
         dt = prm.ts.duration[tii]
         
@@ -676,7 +674,7 @@ function all_device_statuses_and_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symb
             stt[:u_su_dev][tii] .=   max.(stt[:u_on_dev][tii] .- prm.dev.init_on_status, 0.0)
             stt[:u_sd_dev][tii] .= .-min.(stt[:u_on_dev][tii] .- prm.dev.init_on_status, 0.0)
 
-            if qG.run_ac_device_bins
+            if qG.change_ac_device_bins
                 # aclines
                 stt[:u_su_acline][tii] .=   max.(stt[:u_on_acline][tii] .- prm.acline.init_on_status, 0.0)
                 stt[:u_sd_acline][tii] .= .-min.(stt[:u_on_acline][tii] .- prm.acline.init_on_status, 0.0)
@@ -690,7 +688,7 @@ function all_device_statuses_and_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symb
                 # devices
                 grd[:u_su_dev][:u_on_dev][tii] .=   sign.(stt[:u_su_dev][tii])
                 grd[:u_sd_dev][:u_on_dev][tii] .= .-sign.(stt[:u_sd_dev][tii])
-                if qG.run_ac_device_bins
+                if qG.change_ac_device_bins
                     # aclines
                     grd[:u_su_acline][:u_on_acline][tii] .=   sign.(stt[:u_su_acline][tii])
                     grd[:u_sd_acline][:u_on_acline][tii] .= .-sign.(stt[:u_sd_acline][tii])
@@ -703,7 +701,7 @@ function all_device_statuses_and_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symb
             # devices
             stt[:u_su_dev][tii] .=   max.(stt[:u_on_dev][tii] .- stt[:u_on_dev][prm.ts.tmin1[tii]], 0.0)
             stt[:u_sd_dev][tii] .= .-min.(stt[:u_on_dev][tii] .- stt[:u_on_dev][prm.ts.tmin1[tii]], 0.0)
-            if qG.run_ac_device_bins
+            if qG.change_ac_device_bins
                 # aclines
                 stt[:u_su_acline][tii] .=   max.(stt[:u_on_acline][tii] .- stt[:u_on_acline][prm.ts.tmin1[tii]], 0.0)
                 stt[:u_sd_acline][tii] .= .-min.(stt[:u_on_acline][tii] .- stt[:u_on_acline][prm.ts.tmin1[tii]], 0.0)
@@ -718,7 +716,7 @@ function all_device_statuses_and_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symb
                 # devices
                 grd[:u_su_dev][:u_on_dev][tii] .=   sign.(stt[:u_su_dev][tii])
                 grd[:u_sd_dev][:u_on_dev][tii] .= .-sign.(stt[:u_sd_dev][tii])
-                if qG.run_ac_device_bins
+                if qG.change_ac_device_bins
                     # aclines
                     grd[:u_su_acline][:u_on_acline][tii] .=   sign.(stt[:u_su_acline][tii])
                     grd[:u_sd_acline][:u_on_acline][tii] .= .-sign.(stt[:u_sd_acline][tii])
@@ -732,7 +730,7 @@ function all_device_statuses_and_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symb
                 # devices
                 grd[:u_su_dev][:u_on_dev_prev][tii] .= .-sign.(stt[:u_su_dev][tii])
                 grd[:u_sd_dev][:u_on_dev_prev][tii] .=   sign.(stt[:u_sd_dev][tii])
-                if qG.run_ac_device_bins
+                if qG.change_ac_device_bins
                     # aclines
                     grd[:u_su_acline][:u_on_acline_prev][tii] .= .-sign.(stt[:u_su_acline][tii])
                     grd[:u_sd_acline][:u_on_acline_prev][tii] .=   sign.(stt[:u_sd_acline][tii])
@@ -747,7 +745,7 @@ function all_device_statuses_and_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symb
         stt[:zon_dev][tii] .= dt*prm.dev.on_cost.*stt[:u_on_dev][tii]
         stt[:zsu_dev][tii] .= prm.dev.startup_cost.*stt[:u_su_dev][tii]
         stt[:zsd_dev][tii] .= prm.dev.shutdown_cost.*stt[:u_sd_dev][tii]
-        if qG.run_ac_device_bins
+        if qG.change_ac_device_bins
             # aclines
                 # stt[:zon_acline][tii] ---> this does not exist
             stt[:zsu_acline][tii] .= prm.acline.connection_cost.*stt[:u_su_acline][tii]
@@ -760,9 +758,9 @@ function all_device_statuses_and_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symb
     end
 end
 
-function simple_device_statuses!(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+function simple_device_statuses!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
     # loop over each time period
-    for tii in prm.ts.time_keys
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # start up and shutdown costs
         if tii == :t1
             # devices
@@ -776,7 +774,7 @@ function simple_device_statuses!(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::
     end
 
     # now, compute the u_sum
-    for (t_ind, tii) in enumerate(prm.ts.time_keys)
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for (t_ind, tii) in enumerate(prm.ts.time_keys)
         for dev in 1:length(prm.dev.id)
             T_supc = idx.Ts_supc[dev][t_ind] # => get_supc(tii, dev, prm)
             T_sdpc = idx.Ts_sdpc[dev][t_ind] # => get_sdpc(tii, dev, prm)
@@ -788,7 +786,7 @@ end
 # active power computation
 function device_active_powers!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # loop over each time period
-    for (t_ind, tii) in enumerate(prm.ts.time_keys)
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for (t_ind, tii) in enumerate(prm.ts.time_keys)
         # the following is expensive, so we skip it during power flow solves
         # (and we don't update p_su/p_sd anyways!)
         if qG.run_susd_updates
@@ -813,9 +811,9 @@ function device_active_powers!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::qua
 end
 
 # reactive power computation
-function device_reactive_powers!(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+function device_reactive_powers!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # loop over each time period
-    for tii in prm.ts.time_keys
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         for dev in 1:sys.ndev
             # only a subset of devices will have a reactive power equality constraint
             if dev in idx.J_pqe
@@ -847,7 +845,7 @@ end
 
 function device_startup_states!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # loop over each time period
-    for (t_ind, tii) in enumerate(prm.ts.time_keys)
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for (t_ind, tii) in enumerate(prm.ts.time_keys)
         for dev in 1:sys.ndev
             # first, we bound ("bnd") the startup state ("sus"):
             # the startup state can only be active if the device

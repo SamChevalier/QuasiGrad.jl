@@ -644,7 +644,7 @@ function calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     qG.run_susd_updates = true
 
     # flush the gradient -- both master grad and some of the gradient terms
-    quasiGrad.flush_gradients!(grd, mgd, prm, sys)
+    quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 
     # don't clip!!
     
@@ -657,17 +657,17 @@ function calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     quasiGrad.all_device_statuses_and_costs!(grd, prm, qG, stt)
     quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
     quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
-    quasiGrad.device_reactive_powers!(idx, prm, stt, sys)
+    quasiGrad.device_reactive_powers!(idx, prm, qG, stt, sys)
     quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
     quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
     quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
-    quasiGrad.device_reserve_costs!(prm, stt)
+    quasiGrad.device_reserve_costs!(prm, qG, stt)
 
     # now, we can compute the power balances
     quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
 
     # compute reserve margins and penalties (no grads here)
-    quasiGrad.reserve_balance!(idx, prm, stt, sys)
+    quasiGrad.reserve_balance!(idx, prm, qG, stt, sys)
 
     # score the contingencies and take the gradients
     @info "ctg solve on"
