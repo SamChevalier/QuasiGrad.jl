@@ -7,7 +7,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     if hpc_params == true
         # turn OFF printing
         print_zms                     = false # print zms at every adam iteration?
-        print_freq                    = 5    # (i.e., every how often)
+        print_freq                    = 5     # (i.e., every how often)
         print_final_stats             = false # print stats at the end?
         print_lbfgs_iterations        = false
         print_projection_success      = false

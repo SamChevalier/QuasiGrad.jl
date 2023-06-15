@@ -646,7 +646,7 @@ while run_pf == true
 
     # apply additional bounds: J_pqe (equality constraints)
     if ~isempty(idx.J_pqe)
-        @constraint(model, dev_q_vars[idx.J_pqe] .== prm.dev.q_0[dev]*stt[:u_sum][tii][idx.J_pqe] + prm.dev.beta[idx.J_pqe]*dev_p_vars[idx.J_pqe])
+        @constraint(model, dev_q_vars[idx.J_pqe] .== prm.dev.q_0[dev].*stt[:u_sum][tii][idx.J_pqe] + prm.dev.beta[idx.J_pqe].*dev_p_vars[idx.J_pqe])
     end
 
     # apply additional bounds: J_pqmin/max (inequality constraints)

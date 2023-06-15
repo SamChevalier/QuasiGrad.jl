@@ -3580,7 +3580,7 @@ while run_pf == true
 
     # apply additional bounds: J_pqe (equality constraints)
     if ~isempty(idx.J_pqe)
-        @constraint(model, dev_q_vars[idx.J_pqe] - prm.dev.beta[idx.J_pqe]*dev_p_vars[idx.J_pqe] .== prm.dev.q_0[idx.J_pqe]*stt[:u_sum][tii][idx.J_pqe])
+        @constraint(model, dev_q_vars[idx.J_pqe] - prm.dev.beta[idx.J_pqe].*dev_p_vars[idx.J_pqe] .== prm.dev.q_0[idx.J_pqe].*stt[:u_sum][tii][idx.J_pqe])
         # alternative: @constraint(model, dev_q_vars[idx.J_pqe] .== prm.dev.q_0[idx.J_pqe]*stt[:u_sum][tii][idx.J_pqe] + prm.dev.beta[idx.J_pqe]*dev_p_vars[idx.J_pqe])
     end
 
