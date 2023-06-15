@@ -289,13 +289,13 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
                                             # are optimized at each time step
     # set the number of lbfgs steps
     if num_bus < 100
-        num_lbfgs_steps = 350
+        num_lbfgs_steps = 400
     elseif num_bus < 500    
-        num_lbfgs_steps = 300   
+        num_lbfgs_steps = 350   
     elseif num_bus < 1000    
-        num_lbfgs_steps = 250
+        num_lbfgs_steps = 300
     else
-        num_lbfgs_steps = 175
+        num_lbfgs_steps = 250
     end
 
     # when we clip p/q in bounds, should we clip based on binary values?
