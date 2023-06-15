@@ -3,18 +3,21 @@ using Revise
 
 # ===============
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
-path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N01576D1/scenario_001.json"
+#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N01576D1/scenario_001.json"
 
     # great benchmark for Jpqe/etc !!
     # => path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N04200D1/scenario_001.json"
 
 # parameters
 InFile1               = path
-TimeLimitInSeconds    = 1000.0
+TimeLimitInSeconds    = 600.0
 NewTimeLimitInSeconds = TimeLimitInSeconds - 35.0
 Division              = 1
 NetworkModel          = "test"
 AllowSwitching        = 0
+
+# %%
+quasiGrad.compute_quasiGrad_solution_timed(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
 
 # this is the master function which executes quasiGrad.
 # 
@@ -44,6 +47,10 @@ time_left = NewTimeLimitInSeconds - time_spent_before_loop
 
 # TT: time management:
 quasiGrad.manage_time!(time_left, qG)
+
+# -----------
+quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+# %%
 
 # loop and solve: adam -> projection -> IBR
 n_its = length(qG.pcts_to_round)
