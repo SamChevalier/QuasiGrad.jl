@@ -1,19 +1,8 @@
 using quasiGrad
-using GLMakie
 using Revise
-using Plots
-using Makie
 
-# call the plotting tools
-# include("../core/plotting.jl")
-
-# %% ===============
-#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D2/C3S0N00073/scenario_002.json"
+# ===============
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
-# path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D2/C3S1N00600/scenario_001.json"
-# path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D1/C3S0N00073/scenario_002.json"
-# path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_117.json"
-# path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_117.json"
 
 # parameters
 InFile1               = path
@@ -33,15 +22,36 @@ start_time = time()
 # I1. load the system data
 jsn = quasiGrad.load_json(InFile1)
 
-# %% I2. initialize the system
+# I2. initialize the system
 adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
 stt, sys, upd, wct = quasiGrad.base_initialization(jsn, Div=Division);
 
 @warn "homotopy ON"
 qG.apply_grad_weight_homotopy = true
 
-# %% I3. run an economic dispatch and update the states
-@time quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+# I3. run an economic dispatch and update the states
+quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+
+# TT: time
+time_spent_before_loop = time() - start_time
+
+# TT: how much time is left?
+time_left = NewTimeLimitInSeconds - time_spent_before_loop
+
+# TT: time management:
+quasiGrad.manage_time!(time_left, qG)
+
+# TT: set an adam solve time
+qG.adam_max_time = 60.0
+
+# %% L1. run power flow
+quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+
+# %% L2. clean-up reserves by solving softly constrained LP
+quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+
+# %% L3. run adam
+quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
 
 
 

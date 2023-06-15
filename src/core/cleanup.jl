@@ -345,7 +345,7 @@ function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGra
         # duration
         dt = prm.ts.duration[tii]
 
-        model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => 1))
+        model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => 1))
         set_string_names_on_creation(model, false)
 
         # set model properties
@@ -1038,7 +1038,7 @@ function soft_reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::qua
         # duration
         dt = prm.ts.duration[tii]
 
-        model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => 1))
+        model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => 1))
         set_string_names_on_creation(model, false)
 
         # set model properties -- no tolerance needed!
@@ -1507,10 +1507,10 @@ function single_shot_pf_clearnup!(idx::quasiGrad.Idx, Jac::quasiGrad.SparseArray
 
     for bus in 1:sys.nb
         # penalize mismatch
-        @constraint(model, JacP_noref[bus,:]'*x_in + msc[:pinj0][bus] - nodal_p[bus] <= slack_p[bus])
-        @constraint(model, nodal_p[bus] - JacP_noref[bus,:]'*x_in - msc[:pinj0][bus] <= slack_p[bus])
-        @constraint(model, JacQ_noref[bus,:]'*x_in + msc[:qinj0][bus] - nodal_q[bus] <= slack_q[bus])
-        @constraint(model, nodal_q[bus] - JacQ_noref[bus,:]'*x_in - msc[:qinj0][bus] <= slack_q[bus])
+        @constraint(model, JacP_noref[bus,:]'*x_in + msc[:pinj0][tii][bus] - nodal_p[bus] <= slack_p[bus])
+        @constraint(model, nodal_p[bus] - JacP_noref[bus,:]'*x_in - msc[:pinj0][tii][bus] <= slack_p[bus])
+        @constraint(model, JacQ_noref[bus,:]'*x_in + msc[:qinj0][tii][bus] - nodal_q[bus] <= slack_q[bus])
+        @constraint(model, nodal_q[bus] - JacQ_noref[bus,:]'*x_in - msc[:qinj0][tii][bus] <= slack_q[bus])
 
         # add both to the objective
         add_to_expression!(obj, slack_p[bus], 1e3)
@@ -1587,7 +1587,7 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
 
     # build and empty the model!
     num_threads = qG.num_threads
-    model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => num_threads))
+    model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => num_threads))
     set_string_names_on_creation(model, false)
 
     # set model properties
@@ -1794,8 +1794,8 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
             JacP_noref = @view Jac[1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
             JacQ_noref = @view Jac[(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
 
-            @constraint(model, JacP_noref*x_in + msc[:pinj0] .== nodal_p)
-            @constraint(model, JacQ_noref*x_in + msc[:qinj0] .== nodal_q)
+            @constraint(model, JacP_noref*x_in + msc[:pinj0][tii] .== nodal_p)
+            @constraint(model, JacQ_noref*x_in + msc[:qinj0][tii] .== nodal_q)
 
             # objective: hold p and q close to their initial values
                 # => || msc[:pinj_ideal] - (p0 + dp) || + regularization

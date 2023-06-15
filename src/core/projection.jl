@@ -525,7 +525,7 @@ function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Idx, pr
         while solve_projection == true
         
             # build an empty model!
-            model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => 1))
+            model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => 1))
             set_string_names_on_creation(model, false)
             # set_silent(model)
 

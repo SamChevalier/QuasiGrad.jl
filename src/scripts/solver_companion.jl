@@ -6,7 +6,7 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 
 # parameters
 InFile1               = path
-TimeLimitInSeconds    = 600.0
+TimeLimitInSeconds    = 1000.0
 NewTimeLimitInSeconds = TimeLimitInSeconds - 35.0
 Division              = 1
 NetworkModel          = "test"
@@ -62,7 +62,7 @@ for (solver_itr, pct_round) in enumerate(qG.pcts_to_round)
 
     # L5. on the second-to-last iteration, fix the shunts; otherwise, just snap them
     fix = solver_itr == (n_its-1)
-    quasiGrad.snap_shunts!(fix, prm, stt, upd)
+    quasiGrad.snap_shunts!(fix, prm, qG, stt, upd)
 end
 ##############################################################
 ##############################################################

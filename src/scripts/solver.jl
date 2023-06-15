@@ -46,7 +46,7 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
 
         # L5. on the second-to-last iteration, fix the shunts; otherwise, just snap them
         fix = solver_itr == (n_its-1)
-        quasiGrad.snap_shunts!(fix, prm, stt, upd)
+        quasiGrad.snap_shunts!(fix, prm, qG, stt, upd)
     end
     ##############################################################
     ##############################################################
@@ -104,7 +104,7 @@ function compute_quasiGrad_solution_feas(InFile1::String, NewTimeLimitInSeconds:
     quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
-    quasiGrad.snap_shunts!(true, prm, stt, upd)
+    quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
     quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 end
 
@@ -179,7 +179,7 @@ function compute_quasiGrad_solution_timed(InFile1::String, NewTimeLimitInSeconds
 
         # L5. on the second-to-last iteration, fix the shunts; otherwise, just snap them
         fix = solver_itr == (n_its-1)
-        quasiGrad.snap_shunts!(fix, prm, stt, upd)
+        quasiGrad.snap_shunts!(fix, prm, qG, stt, upd)
     end
     ##############################################################
     ##############################################################

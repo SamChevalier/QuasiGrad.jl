@@ -82,7 +82,7 @@ for (solver_itr, pct_round) in enumerate(qG.pcts_to_round)
 
     # L5. on the second-to-last iteration, fix the shunts; otherwise, just snap them
     fix = solver_itr == (n_its-1)
-    quasiGrad.snap_shunts!(fix, prm, stt, upd)
+    quasiGrad.snap_shunts!(fix, prm, qG, stt, upd)
 end
 ##############################################################
 ##############################################################

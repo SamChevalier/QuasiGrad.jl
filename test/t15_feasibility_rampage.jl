@@ -90,7 +90,7 @@ quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 #quasiGrad.reserve_cleanup_parallel!(idx, prm, qG, stt, sys, upd)
 
 # %%
-quasiGrad.snap_shunts!(true, prm, stt, upd)
+quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 

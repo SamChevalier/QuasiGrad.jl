@@ -71,7 +71,7 @@ stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # grb
-quasiGrad.snap_shunts!(true, prm, stt, upd)
+quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
 quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
 quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
 quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)

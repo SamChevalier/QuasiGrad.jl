@@ -1298,7 +1298,7 @@ function adam_termination(adam_start::Float64, adm_step::Int64, qG::quasiGrad.QG
 end
 
 function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
-        # Solve linearized power flow with Gurobi -- use margin tinkering to guarentee convergence. Only consinder upper 
+    # Solve linearized power flow with Gurobi -- use margin tinkering to guarentee convergence. Only consinder upper 
     # and lower bounds on the p/q production (no other limits).
     #
     # ask Gurobi to solve a linearize power flow. two options here:
@@ -1352,7 +1352,7 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Sym
         while run_pf == true
 
             # build an empty model!
-            model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GUROBI_ENV), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => 1))
+            model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => 1))
             set_string_names_on_creation(model, false)
 
             # safety margins should NEVER be 0

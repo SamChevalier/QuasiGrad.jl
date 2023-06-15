@@ -55,10 +55,15 @@ const eps_beta   = 1e-6::Float64
 const eps_susd   = 1e-6::Float64
 const d_unit     = 5e-3::Float64
 
-# define a gurobi licence
-const GUROBI_ENV = Gurobi.Env()
+# define a gurobi licence: 
+#   => https://github.com/jump-dev/Gurobi.jl/issues/424
+const GRB_ENV = Ref{Gurobi.Env}()
+function __init__()
+    GRB_ENV[] = Gurobi.Env()
+    return
+end
 
-# export?
+# export
 export JuMP
 
 end

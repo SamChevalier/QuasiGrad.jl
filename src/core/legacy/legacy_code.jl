@@ -2454,7 +2454,7 @@ cgd, GRB, grd, mgd, scr, stt = quasiGrad.initialize_states(idx, prm, sys)
 perturb!(stt, prm, idx, grd, sys, qG, 1.0)
             
 (n_its-1) ? fix = true : fix = false
-quasiGrad.snap_shunts!(prm, stt, upd, fix)
+quasiGrad.snap_shunts!(prm, qG, stt, upd, fix)
 end
 
 # %%

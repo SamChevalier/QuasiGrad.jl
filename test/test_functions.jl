@@ -759,7 +759,7 @@ function load_and_project(path::String, solution_file::String)
     quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
-    quasiGrad.snap_shunts!(true, prm, stt, upd)
+    quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
     quasiGrad.write_solution(solution_file, prm, qG, stt, sys)
     quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 end
