@@ -24,7 +24,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     end
 
     # how many threads?
-    num_threads = 1 # Sys.CPU_THREADS
+    num_threads = Sys.CPU_THREADS
     nT          = length(prm.ts.time_keys)
 
     # should we run (or skip) line and ac binary updates?

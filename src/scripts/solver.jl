@@ -103,6 +103,10 @@ function compute_quasiGrad_solution_feas(InFile1::String, NewTimeLimitInSeconds:
     pct_round = 100.0
     quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
     quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+
+    qG.adam_max_time = 20.0
+    quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
     quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
