@@ -23,6 +23,9 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
         print_reserve_cleanup_success = true
     end
 
+    # should we run (or skip) line and ac binary updates?
+    run_ac_device_bins = false
+
     # compute sus on each adam iteration?
     compute_sus_on_each_iteration = false
     compute_sus_frequency         = 5
@@ -309,6 +312,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
 
     # build the mutable struct
     qG = QG(
+        run_ac_device_bins,
         print_projection_success,
         print_reserve_cleanup_success,
         compute_sus_on_each_iteration,
@@ -1082,7 +1086,11 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
 
     for ctg_ii in 1:sys.nctg
         if mod(ctg_ii-1,1000) == 0
-            @info "solving the next one thousand wmi factors"
+            if ctg_ii == 1
+                @info "Solving the first one thousand wmi factors..."
+            else
+                @info "Solving the next one thousand wmi factors..."
+            end
         end
         # components
         cmpnts = prm.ctg.components[ctg_ii]
@@ -1776,8 +1784,8 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
         :acline_pto      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
         :acline_qto      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
         :u_on_acline     => Dict(tkeys[ii] => prm.acline.init_on_status       for ii in 1:(sys.nT)),
-        :u_su_acline     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
-        :u_sd_acline     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
+        :u_su_acline     => Dict(tkeys[ii] => zeros(sys.nl)                   for ii in 1:(sys.nT)),
+        :u_sd_acline     => Dict(tkeys[ii] => zeros(sys.nl)                   for ii in 1:(sys.nT)),
         # xfms
         :phi          => Dict(tkeys[ii] => copy(prm.xfm.init_phi)          for ii in 1:(sys.nT)),
         :tau          => Dict(tkeys[ii] => copy(prm.xfm.init_tau)          for ii in 1:(sys.nT)),
@@ -1786,8 +1794,8 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
         :xfm_pto      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
         :xfm_qto      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
         :u_on_xfm     => Dict(tkeys[ii] => prm.xfm.init_on_status          for ii in 1:(sys.nT)),
-        :u_su_xfm     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
-        :u_sd_xfm     => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
+        :u_su_xfm     => Dict(tkeys[ii] => zeros(sys.nx)                   for ii in 1:(sys.nT)),
+        :u_sd_xfm     => Dict(tkeys[ii] => zeros(sys.nx)                   for ii in 1:(sys.nT)),
         # all reactive ac flows -- used for ctgs
         :ac_qfr       => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nac)) for ii in 1:(sys.nT)),
         :ac_qto       => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nac)) for ii in 1:(sys.nT)),

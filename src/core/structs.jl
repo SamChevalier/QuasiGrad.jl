@@ -18,6 +18,7 @@ end
 
 # record system size information
 mutable struct QG
+    run_ac_device_bins::Bool
     print_projection_success::Bool
     print_reserve_cleanup_success::Bool
     compute_sus_on_each_iteration::Bool

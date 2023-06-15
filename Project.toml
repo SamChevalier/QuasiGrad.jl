@@ -5,6 +5,7 @@ version = "1.0.0-DEV"
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+FLoops = "cc61a311-1640-44b5-9fba-1b764f453329"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 Gurobi = "2e9cd046-0924-5485-92f1-d5272153d98b"
 InvertedIndices = "41ab1584-1d38-5bbf-9106-f11c6c58b48f"

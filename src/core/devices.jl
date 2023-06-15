@@ -675,36 +675,42 @@ function all_device_statuses_and_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symb
             # devices
             stt[:u_su_dev][tii] .=   max.(stt[:u_on_dev][tii] .- prm.dev.init_on_status, 0.0)
             stt[:u_sd_dev][tii] .= .-min.(stt[:u_on_dev][tii] .- prm.dev.init_on_status, 0.0)
-            # aclines
-            stt[:u_su_acline][tii] .=   max.(stt[:u_on_acline][tii] .- prm.acline.init_on_status, 0.0)
-            stt[:u_sd_acline][tii] .= .-min.(stt[:u_on_acline][tii] .- prm.acline.init_on_status, 0.0)
-            # xfms
-            stt[:u_su_xfm][tii] .=   max.(stt[:u_on_xfm][tii] .- prm.xfm.init_on_status, 0.0)
-            stt[:u_sd_xfm][tii] .= .-min.(stt[:u_on_xfm][tii] .- prm.xfm.init_on_status, 0.0)
+
+            if qG.run_ac_device_bins
+                # aclines
+                stt[:u_su_acline][tii] .=   max.(stt[:u_on_acline][tii] .- prm.acline.init_on_status, 0.0)
+                stt[:u_sd_acline][tii] .= .-min.(stt[:u_on_acline][tii] .- prm.acline.init_on_status, 0.0)
+                # xfms
+                stt[:u_su_xfm][tii] .=   max.(stt[:u_on_xfm][tii] .- prm.xfm.init_on_status, 0.0)
+                stt[:u_sd_xfm][tii] .= .-min.(stt[:u_on_xfm][tii] .- prm.xfm.init_on_status, 0.0)
+            end
 
             # evaluate the gradient?
             if qG.eval_grad
                 # devices
                 grd[:u_su_dev][:u_on_dev][tii] .=   sign.(stt[:u_su_dev][tii])
                 grd[:u_sd_dev][:u_on_dev][tii] .= .-sign.(stt[:u_sd_dev][tii])
-                # aclines
-                grd[:u_su_acline][:u_on_acline][tii] .=   sign.(stt[:u_su_acline][tii])
-                grd[:u_sd_acline][:u_on_acline][tii] .= .-sign.(stt[:u_sd_acline][tii])
-                # xfms
-                grd[:u_su_xfm][:u_on_xfm][tii] .=   sign.(stt[:u_su_xfm][tii])
-                grd[:u_sd_xfm][:u_on_xfm][tii] .= .-sign.(stt[:u_sd_xfm][tii])
+                if qG.run_ac_device_bins
+                    # aclines
+                    grd[:u_su_acline][:u_on_acline][tii] .=   sign.(stt[:u_su_acline][tii])
+                    grd[:u_sd_acline][:u_on_acline][tii] .= .-sign.(stt[:u_sd_acline][tii])
+                    # xfms
+                    grd[:u_su_xfm][:u_on_xfm][tii] .=   sign.(stt[:u_su_xfm][tii])
+                    grd[:u_sd_xfm][:u_on_xfm][tii] .= .-sign.(stt[:u_sd_xfm][tii])
+                end
             end
         else
             # devices
             stt[:u_su_dev][tii] .=   max.(stt[:u_on_dev][tii] .- stt[:u_on_dev][prm.ts.tmin1[tii]], 0.0)
             stt[:u_sd_dev][tii] .= .-min.(stt[:u_on_dev][tii] .- stt[:u_on_dev][prm.ts.tmin1[tii]], 0.0)
-            # aclines
-            stt[:u_su_acline][tii] .=   max.(stt[:u_on_acline][tii] .- stt[:u_on_acline][prm.ts.tmin1[tii]], 0.0)
-            stt[:u_sd_acline][tii] .= .-min.(stt[:u_on_acline][tii] .- stt[:u_on_acline][prm.ts.tmin1[tii]], 0.0)
-            # xfms
-            stt[:u_su_xfm][tii] .=   max.(stt[:u_on_xfm][tii] .- stt[:u_on_xfm][prm.ts.tmin1[tii]], 0.0)
-            stt[:u_sd_xfm][tii] .= .-min.(stt[:u_on_xfm][tii] .- stt[:u_on_xfm][prm.ts.tmin1[tii]], 0.0)
-            
+            if qG.run_ac_device_bins
+                # aclines
+                stt[:u_su_acline][tii] .=   max.(stt[:u_on_acline][tii] .- stt[:u_on_acline][prm.ts.tmin1[tii]], 0.0)
+                stt[:u_sd_acline][tii] .= .-min.(stt[:u_on_acline][tii] .- stt[:u_on_acline][prm.ts.tmin1[tii]], 0.0)
+                # xfms
+                stt[:u_su_xfm][tii] .=   max.(stt[:u_on_xfm][tii] .- stt[:u_on_xfm][prm.ts.tmin1[tii]], 0.0)
+                stt[:u_sd_xfm][tii] .= .-min.(stt[:u_on_xfm][tii] .- stt[:u_on_xfm][prm.ts.tmin1[tii]], 0.0)
+            end
             # evaluate the gradient?
             if qG.eval_grad
                 # current time:
@@ -712,24 +718,28 @@ function all_device_statuses_and_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symb
                 # devices
                 grd[:u_su_dev][:u_on_dev][tii] .=   sign.(stt[:u_su_dev][tii])
                 grd[:u_sd_dev][:u_on_dev][tii] .= .-sign.(stt[:u_sd_dev][tii])
-                # aclines
-                grd[:u_su_acline][:u_on_acline][tii] .=   sign.(stt[:u_su_acline][tii])
-                grd[:u_sd_acline][:u_on_acline][tii] .= .-sign.(stt[:u_sd_acline][tii])
-                # xfms
-                grd[:u_su_xfm][:u_on_xfm][tii] .=   sign.(stt[:u_su_xfm][tii])
-                grd[:u_sd_xfm][:u_on_xfm][tii] .= .-sign.(stt[:u_sd_xfm][tii])
+                if qG.run_ac_device_bins
+                    # aclines
+                    grd[:u_su_acline][:u_on_acline][tii] .=   sign.(stt[:u_su_acline][tii])
+                    grd[:u_sd_acline][:u_on_acline][tii] .= .-sign.(stt[:u_sd_acline][tii])
+                    # xfms
+                    grd[:u_su_xfm][:u_on_xfm][tii] .=   sign.(stt[:u_su_xfm][tii])
+                    grd[:u_sd_xfm][:u_on_xfm][tii] .= .-sign.(stt[:u_sd_xfm][tii])
+                end
 
                 # previous time:
                 #
                 # devices
                 grd[:u_su_dev][:u_on_dev_prev][tii] .= .-sign.(stt[:u_su_dev][tii])
                 grd[:u_sd_dev][:u_on_dev_prev][tii] .=   sign.(stt[:u_sd_dev][tii])
-                # aclines
-                grd[:u_su_acline][:u_on_acline_prev][tii] .= .-sign.(stt[:u_su_acline][tii])
-                grd[:u_sd_acline][:u_on_acline_prev][tii] .=   sign.(stt[:u_sd_acline][tii])
-                # xfms
-                grd[:u_su_xfm][:u_on_xfm_prev][tii] .= .-sign.(stt[:u_su_xfm][tii])
-                grd[:u_sd_xfm][:u_on_xfm_prev][tii] .=   sign.(stt[:u_sd_xfm][tii])
+                if qG.run_ac_device_bins
+                    # aclines
+                    grd[:u_su_acline][:u_on_acline_prev][tii] .= .-sign.(stt[:u_su_acline][tii])
+                    grd[:u_sd_acline][:u_on_acline_prev][tii] .=   sign.(stt[:u_sd_acline][tii])
+                    # xfms
+                    grd[:u_su_xfm][:u_on_xfm_prev][tii] .= .-sign.(stt[:u_su_xfm][tii])
+                    grd[:u_sd_xfm][:u_on_xfm_prev][tii] .=   sign.(stt[:u_sd_xfm][tii])
+                end
             end
         end
 
@@ -737,14 +747,16 @@ function all_device_statuses_and_costs!(grd::Dict{Symbol, Dict{Symbol, Dict{Symb
         stt[:zon_dev][tii] .= dt*prm.dev.on_cost.*stt[:u_on_dev][tii]
         stt[:zsu_dev][tii] .= prm.dev.startup_cost.*stt[:u_su_dev][tii]
         stt[:zsd_dev][tii] .= prm.dev.shutdown_cost.*stt[:u_sd_dev][tii]
-        # aclines
-            # stt[:zon_acline][tii] ---> this does not exist
-        stt[:zsu_acline][tii] .= prm.acline.connection_cost.*stt[:u_su_acline][tii]
-        stt[:zsd_acline][tii] .= prm.acline.disconnection_cost.*stt[:u_sd_acline][tii]
-        # xfms
-            # stt[:zon_xfm][tii] ---> this does not exist
-        stt[:zsu_xfm][tii] .= prm.xfm.connection_cost.*stt[:u_su_xfm][tii]
-        stt[:zsd_xfm][tii] .= prm.xfm.disconnection_cost.*stt[:u_sd_xfm][tii]
+        if qG.run_ac_device_bins
+            # aclines
+                # stt[:zon_acline][tii] ---> this does not exist
+            stt[:zsu_acline][tii] .= prm.acline.connection_cost.*stt[:u_su_acline][tii]
+            stt[:zsd_acline][tii] .= prm.acline.disconnection_cost.*stt[:u_sd_acline][tii]
+            # xfms
+                # stt[:zon_xfm][tii] ---> this does not exist
+            stt[:zsu_xfm][tii] .= prm.xfm.connection_cost.*stt[:u_su_xfm][tii]
+            stt[:zsd_xfm][tii] .= prm.xfm.disconnection_cost.*stt[:u_sd_xfm][tii]
+        end
     end
 end
 
@@ -845,80 +857,82 @@ function device_startup_states!(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vect
             stt[:zsus_dev][tii][dev] = 0.0
 
             # loop over sus (i.e., f in F)
-            for ii in 1:prm.dev.num_sus[dev] # min(prm.dev.num_sus[dev],1)
-            #for ii in 1:prm.dev.num_sus[dev]
-                if prm.dev.startup_states[dev][ii][1] < 0.0 # skip if 0! why are these even here?
-                    # grab the sets of T_sus
-                    # => T_sus_jft = idx.Ts_sus_jft[dev][t_ind][ii] # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
-                    # => T_sus_jf  = idx.Ts_sus_jf[dev][t_ind][ii]  # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
+            if prm.dev.num_sus[dev] > 0
+                for ii in 1:prm.dev.num_sus[dev] # 1:min(prm.dev.num_sus[dev],1)
+                    if prm.dev.startup_states[dev][ii][1] < 0.0 # skip if 0! why are these even here?
+                        # grab the sets of T_sus
+                        # => T_sus_jft = idx.Ts_sus_jft[dev][t_ind][ii] # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
+                        # => T_sus_jf  = idx.Ts_sus_jf[dev][t_ind][ii]  # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
 
-                    if tii in idx.Ts_sus_jf[dev][t_ind][ii]
-                        if tii == :t1
-                            # this is an edge case, where there are no previous states which
-                            # could be "on" (since we can't turn on the generator in the fixed
-                            # past, and it wasn't on)
-                            # ** stt[:u_sus_bnd][tii][dev][ii] = 0.0
-                            u_sus_bnd = 0.0
-                        else
-                            u_on_max_ind = argmax([stt[:u_on_dev][tii_inst][dev] for tii_inst in idx.Ts_sus_jft[dev][t_ind][ii]])
-                            u_sus_bnd    = stt[:u_on_dev][idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]][dev]
-                            # => u_sus_bnd = maximum([stt[:u_on_dev][tii_inst][dev] for tii_inst in idx.Ts_sus_jft[dev][t_ind][ii]])
-                            
-                            # => u_sus_bnd = maximum([stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft])
-                            # ** stt[:u_sus_bnd][tii][dev][ii] = stt[:u_on_dev][T_sus_jft[u_on_max_ind]][dev]
-                        end
-                        #
-                        # note: u_on_max == stt[:u_on_dev][T_sus_jft[u_on_max_ind]][dev]
-                        #
-                        # previous bound based on directly taking the max:
-                            # stt[:u_sus_bnd][tii][dev][ii] = max.([stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft])
-                        # previous bound based on the sum (rather than max)
-                            # stt[:u_sus_bnd][tii][dev][ii] = max.(sum(stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft; init=0.0), 1.0)
-                    else
-                        # ok, in this case the device was on in a sufficiently recent time (based on
-                        # startup conditions), so we don't need to compute a bound
-                        u_sus_bnd = 1.0
-                        # ** stt[:u_sus_bnd][tii][dev][ii] = 1.0
-                    end
-
-                    # now, compute the discount/cost ==> this is "+=", since it is over all (f in F) states
-                    if u_sus_bnd > 0.0
-                        stt[:zsus_dev][tii][dev] += prm.dev.startup_states[dev][ii][1]*min(stt[:u_su_dev][tii][dev],u_sus_bnd)
-                    end
-                    # ** stt[:zsus_dev][tii][dev] += prm.dev.startup_states[dev][ii][1]*min(stt[:u_su_dev][tii][dev],stt[:u_sus_bnd][tii][dev][ii])
-
-                    # this is all pretty expensive, so let's take the gradient right here
-                    #
-                    # evaluate gradient?
-                    if qG.eval_grad
-                        # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsus_dev] * prm.dev.startup_states[dev][ii][1]
-                        # test which was smaller: u_su, or the su_bound?
-                        #
-                        # we want "<=" so that we never end up in a case where 
-                        # we try to take the gradient of u_sus_bnd == 1 (see else case above)
-                        if stt[:u_su_dev][tii][dev] <= u_sus_bnd # ** stt[:u_sus_bnd][tii][dev][ii]
-                            # in this case, there is an available discount, so we want u_su
-                            # to feel a bit less downward pressure and rise up (potentially)
-                            mgd[:u_on_dev][tii][dev] += prm.dev.startup_states[dev][ii][1]*grd[:u_su_dev][:u_on_dev][tii][dev]
-                            if tii != :t1
-                                # previous time?
-                                mgd[:u_on_dev][prm.ts.tmin1[tii]][dev] += prm.dev.startup_states[dev][ii][1]*grd[:u_su_dev][:u_on_dev_prev][tii][dev]
+                        if tii in idx.Ts_sus_jf[dev][t_ind][ii]
+                            if tii == :t1
+                                # this is an edge case, where there are no previous states which
+                                # could be "on" (since we can't turn on the generator in the fixed
+                                # past, and it wasn't on)
+                                # ** stt[:u_sus_bnd][tii][dev][ii] = 0.0
+                                u_sus_bnd = 0.0
+                            else
+                                u_on_max_ind = argmax([stt[:u_on_dev][tii_inst][dev] for tii_inst in idx.Ts_sus_jft[dev][t_ind][ii]])
+                                u_sus_bnd    = stt[:u_on_dev][idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]][dev]
+                                # => alt: u_sus_bnd = maximum([stt[:u_on_dev][tii_inst][dev] for tii_inst in idx.Ts_sus_jft[dev][t_ind][ii]])
+                                
+                                # => u_sus_bnd = maximum([stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft])
+                                # ** stt[:u_sus_bnd][tii][dev][ii] = stt[:u_on_dev][T_sus_jft[u_on_max_ind]][dev]
                             end
-                        else
-                            # in this case, sus bound is lower than u_su, so we'll put some pressure on the
-                            # previous largest u_on, trying to push it up, in order to extract a little value
-                            # from this sus.. :)
                             #
-                            # what time is associated with this derivative? it is the time associated with the max u_on
-                            if tii != :t1
-                                # skip the gradient if tii == :t1, since stt[:u_sus_bnd] == 0 and no gradient exists
-                                # -- this is a weird edge case, but it does make sense if you think about it for
-                                # long enough.....
-                                    # => tt_max = T_sus_jft[u_on_max_ind]
-                                mgd[:u_on_dev][idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]][dev] += prm.dev.startup_states[dev][ii][1]*grd[:u_su_dev][:u_on_dev][idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]][dev]
-                                if idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind] != :t1
+                            # note: u_on_max == stt[:u_on_dev][T_sus_jft[u_on_max_ind]][dev]
+                            #
+                            # previous bound based on directly taking the max:
+                                # stt[:u_sus_bnd][tii][dev][ii] = max.([stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft])
+                            # previous bound based on the sum (rather than max)
+                                # stt[:u_sus_bnd][tii][dev][ii] = max.(sum(stt[:u_on_dev][tii_inst][dev] for tii_inst in T_sus_jft; init=0.0), 1.0)
+                        else
+                            # ok, in this case the device was on in a sufficiently recent time (based on
+                            # startup conditions), so we don't need to compute a bound
+                            u_sus_bnd = 1.0
+                            # this!!! u_sus_bnd = 1.0
+                            # ** stt[:u_sus_bnd][tii][dev][ii] = 1.0
+                        end
+
+                        # now, compute the discount/cost ==> this is "+=", since it is over all (f in F) states
+                        if u_sus_bnd > 0.0
+                            stt[:zsus_dev][tii][dev] += prm.dev.startup_states[dev][ii][1]*min(stt[:u_su_dev][tii][dev],u_sus_bnd)
+                        end
+                        # ** stt[:zsus_dev][tii][dev] += prm.dev.startup_states[dev][ii][1]*min(stt[:u_su_dev][tii][dev],stt[:u_sus_bnd][tii][dev][ii])
+
+                        # this is all pretty expensive, so let's take the gradient right here
+                        #
+                        # evaluate gradient?
+                        if qG.eval_grad
+                            # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsus_dev] * prm.dev.startup_states[dev][ii][1]
+                            # test which was smaller: u_su, or the su_bound?
+                            #
+                            # we want "<=" so that we never end up in a case where 
+                            # we try to take the gradient of u_sus_bnd == 1 (see else case above)
+                            if stt[:u_su_dev][tii][dev] <= u_sus_bnd # ** stt[:u_sus_bnd][tii][dev][ii]
+                                # in this case, there is an available discount, so we want u_su
+                                # to feel a bit less downward pressure and rise up (potentially)
+                                mgd[:u_on_dev][tii][dev] += prm.dev.startup_states[dev][ii][1]*grd[:u_su_dev][:u_on_dev][tii][dev]
+                                if tii != :t1
                                     # previous time?
-                                    mgd[:u_on_dev][prm.ts.tmin1[idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]]][dev] += prm.dev.startup_states[dev][ii][1]*grd[:u_su_dev][:u_on_dev_prev][idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]][dev]
+                                    mgd[:u_on_dev][prm.ts.tmin1[tii]][dev] += prm.dev.startup_states[dev][ii][1]*grd[:u_su_dev][:u_on_dev_prev][tii][dev]
+                                end
+                            else
+                                # in this case, sus bound is lower than u_su, so we'll put some pressure on the
+                                # previous largest u_on, trying to push it up, in order to extract a little value
+                                # from this sus.. :)
+                                #
+                                # what time is associated with this derivative? it is the time associated with the max u_on
+                                if tii != :t1
+                                    # skip the gradient if tii == :t1, since stt[:u_sus_bnd] == 0 and no gradient exists
+                                    # -- this is a weird edge case, but it does make sense if you think about it for
+                                    # long enough.....
+                                        # => tt_max = T_sus_jft[u_on_max_ind]
+                                    mgd[:u_on_dev][idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]][dev] += prm.dev.startup_states[dev][ii][1]*grd[:u_su_dev][:u_on_dev][idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]][dev]
+                                    if idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind] != :t1
+                                        # previous time?
+                                        mgd[:u_on_dev][prm.ts.tmin1[idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]]][dev] += prm.dev.startup_states[dev][ii][1]*grd[:u_su_dev][:u_on_dev_prev][idx.Ts_sus_jft[dev][t_ind][ii][u_on_max_ind]][dev]
+                                    end
                                 end
                             end
                         end

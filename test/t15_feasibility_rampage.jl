@@ -3,7 +3,7 @@ using Revise
 
 include("./test_functions.jl")
 
-# ==================================== C3S1_20221222 ==================================== #
+# %% ==================================== C3S1_20221222 ==================================== #
 #
 # =============== D1
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
@@ -51,6 +51,7 @@ path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases
 # path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S3.1_20230606/C3S3N23643D1/scenario_001.json"
 # path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
 # path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S3.1_20230606/C3S3N00037D2/scenario_001.json"
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
 
 solution_file = "solution.jl"
 load_and_project(path, solution_file)
@@ -71,22 +72,39 @@ InFile1 = path
 jsn = quasiGrad.load_json(InFile1)
 
 # initialize
-adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn)
+adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn, perturb_states=true, pert_size=1.0)
 
 # solve
 fix       = true
 pct_round = 100.0
-quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+#quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
 quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
 quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
 quasiGrad.snap_shunts!(true, prm, stt, upd)
-quasiGrad.write_solution(solution_file, prm, qG, stt, sys)
+quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # %% =====================:
 quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
 scr[:zsus] = -sum(sum(stt[:zsus_dev][tii] for tii in prm.ts.time_keys))
 println(-scr[:zsus])
+
+# %% -- sum
+zsus_devs = zeros(2066)
+for tii in prm.ts.time_keys
+    devs = findall(stt[:zsus_dev][tii] .< 0.0)
+    for dev in devs
+        dev_id = prm.dev.id[dev]
+        vals   = stt[:zsus_dev][tii][dev]
+        println("dev: $dev_id, t: $tii, z_sus: $vals")
+    end
+    zsus_devs .+= stt[:zsus_dev][tii]
+end
+
+# %% all
+devs = findall(zsus_devs.< 0.0)
+println(zsus_devs[devs])
+println(prm.dev.id[devs])
 
 
 

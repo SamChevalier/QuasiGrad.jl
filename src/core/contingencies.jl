@@ -236,13 +236,13 @@ function solve_ctgs!(
                         if 1 in bit[:sfr_vio][1:sys.nl]
                             # deal with the fr line
                             aclfr_alpha = gc*(flw[:dsmax_dqfr_flow][1:sys.nl][bit[:sfr_vio][1:sys.nl]])
-                            zctgs_grad_qfr_acline!(aclfr_alpha, bit, grd, idx, mgd, prm, sys, tii)
+                            zctgs_grad_qfr_acline!(aclfr_alpha, bit, grd, idx, mgd, prm, qG, sys, tii)
                         end
 
                         if 1 in bit[:sto_vio][1:sys.nl]
                             # deal with the to line
                             aclto_alpha = gc*(flw[:dsmax_dqto_flow][1:sys.nl][bit[:sto_vio][1:sys.nl]])
-                            zctgs_grad_qto_acline!(aclto_alpha, bit, grd, idx, mgd, prm, sys, tii)
+                            zctgs_grad_qto_acline!(aclto_alpha, bit, grd, idx, mgd, prm, qG, sys, tii)
                         end
 
                         # slower:
@@ -253,14 +253,14 @@ function solve_ctgs!(
                             # => zctgs_grad_q_acline!(tii, idx, grd, mgd, aclfr_inds, aclto_inds, aclfr_alpha, aclto_alpha)
 
                         # xfm
-                        #if 1 in bit[:sfr_vio][(sys.nl+1):sys.nac]
-                        #    xfr_alpha = gc*(flw[:dsmax_dqfr_flow][(sys.nl+1):sys.nac][bit[:sfr_vio][(sys.nl+1):sys.nac]])
-                        #    zctgs_grad_qfr_xfm!(bit, grd, idx, mgd, prm, sys, tii, xfr_alpha)
-                        #end
-                        #if 1 in bit[:sto_vio][(sys.nl+1):sys.nac]
-                        #    xfr_alpha = gc*(flw[:dsmax_dqfr_flow][(sys.nl+1):sys.nac][bit[:sto_vio][(sys.nl+1):sys.nac]])
-                        #    zctgs_grad_qto_xfm!(bit, grd, idx, mgd, prm, sys, tii, xto_alpha)
-                        #end
+                        if 1 in bit[:sfr_vio][(sys.nl+1):sys.nac]
+                            xfr_alpha = gc*(flw[:dsmax_dqfr_flow][(sys.nl+1):sys.nac][bit[:sfr_vio][(sys.nl+1):sys.nac]])
+                            zctgs_grad_qfr_xfm!(bit, grd, idx, mgd, prm, qG, sys, tii, xfr_alpha)
+                        end
+                        if 1 in bit[:sto_vio][(sys.nl+1):sys.nac]
+                            xfr_alpha = gc*(flw[:dsmax_dqfr_flow][(sys.nl+1):sys.nac][bit[:sto_vio][(sys.nl+1):sys.nac]])
+                            zctgs_grad_qto_xfm!(bit, grd, idx, mgd, prm, qG, sys, tii, xto_alpha)
+                        end
 
                         # slower:
                             # => xfr_inds  = findall(!iszero,bit[:sfr_vio][(sys.nl+1):sys.nac])
@@ -370,51 +370,7 @@ function lowrank_update_single_ctg_gradient!(ctd::Vector{Vector{Float64}}, ctg_i
     flw[:dz_dpinj] .= special_wmi_update(ctd[ctg_ii], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], flw[:rhs])
 end
 
-function zctgs_grad_q_acline!(tii::Symbol, idx::quasiGrad.Idx, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, aclfr_inds::Vector{Int64}, aclto_inds::Vector{Int64}, aclfr_alpha::Vector{Float64}, aclto_alpha::Vector{Float64})
-    # so, this function takes and applies the gradient of
-    # zctgs (at acline) with repsect to reactive power
-    # variables (i.e., all variables on a line which affect
-    # reactive power flows).
-    #
-    # We compute and apply gradients for "fr" and "to" lines
-    # as necessary. what are the incoming variables?
-    #
-    # more comments in the xfm function
-    vmfrqfr = aclfr_alpha.*grd[:acline_qfr][:vmfr][tii][aclfr_inds]
-    vmtoqfr = aclfr_alpha.*grd[:acline_qfr][:vmto][tii][aclfr_inds]
-    vafrqfr = aclfr_alpha.*grd[:acline_qfr][:vafr][tii][aclfr_inds]
-    vatoqfr = aclfr_alpha.*grd[:acline_qfr][:vato][tii][aclfr_inds]
-    uonqfr  = aclfr_alpha.*grd[:acline_qfr][:uon][tii][aclfr_inds]
-
-    # final qfr gradients
-    vmfrqto = aclto_alpha.*grd[:acline_qto][:vmfr][tii][aclto_inds]
-    vmtoqto = aclto_alpha.*grd[:acline_qto][:vmto][tii][aclto_inds]
-    vafrqto = aclto_alpha.*grd[:acline_qto][:vafr][tii][aclto_inds]
-    vatoqto = aclto_alpha.*grd[:acline_qto][:vato][tii][aclto_inds]
-    uonqto  = aclto_alpha.*grd[:acline_qto][:uon][tii][aclto_inds]
-
-    # note: we must loop over these assignments!
-    for (ii,ln) in enumerate(aclfr_inds)
-        # update the master grad -- qfr
-        mgd[:vm][tii][idx.acline_fr_bus[ln]] += vmfrqfr[ii]
-        mgd[:vm][tii][idx.acline_to_bus[ln]] += vmtoqfr[ii]
-        mgd[:va][tii][idx.acline_fr_bus[ln]] += vafrqfr[ii]
-        mgd[:va][tii][idx.acline_to_bus[ln]] += vatoqfr[ii]
-        mgd[:u_on_acline][tii][ln]           += uonqfr[ii]
-    end
-
-    # note: we must loop over these assignments!
-    for (ii,ln) in enumerate(aclto_inds)
-        # update the master grad -- qto
-        mgd[:vm][tii][idx.acline_fr_bus[ln]] += vmfrqto[ii]
-        mgd[:vm][tii][idx.acline_to_bus[ln]] += vmtoqto[ii]
-        mgd[:va][tii][idx.acline_fr_bus[ln]] += vafrqto[ii]
-        mgd[:va][tii][idx.acline_to_bus[ln]] += vatoqto[ii]
-        mgd[:u_on_acline][tii][ln]           += uonqto[ii]
-    end
-end
-
-function zctgs_grad_qfr_acline!(aclfr_alpha::Vector{Float64}, bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, sys::quasiGrad.System, tii::Symbol)
+function zctgs_grad_qfr_acline!(aclfr_alpha::Vector{Float64}, bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System, tii::Symbol)
     # so, this function takes and applies the gradient of
     # zctgs (at acline) with repsect to reactive power
     # variables (i.e., all variables on a line which affect
@@ -428,7 +384,6 @@ function zctgs_grad_qfr_acline!(aclfr_alpha::Vector{Float64}, bit::Dict{Symbol, 
     vmtoqfr = aclfr_alpha.*grd[:acline_qfr][:vmto][tii][bit[:sfr_vio][1:sys.nl]]
     vafrqfr = aclfr_alpha.*grd[:acline_qfr][:vafr][tii][bit[:sfr_vio][1:sys.nl]]
     vatoqfr = aclfr_alpha.*grd[:acline_qfr][:vato][tii][bit[:sfr_vio][1:sys.nl]]
-    uonqfr  = aclfr_alpha.*grd[:acline_qfr][:uon][tii][bit[:sfr_vio][1:sys.nl]]
 
     # note: we must loop over these assignments!
     for (ii,ln) in enumerate(prm.acline.line_inds[bit[:sfr_vio][1:sys.nl]])
@@ -439,9 +394,17 @@ function zctgs_grad_qfr_acline!(aclfr_alpha::Vector{Float64}, bit::Dict{Symbol, 
         mgd[:va][tii][idx.acline_to_bus[ln]] += vatoqfr[ii]
         mgd[:u_on_acline][tii][ln]           += uonqfr[ii]
     end
+
+    # NOT efficient
+    if qG.run_ac_device_bins
+        uonqfr  = aclfr_alpha.*grd[:acline_qfr][:uon][tii][bit[:sfr_vio][1:sys.nl]]
+        for (ii,ln) in enumerate(prm.acline.line_inds[bit[:sfr_vio][1:sys.nl]])
+            mgd[:u_on_acline][tii][ln]           += uonqfr[ii]
+        end
+    end
 end
 
-function zctgs_grad_qto_acline!(aclto_alpha::Vector{Float64}, bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, sys::quasiGrad.System, tii::Symbol)
+function zctgs_grad_qto_acline!(aclto_alpha::Vector{Float64}, bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System, tii::Symbol)
     # so, this function takes and applies the gradient of
     # zctgs (at acline) with repsect to reactive power
     # variables (i.e., all variables on a line which affect
@@ -466,68 +429,17 @@ function zctgs_grad_qto_acline!(aclto_alpha::Vector{Float64}, bit::Dict{Symbol, 
         mgd[:va][tii][idx.acline_to_bus[ln]] += vatoqto[ii]
         mgd[:u_on_acline][tii][ln]           += uonqto[ii]
     end
-end
 
-function zctgs_grad_q_xfm!(tii::Symbol, idx::quasiGrad.Idx, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, xfr_inds::Vector{Int64}, xto_inds::Vector{Int64}, xfr_alpha::Vector{Float64}, xto_alpha::Vector{Float64})
-    # so, this function takes and applies the gradient of
-    # zctgs (at transformers) with repsect to reactive power
-    # variables (i.e., all variables on a line which affect
-    # reactive power flows).
-    #
-    # We compute and apply gradients for "fr" and "to" lines
-    # as necessary. what are the incoming variables?
-    #
-    # xfr_inds = xfms which are violated on the from side!
-    # xto_inds = xfms which are violated on the to side!
-    # xfr_alpha = associated partial
-    # xto_alpha = associated partial
-    #   example: xfms 1 (max overload on to), 2 and 3 (max overload on frm)
-    #   xfr_inds = [3]
-    #   xto_inds = [1]
-
-    vmfrqfr = xfr_alpha.*grd[:xfm_qfr][:vmfr][tii][xfr_inds]
-    vmtoqfr = xfr_alpha.*grd[:xfm_qfr][:vmto][tii][xfr_inds]
-    vafrqfr = xfr_alpha.*grd[:xfm_qfr][:vafr][tii][xfr_inds]
-    vatoqfr = xfr_alpha.*grd[:xfm_qfr][:vato][tii][xfr_inds]
-    tauqfr  = xfr_alpha.*grd[:xfm_qfr][:tau][tii][xfr_inds]
-    phiqfr  = xfr_alpha.*grd[:xfm_qfr][:phi][tii][xfr_inds]
-    uonqfr  = xfr_alpha.*grd[:xfm_qfr][:uon][tii][xfr_inds]
-
-    # final qfr gradients
-    vmfrqto = xto_alpha.*grd[:xfm_qto][:vmfr][tii][xto_inds]
-    vmtoqto = xto_alpha.*grd[:xfm_qto][:vmto][tii][xto_inds]
-    vafrqto = xto_alpha.*grd[:xfm_qto][:vafr][tii][xto_inds]
-    vatoqto = xto_alpha.*grd[:xfm_qto][:vato][tii][xto_inds]
-    tauqto  = xto_alpha.*grd[:xfm_qto][:tau][tii][xto_inds]
-    phiqto  = xto_alpha.*grd[:xfm_qto][:phi][tii][xto_inds]
-    uonqto  = xto_alpha.*grd[:xfm_qto][:uon][tii][xto_inds]
-
-    # note: we must loop over these assignments!
-    for (ii,xfm) in enumerate(xfr_inds)
-        # update the master grad -- qfr
-        mgd[:vm][tii][idx.xfm_fr_bus[xfm]] += vmfrqfr[ii]
-        mgd[:vm][tii][idx.xfm_to_bus[xfm]] += vmtoqfr[ii]
-        mgd[:va][tii][idx.xfm_fr_bus[xfm]] += vafrqfr[ii]
-        mgd[:va][tii][idx.xfm_to_bus[xfm]] += vatoqfr[ii]
-        mgd[:tau][tii][xfm]                += tauqfr[ii]
-        mgd[:phi][tii][xfm]                += phiqfr[ii]
-        mgd[:u_on_xfm][tii][xfm]           += uonqfr[ii]
-    end
-
-    # note: we must loop over these assignments!
-    for (ii,xfm) in enumerate(xto_inds)
-        # update the master grad -- qto
-        mgd[:vm][tii][idx.xfm_fr_bus[xfm]] += vmfrqto[ii]
-        mgd[:vm][tii][idx.xfm_to_bus[xfm]] += vmtoqto[ii]
-        mgd[:va][tii][idx.xfm_fr_bus[xfm]] += vafrqto[ii]
-        mgd[:va][tii][idx.xfm_to_bus[xfm]] += vatoqto[ii]
-        mgd[:tau][tii][xfm]                += tauqto[ii]
-        mgd[:phi][tii][xfm]                += phiqto[ii]
-        mgd[:u_on_xfm][tii][xfm]           += uonqto[ii]
+    # NOT efficient
+    if qG.run_ac_device_bins
+        uonqto  = aclto_alpha.*grd[:acline_qto][:uon][tii][bit[:sto_vio][1:sys.nl]]
+        for (ii,ln) in enumerate(prm.acline.line_inds[bit[:sto_vio][1:sys.nl]])
+            mgd[:u_on_acline][tii][ln]           += uonqto[ii]
+        end
     end
 end
 
-function zctgs_grad_qfr_xfm!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, sys::quasiGrad.System, tii::Symbol, xfr_alpha::Vector{Float64})
+function zctgs_grad_qfr_xfm!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System, tii::Symbol, xfr_alpha::Vector{Float64})
     # so, this function takes and applies the gradient of
     # zctgs (at transformers) with repsect to reactive power
     # variables (i.e., all variables on a line which affect
@@ -550,7 +462,6 @@ function zctgs_grad_qfr_xfm!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dic
     vatoqfr = xfr_alpha.*grd[:xfm_qfr][:vato][tii][bit[:sfr_vio][(sys.nl+1):sys.nac]]
     tauqfr  = xfr_alpha.*grd[:xfm_qfr][:tau][tii][bit[:sfr_vio][(sys.nl+1):sys.nac]]
     phiqfr  = xfr_alpha.*grd[:xfm_qfr][:phi][tii][bit[:sfr_vio][(sys.nl+1):sys.nac]]
-    uonqfr  = xfr_alpha.*grd[:xfm_qfr][:uon][tii][bit[:sfr_vio][(sys.nl+1):sys.nac]]
 
     # note: we must loop over these assignments!
     for (ii,xfm) in enumerate(prm.xfm.xfm_inds[bit[:sfr_vio][(sys.nl+1):sys.nac]])
@@ -563,9 +474,17 @@ function zctgs_grad_qfr_xfm!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dic
         mgd[:phi][tii][xfm]                += phiqfr[ii]
         mgd[:u_on_xfm][tii][xfm]           += uonqfr[ii]
     end
+
+    # NOT efficient
+    if qG.run_ac_device_bins
+        uonqfr  = xfr_alpha.*grd[:xfm_qfr][:uon][tii][bit[:sfr_vio][(sys.nl+1):sys.nac]]
+        for (ii,xfm) in enumerate(prm.xfm.xfm_inds[bit[:sfr_vio][(sys.nl+1):sys.nac]])
+            mgd[:u_on_xfm][tii][xfm] += uonqfr[ii]
+        end
+    end
 end
 
-function zctgs_grad_qto_xfm!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, sys::quasiGrad.System, tii::Symbol, xto_alpha::Vector{Float64})
+function zctgs_grad_qto_xfm!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System, tii::Symbol, xto_alpha::Vector{Float64})
     # so, this function takes and applies the gradient of
     # zctgs (at transformers) with repsect to reactive power
     # variables (i.e., all variables on a line which affect
@@ -587,7 +506,6 @@ function zctgs_grad_qto_xfm!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dic
     vatoqto = xto_alpha.*grd[:xfm_qto][:vato][tii][bit[:sto_vio][(sys.nl+1):sys.nac]]
     tauqto  = xto_alpha.*grd[:xfm_qto][:tau][tii][bit[:sto_vio][(sys.nl+1):sys.nac]]
     phiqto  = xto_alpha.*grd[:xfm_qto][:phi][tii][bit[:sto_vio][(sys.nl+1):sys.nac]]
-    uonqto  = xto_alpha.*grd[:xfm_qto][:uon][tii][bit[:sto_vio][(sys.nl+1):sys.nac]]
 
     # note: we must loop over these assignments!
     for (ii,xfm) in enumerate(prm.xfm.xfm_inds[bit[:sto_vio][(sys.nl+1):sys.nac]])
@@ -599,6 +517,14 @@ function zctgs_grad_qto_xfm!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dic
         mgd[:tau][tii][xfm]                += tauqto[ii]
         mgd[:phi][tii][xfm]                += phiqto[ii]
         mgd[:u_on_xfm][tii][xfm]           += uonqto[ii]
+    end
+
+    # NOT efficient
+    if qG.run_ac_device_bins
+        uonqto  = xto_alpha.*grd[:xfm_qto][:uon][tii][bit[:sto_vio][(sys.nl+1):sys.nac]]
+        for (ii,xfm) in enumerate(prm.xfm.xfm_inds[bit[:sto_vio][(sys.nl+1):sys.nac]])
+            mgd[:u_on_xfm][tii][xfm]           += uonqto[ii]
+        end
     end
 end
 

@@ -75,7 +75,9 @@ function acline_flows!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symb
                     (g_sr.*msc[:sin_ftp] .- b_sr.*msc[:cos_ftp]).*msc[:vft])
             grd[:acline_pfr][:vato][tii] .= stt[:u_on_acline][tii].*(
                     (.-g_sr.*msc[:sin_ftp] .+ b_sr.*msc[:cos_ftp]).*msc[:vft])
-            grd[:acline_pfr][:uon][tii] .= msc[:pfr]   
+            if qG.consider_ac_device_bins
+                grd[:acline_pfr][:uon][tii] .= msc[:pfr]   
+            end
             # ====================================================== #
             # Gradients: reactive power flow -- from -> to
             
@@ -87,7 +89,9 @@ function acline_flows!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symb
                     (.-b_sr.*msc[:sin_ftp] .- g_sr.*msc[:cos_ftp]).*msc[:vft])
             grd[:acline_qfr][:vato][tii] .= stt[:u_on_acline][tii].*(
                     (b_sr.*msc[:sin_ftp] .+ g_sr.*msc[:cos_ftp]).*msc[:vft])
-            grd[:acline_qfr][:uon][tii]  .= msc[:qfr] 
+            if qG.consider_ac_device_bins
+                grd[:acline_qfr][:uon][tii] .= msc[:qfr] 
+            end
             # ====================================================== #
             # Gradients: apparent power flow -- from -> to
             # ...
@@ -102,7 +106,9 @@ function acline_flows!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symb
                     (g_sr.*msc[:sin_ftp] .+ b_sr.*msc[:cos_ftp]).*msc[:vft])
             grd[:acline_pto][:vato][tii] .= stt[:u_on_acline][tii].*(
                     (.-g_sr.*msc[:sin_ftp] .- b_sr.*msc[:cos_ftp]).*msc[:vft])
-            grd[:acline_pto][:uon][tii] .= msc[:pto]
+            if qG.consider_ac_device_bins
+                grd[:acline_pto][:uon][tii] .= msc[:pto]
+            end
             # ====================================================== #
             # Gradients: reactive power flow -- to -> from
             
@@ -114,7 +120,9 @@ function acline_flows!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symb
                     (.-b_sr.*msc[:sin_ftp] .+ g_sr.*msc[:cos_ftp]).*msc[:vft])
             grd[:acline_qto][:vato][tii] .= stt[:u_on_acline][tii].*(
                     (b_sr.*msc[:sin_ftp] .- g_sr.*msc[:cos_ftp]).*msc[:vft])
-            grd[:acline_qto][:uon][tii] .= msc[:qto] 
+            if qG.consider_ac_device_bins
+                grd[:acline_qto][:uon][tii] .= msc[:qto] 
+            end
 
             # apply gradients
             grd[:zs_acline][:acline_pfr][tii] .= 0.0
@@ -297,7 +305,9 @@ function xfm_flows!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol,
             grd[:xfm_pfr][:tau][tii] .= u_on_xfm.*((-2.0).*(g_sr.+g_fr).*msc[:vff_tau3_x] .+ 
                     .-(.-g_sr.*msc[:cos_ftp_x] .- b_sr.*msc[:sin_ftp_x]).*msc[:vft_tau2_x])
             grd[:xfm_pfr][:phi][tii] .= grd[:xfm_pfr][:vato][tii]
-            grd[:xfm_pfr][:uon][tii] .= msc[:pfr_x]
+            if qG.consider_ac_device_bins
+                grd[:xfm_pfr][:uon][tii] .= msc[:pfr_x]
+            end
 
             # ====================================================== #
             # Gradients: reactive power flow -- from -> to
@@ -312,7 +322,9 @@ function xfm_flows!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol,
             grd[:xfm_qfr][:tau][tii]  .= u_on_xfm.*(.-2.0.*(.-b_sr.-b_fr.-b_ch./2.0).*msc[:vff_tau3_x] .+
                     .-(b_sr.*msc[:cos_ftp_x] .- g_sr.*msc[:sin_ftp_x]).*msc[:vft_tau2_x])
             grd[:xfm_qfr][:phi][tii]  .= grd[:xfm_qfr][:vato][tii]
-            grd[:xfm_qfr][:uon][tii]  .= msc[:qfr_x]
+            if qG.consider_ac_device_bins
+                grd[:xfm_qfr][:uon][tii]  .= msc[:qfr_x]
+            end
             
             # ====================================================== #
             # Gradients: apparent power flow -- from -> to
@@ -330,7 +342,9 @@ function xfm_flows!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol,
             grd[:xfm_pto][:tau][tii] .= u_on_xfm.*(
                     .-(.-g_sr.*msc[:cos_ftp_x] .+ b_sr.*msc[:sin_ftp_x]).*msc[:vft_tau2_x])
             grd[:xfm_pto][:phi][tii] .= grd[:xfm_pto][:vato][tii]
-            grd[:xfm_pto][:uon][tii] .= msc[:pto_x]
+            if qG.consider_ac_device_bins
+                grd[:xfm_pto][:uon][tii] .= msc[:pto_x]
+            end
     
             # ====================================================== #
             # Gradients: reactive power flow -- to -> from
@@ -345,13 +359,14 @@ function xfm_flows!(bit::Dict{Symbol, BitVector}, grd::Dict{Symbol, Dict{Symbol,
             grd[:xfm_qto][:tau][tii]  .= u_on_xfm.*(
                     .-(b_sr.*msc[:cos_ftp_x] .+ g_sr.*msc[:sin_ftp_x]).*msc[:vft_tau2_x])
             grd[:xfm_qto][:phi][tii] .= grd[:xfm_qto][:vato][tii]
-            grd[:xfm_qto][:uon][tii] .= msc[:qto_x]
+            if qG.consider_ac_device_bins
+                grd[:xfm_qto][:uon][tii] .= msc[:qto_x]
+            end
 
             # indicators
             # slower :( => quasiGrad.get_largest_indices(msc, bit, :xfm_sfr_plus_x, :xfm_sto_plus_x)
             bit[:xfm_sfr_plus_x] .= (msc[:xfm_sfr_plus_x] .> 0.0) .&& (msc[:xfm_sfr_plus_x] .> msc[:xfm_sto_plus_x]);
             bit[:xfm_sto_plus_x] .= (msc[:xfm_sto_plus_x] .> 0.0) .&& (msc[:xfm_sto_plus_x] .> msc[:xfm_sfr_plus_x]);
-
             #
             # slow alternative:
                 # => max_sfst0 = [argmax([spfr, spto, 0.0]) for (spfr,spto) in zip(msc[:xfm_sfr_plus_x],msc[:xfm_sto_plus_x])]
