@@ -1595,7 +1595,7 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
     #quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
     #quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
-    @info "Running constrained, lineaized power flow cleanup across $(sys.nT) time periods backwards."
+    @info "Running constrained, lineaized power flow cleanup across $(sys.nT) time periods, backwards."
 
     # loop over time
     for (t_ind_cntup, tii) in enumerate(reverse(prm.ts.time_keys))

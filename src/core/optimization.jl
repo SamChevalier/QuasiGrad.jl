@@ -91,6 +91,8 @@ function run_adam!(
     beta1_decay = 1.0
     beta2_decay = 1.0
     run_adam    = true
+
+    @info "Running adam for $(qG.adam_max_time) seconds!"
     
     # flush adam at each restart ?
     # println("adam NOT flushed")

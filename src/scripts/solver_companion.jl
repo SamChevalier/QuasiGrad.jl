@@ -16,6 +16,9 @@ Division              = 1
 NetworkModel          = "test"
 AllowSwitching        = 0
 
+# %% --------------------
+quasiGrad.compute_quasiGrad_solution_feas(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
+
 # %%
 quasiGrad.compute_quasiGrad_solution_timed(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
 

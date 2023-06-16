@@ -110,6 +110,9 @@ function compute_quasiGrad_solution_feas(InFile1::String, NewTimeLimitInSeconds:
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
     quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
+    quasiGrad.cleanup_constrained_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
+    quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+    
     quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 end
 
