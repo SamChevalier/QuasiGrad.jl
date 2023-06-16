@@ -69,11 +69,14 @@ qG.scale_c_pbus_testing  = 1e-4
 qG.scale_c_qbus_testing  = 1e-4
 qG.scale_c_sflow_testing = 1.0
 
-# for flow testing!!
+# %% for flow testing!!
 epsilon = 1e-5
 
 tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nb)); (ind == 0 ? ind = 1 : ind = ind)
+
+# %%
+
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx    = mgd[:vm][tii][ind]
 
