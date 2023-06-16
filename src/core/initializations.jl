@@ -2224,7 +2224,7 @@ function manage_time!(time_left::Float64, qG::quasiGrad.QG)
     # scale to account for 50% of the time -- the rest is for Gurobi
     # and for printing the solution..
     # => we want: alpha*sum(adam_solve_times) = 0.5*time_left
-    alpha            = 0.45*time_left/sum(adam_solve_times)
+    alpha            = 0.35*time_left/sum(adam_solve_times)
     adam_solve_times = alpha*adam_solve_times
 
     # update qG

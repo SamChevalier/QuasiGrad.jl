@@ -120,3 +120,10 @@ quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
 # E8. post process
 quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+
+
+#
+
+# find the subset of buses with the largest capacity
+idx.pr_not_Jpqe
+idx.cs_not_Jpqe
