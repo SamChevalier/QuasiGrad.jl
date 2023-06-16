@@ -2,9 +2,8 @@ using Pkg
 Pkg.activate(DEPOT_PATH[1])
 
 # add quasiGrad
-# using quasiGrad
-# include("./src/quasiGrad.jl")
 using quasiGrad
+# include("./src/quasiGrad.jl")
 
 function MyJulia1(InFile1::String, TimeLimitInSeconds::Any, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
     println("running MyJulia1")
@@ -13,7 +12,6 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Any, Division::Int64, Net
     println("  $(Division)")
     println("  $(NetworkModel)")
     println("  $(AllowSwitching)")
-    println(JuMP.Model)
 
     # how long did package loading take? Give it 5 sec for now..
     NewTimeLimitInSeconds = Float64(TimeLimitInSeconds) - 5.0
