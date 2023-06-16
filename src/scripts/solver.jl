@@ -127,7 +127,7 @@ function compute_triage_quasiGrad_solution(InFile1::String, NewTimeLimitInSecond
                 quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
                 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
             else
-                # time for 2nd adam (no 1st projection)
+                # time for 2nd adam only (no 1st projection)
                 qG.adam_max_time = time_left - t_pf - 0.25*t_pf - t_buff
             end
         else
@@ -137,6 +137,7 @@ function compute_triage_quasiGrad_solution(InFile1::String, NewTimeLimitInSecond
     else
         # seems we have the time
         run_pf2          = true
+        run_adam1        = true
         qG.adam_max_time = (time_left - 2*t_pf - 2*0.25*t_pf - t_buff)/2
     end
 
