@@ -92,6 +92,76 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
     quasiGrad.post_process_stats(false, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 end
 
+function compute_triage_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
+    # this is the master function which executes quasiGrad.
+    # 
+    # 
+    # =====================================================\\
+    # TT: start time
+    t_buff     = 20.0
+    start_time = time()
+    jsn        = quasiGrad.load_json(InFile1)
+    adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true);
+    quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+    
+    t_before_pf = time()
+    quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+    t_pf      = time() - t_before_pf
+    time_left = NewTimeLimitInSeconds - (time() - start_time)
+
+    # of the time we have left, we have 2x adam, 2x pf, and 2x projection -- 
+    # assume t_projection = 0.25*pf, and adam = 10% overall. Is there enough?
+    if time_left < 2*t_pf + 2*0.25*t_pf + 2*0.1*time_left + t_buff
+        run_pf2 = false
+
+        # skip something else?
+        if time_left < t_pf + 2*0.25*t_pf + 2*0.1*time_left + t_buff
+            run_adam1 = false
+
+            if time_left < t_pf + 2*0.25*t_pf + 0.1*time_left + t_buff
+                # just project and write solution -- no adam
+                quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+                quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+                quasiGrad.cleanup_constrained_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
+                quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+                quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+            else
+                # time for 2nd adam (no 1st projection)
+                qG.adam_max_time = time_left - t_pf - 0.25*t_pf - t_buff
+            end
+        else
+            run_adam1        = true
+            qG.adam_max_time = (time_left - t_pf - 2*0.25*t_pf - t_buff)/2
+        end
+    else
+        # seems we have the time
+        run_pf2          = true
+        qG.adam_max_time = (time_left - 2*t_pf - 2*0.25*t_pf - t_buff)/2
+    end
+
+    if run_adam1
+        quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+        quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
+        quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
+        quasiGrad.count_active_binaries!(prm, upd)
+        if run_pf2
+            quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+            quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+        end
+    end
+    quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
+    quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+    quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+    quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+    quasiGrad.cleanup_constrained_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
+    quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+    quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+    quasiGrad.post_process_stats(false, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    tf = time() - start_time
+    println("final time: $(tf)")
+end
+
 function compute_quasiGrad_solution_feas(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
     jsn = quasiGrad.load_json(InFile1)
 

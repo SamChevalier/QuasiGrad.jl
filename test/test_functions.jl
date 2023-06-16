@@ -758,7 +758,10 @@ function load_and_project(path::String, solution_file::String)
     pct_round = 100.0
     quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
+    quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
+    
     quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
     quasiGrad.write_solution(solution_file, prm, qG, stt, sys)
     quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)

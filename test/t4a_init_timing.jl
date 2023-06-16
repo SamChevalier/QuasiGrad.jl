@@ -107,7 +107,7 @@ ac_ids = [prm.acline.id; prm.xfm.id ]
 ac_b_params = -[prm.acline.b_sr; prm.xfm.b_sr]
 
 # build the full incidence matrix: E = lines x buses
-E  = quasiGrad.build_incidence(idx, prm, sys)
+E  = quasiGrad.build_incidence(idx, prm, stt, sys)
 Er = E[:,2:end]
 
 # get the diagonal admittance matrix   => Ybs == "b susceptance"

@@ -45,9 +45,10 @@ time_left = NewTimeLimitInSeconds - time_spent_before_loop
 # TT: time management:
 quasiGrad.manage_time!(time_left, qG)
 
-# -----------
+# % ======================================
 quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
-# %%
+quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+# %% =====================================
 
 # loop and solve: adam -> projection -> IBR
 n_its = length(qG.pcts_to_round)

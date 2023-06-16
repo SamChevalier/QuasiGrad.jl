@@ -176,12 +176,12 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     step_decay = 0.999        # for exp decay
 
     # choose step sizes
-    vmva_scale    = 2.5e-6
-    xfm_scale     = 1e-5
-    dc_scale      = 1e-5
+    vmva_scale    = 1e-6
+    xfm_scale     = 1e-6
+    dc_scale      = 1e-4
     power_scale   = 1e-4
     reserve_scale = 1e-4
-    bin_scale     = 1e-2 # bullish!!!
+    bin_scale     = 3e-3 # bullish!!!
     alpha_0 = Dict(:vm     => vmva_scale,
                    :va     => vmva_scale,
                    # xfm
@@ -240,8 +240,8 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
 
     # gradient modification for ac flow penalties
     acflow_grad_is_soft_abs = true
-    acflow_grad_weight = prm.vio.s_flow
-    acflow_grad_eps2 = 1e-4
+    acflow_grad_weight      = prm.vio.s_flow
+    acflow_grad_eps2        = 1e-4
 
     # gradient modification for ctg flow penalties
     # => @warn "ctg gradient modification not yet implemented!"
@@ -262,12 +262,20 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
 
     # shall we compute injections when we build the Jacobian?
     compute_pf_injs_with_Jac   = true
-    max_pf_dx                  = 1e-3    # stop when max delta < 5e-4
-    max_pf_dx_final_solve      = 2.5e-5  # final pf solve
-    max_linear_pfs             = 3       # stop when number of pfs > max_linear_pfs
-    max_linear_pfs_final_solve = 5       # stop when number of pfs > max_linear_pfs_final_solve
-    max_linear_pfs_total       = 6       # this includes failures
-    Gurobi_pf_obj              = "min_dispatch_distance" # or, "min_dispatch_perturbation"
+    if Div == 1
+        max_pf_dx                  = 1e-3    # stop when max delta < 5e-4
+        max_pf_dx_final_solve      = 1e-5    # final pf solve
+        max_linear_pfs             = 2       # stop when number of pfs > max_linear_pfs
+        max_linear_pfs_final_solve = 6       # stop when number of pfs > max_linear_pfs_final_solve
+        max_linear_pfs_total       = 4       # this includes failures
+    else
+        max_pf_dx                  = 1e-4    # stop when max delta < 5e-4
+        max_pf_dx_final_solve      = 2.5e-5  # final pf solve
+        max_linear_pfs             = 3       # stop when number of pfs > max_linear_pfs
+        max_linear_pfs_final_solve = 6       # stop when number of pfs > max_linear_pfs_final_solve
+        max_linear_pfs_total       = 6       # this includes failures
+    end
+    Gurobi_pf_obj = "min_dispatch_distance" # or, "min_dispatch_perturbation"
 
     # don't use given initializations
     initialize_shunt_to_given_value = false
@@ -436,7 +444,7 @@ function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::B
     upd = identify_update_states(prm, idx, stt, sys)
 
     # initialize the contingency network structure and reusable vectors in dicts
-    ntk, flw = initialize_ctg(sys, prm, qG, idx)
+    ntk, flw = initialize_ctg(stt, sys, prm, qG, idx)
 
     # shall we randomly perutb the states?
     if perturb_states == true
@@ -983,7 +991,7 @@ function join_params(ts_prm::Dict, dc_prm::Dict, ctg_prm::Dict, bus_prm::Dict, x
 end
 
 # build everything that will be needed to solve ctgs
-function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGrad.QG, idx::quasiGrad.Idx)
+function initialize_ctg(stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGrad.QG, idx::quasiGrad.Idx)
     # note, the reference bus is always bus #1
     #
     # first, get the ctg limits
@@ -996,7 +1004,7 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
     ac_b_params = -[prm.acline.b_sr; prm.xfm.b_sr]
     
     # build the full incidence matrix: E = lines x buses
-    E  = build_incidence(idx, prm, sys)
+    E  = build_incidence(idx, prm, stt, sys)
     Er = E[:,2:end]
     ErT = copy(Er')
 
@@ -1234,7 +1242,7 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
     xfm_phi_scalars = Dict(bus => ac_b_params[xfm_at_bus[bus] .+ sys.nl].*sign.(xfm_at_bus_sign[bus]) for bus in 2:sys.nb)
 
     # compute the constant acline Ybus matrix
-    Ybus_acline_real, Ybus_acline_imag = quasiGrad.initialize_acline_Ybus(idx, prm, sys)
+    Ybus_acline_real, Ybus_acline_imag = quasiGrad.initialize_acline_Ybus(idx, prm, stt, sys)
 
     # network parameters
     ntk = Ntk(
@@ -1303,7 +1311,7 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
     return ntk, flw
 end
 
-function build_incidence(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiGrad.System)
+function build_incidence(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # loop over all ac devices and construct incidence matrix
     m = sys.nac
     n = sys.nb
@@ -1315,12 +1323,26 @@ function build_incidence(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiGra
     E_acline_fr   = quasiGrad.sparse(row_acline,col_acline_fr, 1, m, n)
     E_acline_to   = quasiGrad.sparse(row_acline,col_acline_to, -1, m, n)
 
+    # get the indices of the lines which are off and zero them out
+    lines_off = findall(stt[:u_on_acline][:t1] .== 0)
+    for line in lines_off
+        E_acline_fr[line, col_acline_fr[line]] = 0.0
+        E_acline_to[line, col_acline_to[line]] = 0.0
+    end
+
     # xfm
     row_xfm    = sys.nl .+ prm.xfm.xfm_inds
     col_xfm_fr = idx.xfm_fr_bus
     col_xfm_to = idx.xfm_to_bus
     E_xfm_fr   = quasiGrad.sparse(row_xfm,col_xfm_fr, 1, m, n)
     E_xfm_to   = quasiGrad.sparse(row_xfm,col_xfm_to, -1, m, n)
+
+    # get the indices of the xfms which are off and zero them out
+    xfms_off = findall(stt[:u_on_xfm][:t1] .== 0)
+    for xfm in xfms_off
+        E_xfm_fr[xfm + sys.nl, col_xfm_fr[xfm]] = 0.0
+        E_xfm_to[xfm + sys.nl, col_xfm_to[xfm]] = 0.0
+    end
 
     # combine the output
     E = E_acline_fr + E_acline_to + E_xfm_fr + E_xfm_to
@@ -1329,7 +1351,7 @@ function build_incidence(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiGra
     return E
 end
 
-function initialize_acline_Ybus(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiGrad.System)
+function initialize_acline_Ybus(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # loop over all ac devices and construct incidence matrix
     #
     # note: this assumes all lines are on!
@@ -1347,7 +1369,16 @@ function initialize_acline_Ybus(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::q
     col_acline_to = idx.acline_to_bus
     E_acline_fr   = quasiGrad.sparse(row_acline,col_acline_fr, 1, m, n)
     E_acline_to   = quasiGrad.sparse(row_acline,col_acline_to, -1, m, n)
-    E_acline      = E_acline_fr + E_acline_to
+
+    # get the indices of the lines which are off and zero them out
+    lines_off = findall(stt[:u_on_acline][:t1] .== 0)
+    for line in lines_off
+        E_acline_fr[line, col_acline_fr[line]] = 0.0
+        E_acline_to[line, col_acline_to[line]] = 0.0
+    end
+    
+    # build E
+    E_acline = E_acline_fr + E_acline_to
 
     # build diagonal admittance matrices
     Yd_acline_series = quasiGrad.spdiagm(m, m, prm.acline.g_sr + im*prm.acline.b_sr) # zero pads!
@@ -1355,18 +1386,22 @@ function initialize_acline_Ybus(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::q
 
     # loop and populate
     for line in 1:sys.nl
-        fr = idx.acline_fr_bus[line]
-        to = idx.acline_to_bus[line]
+        if line in lines_off
+            # skip!!
+        else
+            fr = idx.acline_fr_bus[line]
+            to = idx.acline_to_bus[line]
 
-        # fr first
-        Yd_acline_shunt[fr,fr] += prm.acline.g_fr[line]
-        Yd_acline_shunt[fr,fr] += im*prm.acline.b_fr[line]
-        Yd_acline_shunt[fr,fr] += im*prm.acline.b_ch[line]/2.0
+            # fr first
+            Yd_acline_shunt[fr,fr] += prm.acline.g_fr[line]
+            Yd_acline_shunt[fr,fr] += im*prm.acline.b_fr[line]
+            Yd_acline_shunt[fr,fr] += im*prm.acline.b_ch[line]/2.0
 
-        # to second
-        Yd_acline_shunt[to,to] += prm.acline.g_to[line]
-        Yd_acline_shunt[to,to] += im*prm.acline.b_to[line]
-        Yd_acline_shunt[to,to] += im*prm.acline.b_ch[line]/2.0
+            # to second
+            Yd_acline_shunt[to,to] += prm.acline.g_to[line]
+            Yd_acline_shunt[to,to] += im*prm.acline.b_to[line]
+            Yd_acline_shunt[to,to] += im*prm.acline.b_ch[line]/2.0
+        end
     end
 
     # output
@@ -1388,30 +1423,35 @@ function update_Ybus(idx::quasiGrad.Idx, ntk::quasiGrad.Ntk, prm::quasiGrad.Para
     Ybus_xfm_real   = spzeros(n,n)
     Ybus_shunt_real = spzeros(n,n)
     #
+    xfms_off = findall(stt[:u_on_xfm][:t1] .== 0.0)
     # xfm ===========================
     for xfm in 1:sys.nx
-        # prepare
-        cos_phi  = cos(stt[:phi][tii][xfm])
-        sin_phi  = sin(stt[:phi][tii][xfm])
-        series_y = prm.xfm.g_sr[xfm] + im*prm.xfm.b_sr[xfm]
+        if xfm in xfms_off
+            # skip!! no contribution :)
+        else
+            # prepare
+            cos_phi  = cos(stt[:phi][tii][xfm])
+            sin_phi  = sin(stt[:phi][tii][xfm])
+            series_y = prm.xfm.g_sr[xfm] + im*prm.xfm.b_sr[xfm]
 
-        # populate!
-        yff = (series_y + im*prm.xfm.b_ch[xfm]/2.0 + prm.xfm.g_fr[xfm] + im*prm.xfm.b_fr[xfm])/(stt[:tau][tii][xfm]^2)
-        ytt = (series_y + im*prm.xfm.b_ch[xfm]/2.0 + prm.xfm.g_to[xfm] + im*prm.xfm.b_to[xfm])
-        yft = (-series_y)/(stt[:tau][tii][xfm]*(cos_phi - im*sin_phi))
-        ytf = (-series_y)/(stt[:tau][tii][xfm]*(cos_phi + im*sin_phi))
-    
-        # populate real!
-        Ybus_xfm_real[idx.xfm_fr_bus[xfm], idx.xfm_fr_bus[xfm]] += real(yff)
-        Ybus_xfm_real[idx.xfm_to_bus[xfm], idx.xfm_to_bus[xfm]] += real(ytt)
-        Ybus_xfm_real[idx.xfm_fr_bus[xfm], idx.xfm_to_bus[xfm]] += real(yft)
-        Ybus_xfm_real[idx.xfm_to_bus[xfm], idx.xfm_fr_bus[xfm]] += real(ytf)
+            # populate!
+            yff = (series_y + im*prm.xfm.b_ch[xfm]/2.0 + prm.xfm.g_fr[xfm] + im*prm.xfm.b_fr[xfm])/(stt[:tau][tii][xfm]^2)
+            ytt = (series_y + im*prm.xfm.b_ch[xfm]/2.0 + prm.xfm.g_to[xfm] + im*prm.xfm.b_to[xfm])
+            yft = (-series_y)/(stt[:tau][tii][xfm]*(cos_phi - im*sin_phi))
+            ytf = (-series_y)/(stt[:tau][tii][xfm]*(cos_phi + im*sin_phi))
+        
+            # populate real!
+            Ybus_xfm_real[idx.xfm_fr_bus[xfm], idx.xfm_fr_bus[xfm]] += real(yff)
+            Ybus_xfm_real[idx.xfm_to_bus[xfm], idx.xfm_to_bus[xfm]] += real(ytt)
+            Ybus_xfm_real[idx.xfm_fr_bus[xfm], idx.xfm_to_bus[xfm]] += real(yft)
+            Ybus_xfm_real[idx.xfm_to_bus[xfm], idx.xfm_fr_bus[xfm]] += real(ytf)
 
-        # populate imag
-        Ybus_xfm_imag[idx.xfm_fr_bus[xfm], idx.xfm_fr_bus[xfm]] += imag(yff)
-        Ybus_xfm_imag[idx.xfm_to_bus[xfm], idx.xfm_to_bus[xfm]] += imag(ytt)
-        Ybus_xfm_imag[idx.xfm_fr_bus[xfm], idx.xfm_to_bus[xfm]] += imag(yft)
-        Ybus_xfm_imag[idx.xfm_to_bus[xfm], idx.xfm_fr_bus[xfm]] += imag(ytf)
+            # populate imag
+            Ybus_xfm_imag[idx.xfm_fr_bus[xfm], idx.xfm_fr_bus[xfm]] += imag(yff)
+            Ybus_xfm_imag[idx.xfm_to_bus[xfm], idx.xfm_to_bus[xfm]] += imag(ytt)
+            Ybus_xfm_imag[idx.xfm_fr_bus[xfm], idx.xfm_to_bus[xfm]] += imag(yft)
+            Ybus_xfm_imag[idx.xfm_to_bus[xfm], idx.xfm_fr_bus[xfm]] += imag(ytf)
+        end
     end
 
     # shunt ===========================
@@ -1427,24 +1467,6 @@ function update_Ybus(idx::quasiGrad.Idx, ntk::quasiGrad.Ntk, prm::quasiGrad.Para
 
     # output
     return Ybus_real, Ybus_imag
-end
-
-
-function build_DCY(prm::quasiGrad.Param, sys::quasiGrad.System)
-    # call the vectors of susceptances and build Yx
-    Yx = -quasiGrad.spdiagm([prm.acline.b_sr; prm.xfm.b_sr])
-
-    # build the reduced admittance matrix
-    Yb  = prm[:E]'*prm[:Yx]*prm[:E]
-    Ybr = prm[:Yb][2:end,2:end]       # use @view ?
-
-    # update based on line status at each time period
-    ichol = CholeskyPreconditioner(prm[:Yb_red], 3)
-
-    # notes: propertynames(ichol)      = (:ldlt, :memory)
-    #        propertynames(ichol.ldlt) = (:L, :D, :P, :α)
-
-    # get the incomplete cholesky factorization
 end
 
 # get the "must run" times
@@ -1803,20 +1825,20 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
         :vm              => Dict(tkeys[ii] => ones(sys.nb)          for ii in 1:(sys.nT)), # this is a flat start
         :va              => Dict(tkeys[ii] => copy(prm.bus.init_va) for ii in 1:(sys.nT)), # this will be overwritten
         # aclines
-        :acline_pfr      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
-        :acline_qfr      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
-        :acline_pto      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
-        :acline_qto      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nl)) for ii in 1:(sys.nT)),
-        :u_on_acline     => Dict(tkeys[ii] => prm.acline.init_on_status       for ii in 1:(sys.nT)),
-        :u_su_acline     => Dict(tkeys[ii] => zeros(sys.nl)                   for ii in 1:(sys.nT)),
-        :u_sd_acline     => Dict(tkeys[ii] => zeros(sys.nl)                   for ii in 1:(sys.nT)),
+        :acline_pfr      => Dict(tkeys[ii] => zeros(sys.nl)                 for ii in 1:(sys.nT)),
+        :acline_qfr      => Dict(tkeys[ii] => zeros(sys.nl)                 for ii in 1:(sys.nT)),
+        :acline_pto      => Dict(tkeys[ii] => zeros(sys.nl)                 for ii in 1:(sys.nT)),
+        :acline_qto      => Dict(tkeys[ii] => zeros(sys.nl)                 for ii in 1:(sys.nT)),
+        :u_on_acline     => Dict(tkeys[ii] => prm.acline.init_on_status     for ii in 1:(sys.nT)),
+        :u_su_acline     => Dict(tkeys[ii] => zeros(sys.nl)                 for ii in 1:(sys.nT)),
+        :u_sd_acline     => Dict(tkeys[ii] => zeros(sys.nl)                 for ii in 1:(sys.nT)),
         # xfms
         :phi          => Dict(tkeys[ii] => copy(prm.xfm.init_phi)          for ii in 1:(sys.nT)),
         :tau          => Dict(tkeys[ii] => copy(prm.xfm.init_tau)          for ii in 1:(sys.nT)),
-        :xfm_pfr      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
-        :xfm_qfr      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
-        :xfm_pto      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
-        :xfm_qto      => Dict(tkeys[ii] => Vector{Float64}(undef,(sys.nx)) for ii in 1:(sys.nT)),
+        :xfm_pfr      => Dict(tkeys[ii] => zeros(sys.nx)                   for ii in 1:(sys.nT)),
+        :xfm_qfr      => Dict(tkeys[ii] => zeros(sys.nx)                   for ii in 1:(sys.nT)),
+        :xfm_pto      => Dict(tkeys[ii] => zeros(sys.nx)                   for ii in 1:(sys.nT)),
+        :xfm_qto      => Dict(tkeys[ii] => zeros(sys.nx)                   for ii in 1:(sys.nT)),
         :u_on_xfm     => Dict(tkeys[ii] => prm.xfm.init_on_status          for ii in 1:(sys.nT)),
         :u_su_xfm     => Dict(tkeys[ii] => zeros(sys.nx)                   for ii in 1:(sys.nT)),
         :u_sd_xfm     => Dict(tkeys[ii] => zeros(sys.nx)                   for ii in 1:(sys.nT)),

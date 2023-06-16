@@ -23,6 +23,16 @@ stt0 = deepcopy(stt)
 stt = deepcopy(stt0)
 
 # %% solve pf with GRB
-@time quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
+quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
 
-# basically, lower the active power weight, so power moves more
+
+# %% basically, lower the active power weight, so power moves more
+
+quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+
+scr[:encs]
+scr[:enpr]
+scr[:zp]  
+scr[:zq]  
+scr[:acl] 
+scr[:xfm] 

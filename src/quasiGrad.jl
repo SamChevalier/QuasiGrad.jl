@@ -3,7 +3,6 @@ module quasiGrad
 # don't call Pkg, don't activate, and don't use Plots
     # using Pkg
     # Pkg.activate(".")
-    # using Plots
 
 using JSON
 using JuMP
@@ -41,11 +40,6 @@ include("./core/contingencies.jl")
 include("./core/power_balance.jl")
 include("./core/initializations.jl")
 include("./core/economic_dispatch.jl")
-
-# use plotting?
-# => using Makie
-# => using GLMakie
-# => include("./core/plotting.jl")
 
 # define static data constants
 const eps_int    = 1e-8::Float64

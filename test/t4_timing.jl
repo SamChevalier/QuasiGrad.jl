@@ -23,17 +23,14 @@ stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
 @time quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # %% Timing tests
-# 
-# flush the gradient -- both master grad and some of the gradient terms
+qG.eval_grad = true
+qG.num_threads = 1
+
 print("t1: ")
 @time quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 
-# clip all basic states (i.e., the states which are iterated on)
 print("t2: ")
 @time quasiGrad.clip_all!(prm, qG, stt)
-
-# compute network flows and injections
-qG.eval_grad = true
 
 print("t3: ")
 @time quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
@@ -44,7 +41,6 @@ print("t4: ")
 print("t5: ")
 @time quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
 
-# device powers
 print("t6: ")
 @time quasiGrad.all_device_statuses_and_costs!(grd, prm, qG, stt)
 
@@ -63,22 +59,18 @@ print("t9: ")
 print("t10: ")
 @time quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
 
-# ==========
 print("t11: ")
 @time quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
 
 print("t12: ")
 @time quasiGrad.device_reserve_costs!(prm, qG, stt)
 
-# now, we can compute the power balances
 print("t13: ")
 @time quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
 
-# compute reserve margins and penalties
 print("t14: ")
 @time quasiGrad.reserve_balance!(idx, prm, qG, stt, sys)
 
-# score the contingencies and take the gradients
 print("t15: ")
 @time quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 
@@ -91,12 +83,11 @@ print("t17: ")
 print("t18: ")
 @time quasiGrad.score_zms!(scr)
 
-# compute the master grad
 print("t19: ")
 @time quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 println("")
 
-# %%
+# %% ===========================
 print("t20: ")
 @time quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct);
 
