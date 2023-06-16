@@ -5,6 +5,7 @@ Pkg.activate(DEPOT_PATH[1])
 # using quasiGrad
 # include("./src/quasiGrad.jl")
 using JuMP
+using quasiGrad
 
 function MyJulia1(InFile1::String, TimeLimitInSeconds::Any, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
     println("running MyJulia1")
