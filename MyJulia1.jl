@@ -12,6 +12,7 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Any, Division::Int64, Net
     println("  $(Division)")
     println("  $(NetworkModel)")
     println("  $(AllowSwitching)")
+    println(JuMP.Model)
 
     # how long did package loading take? Give it 5 sec for now..
     NewTimeLimitInSeconds = Float64(TimeLimitInSeconds) - 5.0
