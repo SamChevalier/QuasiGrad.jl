@@ -98,7 +98,7 @@ function compute_triage_quasiGrad_solution(InFile1::String, NewTimeLimitInSecond
     # 
     # =====================================================\\
     # TT: start time
-    t_buff     = 40.0
+    t_buff     = 30.0
     start_time = time()
     jsn        = quasiGrad.load_json(InFile1)
     adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true);

@@ -166,6 +166,7 @@ function update_states_and_grads!(
     stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
     sys::quasiGrad.System, 
     wct::Vector{Vector{Int64}})
+    
     # if we are here, we want to make sure we are running su/sd updates
     qG.run_susd_updates = true
 
