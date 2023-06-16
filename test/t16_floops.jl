@@ -9,6 +9,31 @@ jsn     = quasiGrad.load_json(InFile1)
 
 # initialize
 adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn, perturb_states=true, pert_size=1.0);
+quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+
+# %% ===
+qG.num_threads = 1
+@time quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+
+# %% ===
+qG.num_threads = 12
+@time quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+
+# %% test solution
+adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn, perturb_states=true, pert_size=1.0);
+quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+
+quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
+quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+
+# %%
+
+qG.num_threads = 12
+@time quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+
+# %%
+quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+
 
 # %% 0)
 qG.num_threads = 12

@@ -3,7 +3,7 @@ using Revise
 
 # ===============
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
-#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N01576D1/scenario_001.json"
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N01576D1/scenario_001.json"
 
     # great benchmark for Jpqe/etc !!
     # => path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N04200D1/scenario_001.json"
@@ -15,12 +15,6 @@ NewTimeLimitInSeconds = TimeLimitInSeconds - 35.0
 Division              = 1
 NetworkModel          = "test"
 AllowSwitching        = 0
-
-# %% --------------------
-quasiGrad.compute_quasiGrad_solution_feas(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
-
-# %%
-quasiGrad.compute_quasiGrad_solution_timed(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
 
 # this is the master function which executes quasiGrad.
 # 
@@ -120,10 +114,3 @@ quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
 # E8. post process
 quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
-
-
-#
-
-# find the subset of buses with the largest capacity
-idx.pr_not_Jpqe
-idx.cs_not_Jpqe

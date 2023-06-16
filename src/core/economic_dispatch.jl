@@ -573,7 +573,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
     end
 end
 
-function dcpf_initialization!(flw::Dict{Symbol, Vector{Float64}}, idx::quasiGrad.Idx, msc::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+function dcpf_initialization!(flw::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, idx::quasiGrad.Idx, msc::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # apply dcpf to the economic dispatch solution
     #
     # NOTE -- I have commented out the linearized voltage solver -- it doesn't really work.
@@ -583,7 +583,7 @@ function dcpf_initialization!(flw::Dict{Symbol, Vector{Float64}}, idx::quasiGrad
     # => vmr    = zeros(sys.nb-1) # this will be overwritten
     for tii in prm.ts.time_keys
         # first, update the xfm phase shifters (whatever they may be..)
-        flw[:ac_phi][idx.ac_phi] .= copy.(stt[:phi][tii])
+        flw[:ac_phi][tii][idx.ac_phi] .= copy.(stt[:phi][tii])
 
         # loop over each bus
         for bus in 1:sys.nb
@@ -605,7 +605,7 @@ function dcpf_initialization!(flw::Dict{Symbol, Vector{Float64}}, idx::quasiGrad
 
         # now, we need to solve Yb*theta = pinj, but we need to 
         # take phase shifters into account first:
-        bt = -flw[:ac_phi].*ntk.b
+        bt = -flw[:ac_phi][tii].*ntk.b
         c  = msc[:pinj_dc][tii][2:end] - ntk.Er'*bt
         # now, we need to solve Yb_r*theta_r = c via pcg
 
@@ -649,7 +649,7 @@ function dcpf_initialization!(flw::Dict{Symbol, Vector{Float64}}, idx::quasiGrad
     end
 end
 
-function economic_dispatch_initialization!(bit::Dict{Symbol, Dict{Symbol, BitVector}}, cgd::quasiGrad.Cgd, ctb::Vector{Vector{Float64}}, ctd::Vector{Vector{Float64}}, flw::Dict{Symbol, Vector{Float64}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, wct::Vector{Vector{Int64}})
+function economic_dispatch_initialization!(bit::Dict{Symbol, Dict{Symbol, BitVector}}, cgd::quasiGrad.Cgd, ctb::Vector{Vector{Float64}}, ctd::Vector{Vector{Float64}}, flw::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, msc::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, wct::Vector{Vector{Int64}})
     # 1. run ED (global upper bound)
     quasiGrad.solve_economic_dispatch!(idx, prm, qG, scr, stt, sys, upd)
 

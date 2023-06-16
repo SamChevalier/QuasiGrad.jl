@@ -115,7 +115,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     min_buses_for_krylov     = 25     # don't use Krylov if there are this many or fewer buses
 
     # adaptively the frac of ctgs to keep
-    max_ctg_to_keep = min(50, length(prm.ctg.id))
+    max_ctg_to_keep = min(1000, length(prm.ctg.id))
     frac_ctg_keep   = max_ctg_to_keep/length(prm.ctg.id)
     # this is the fraction of ctgs that are scored and differentiated
     # i.e., 100*frac_ctg_keep% of them. half are random, and half a
@@ -263,9 +263,9 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # shall we compute injections when we build the Jacobian?
     compute_pf_injs_with_Jac   = true
     max_pf_dx                  = 1e-3    # stop when max delta < 5e-4
-    max_pf_dx_final_solve      = 5e-5    # final pf solve
-    max_linear_pfs             = 2       # stop when number of pfs > max_linear_pfs
-    max_linear_pfs_final_solve = 4       # stop when number of pfs > max_linear_pfs_final_solve
+    max_pf_dx_final_solve      = 2.5e-5  # final pf solve
+    max_linear_pfs             = 3       # stop when number of pfs > max_linear_pfs
+    max_linear_pfs_final_solve = 5       # stop when number of pfs > max_linear_pfs_final_solve
     max_linear_pfs_total       = 6       # this includes failures
     Gurobi_pf_obj              = "min_dispatch_distance" # or, "min_dispatch_perturbation"
 
@@ -284,7 +284,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # bias terms of solving bfgs
     include_energy_costs_lbfgs      = false
     include_lbfgs_p0_regularization = false
-    initial_pf_lbfgs_step           = 0.1
+    initial_pf_lbfgs_step           = 0.05
     lbfgs_map_over_all_time         = false # assume the same set of variables
                                             # are optimized at each time step
     # set the number of lbfgs steps
@@ -450,7 +450,11 @@ function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::B
 
     # contingency structure: ctb and ctd
     ctb = [zeros(sys.nb-1) for _ in 1:sys.nT]     # ctb
-    ctd = [zeros(sys.nb-1) for _ in 1:sys.nctg]   # ctd
+
+    # this was *such* a good idea, wbut we need to parallelize, so 
+    # we have store time-based solutions in "ctd"
+        # => ctd = [zeros(sys.nb-1) for _ in 1:sys.nctg]   # ctd
+    ctd = [zeros(sys.nb-1) for _ in 1:sys.nT]   # ctd
 
     # build the full set of vectors, but only use the top fraction (for testing ease, mostly)
     wct = [collect(1:sys.nctg) for _ in 1:sys.nT] # wct
@@ -1275,26 +1279,26 @@ function initialize_ctg(sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGr
     #    :sto_vio         => sto_vio)
     # return ctg, flw, ntk
     flw = Dict(
-        :ac_phi          => zeros(sys.nac),
-        :ac_qfr          => zeros(sys.nac),
-        :ac_qto          => zeros(sys.nac),
-        :qfr2            => zeros(sys.nac),
-        :qto2            => zeros(sys.nac),
-        :bt              => zeros(sys.nac),
-        :dsmax_dp_flow   => zeros(sys.nac),
-        :dsmax_dqfr_flow => zeros(sys.nac),
-        :dsmax_dqto_flow => zeros(sys.nac),
-        :pflow_k         => zeros(sys.nac),
-        :sfr             => zeros(sys.nac),  
-        :sto             => zeros(sys.nac),  
-        :sfr_vio         => zeros(sys.nac), 
-        :sto_vio         => zeros(sys.nac), 
-        :p_inj           => zeros(sys.nb),
-        :theta_k         => zeros(sys.nb-1),
-        :rhs             => zeros(sys.nb-1),
-        :dz_dpinj        => zeros(sys.nb-1),
-        :dz_dpinj_all    => zeros(sys.nb-1),
-        :c               => zeros(sys.nb-1))
+        :ac_phi          => Dict(tkeys[ii] => zeros(sys.nac) for ii in 1:(sys.nT)),
+        :ac_qfr          => Dict(tkeys[ii] => zeros(sys.nac) for ii in 1:(sys.nT)),
+        :ac_qto          => Dict(tkeys[ii] => zeros(sys.nac) for ii in 1:(sys.nT)),
+        :qfr2            => Dict(tkeys[ii] => zeros(sys.nac) for ii in 1:(sys.nT)),
+        :qto2            => Dict(tkeys[ii] => zeros(sys.nac) for ii in 1:(sys.nT)),
+        :bt              => Dict(tkeys[ii] => zeros(sys.nac) for ii in 1:(sys.nT)),
+        :dsmax_dp_flow   => Dict(tkeys[ii] => zeros(sys.nac) for ii in 1:(sys.nT)),
+        :dsmax_dqfr_flow => Dict(tkeys[ii] => zeros(sys.nac) for ii in 1:(sys.nT)),
+        :dsmax_dqto_flow => Dict(tkeys[ii] => zeros(sys.nac) for ii in 1:(sys.nT)),
+        :pflow_k         => Dict(tkeys[ii] => zeros(sys.nac) for ii in 1:(sys.nT)),
+        :sfr             => Dict(tkeys[ii] => zeros(sys.nac) for ii in 1:(sys.nT)),
+        :sto             => Dict(tkeys[ii] => zeros(sys.nac) for ii in 1:(sys.nT)),
+        :sfr_vio         => Dict(tkeys[ii] => zeros(sys.nac) for ii in 1:(sys.nT)),
+        :sto_vio         => Dict(tkeys[ii] => zeros(sys.nac) for ii in 1:(sys.nT)),
+        :p_inj           => Dict(tkeys[ii] => zeros(sys.nb)  for ii in 1:(sys.nT)),
+        :theta_k         => Dict(tkeys[ii] => zeros(sys.nb-1) for ii in 1:(sys.nT)),
+        :rhs             => Dict(tkeys[ii] => zeros(sys.nb-1) for ii in 1:(sys.nT)),
+        :dz_dpinj        => Dict(tkeys[ii] => zeros(sys.nb-1) for ii in 1:(sys.nT)),
+        :dz_dpinj_all    => Dict(tkeys[ii] => zeros(sys.nb-1) for ii in 1:(sys.nT)),
+        :c               => Dict(tkeys[ii] => zeros(sys.nb-1) for ii in 1:(sys.nT)))
 
     return ntk, flw
 end
@@ -2224,7 +2228,7 @@ function manage_time!(time_left::Float64, qG::quasiGrad.QG)
     # scale to account for 50% of the time -- the rest is for Gurobi
     # and for printing the solution..
     # => we want: alpha*sum(adam_solve_times) = 0.5*time_left
-    alpha            = 0.35*time_left/sum(adam_solve_times)
+    alpha            = 0.25*time_left/sum(adam_solve_times)
     adam_solve_times = alpha*adam_solve_times
 
     # update qG

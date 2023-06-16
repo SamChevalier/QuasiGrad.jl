@@ -70,7 +70,7 @@ function run_adam!(
         cgd::quasiGrad.Cgd,
         ctb::Vector{Vector{Float64}},
         ctd::Vector{Vector{Float64}},
-        flw::Dict{Symbol, Vector{Float64}},
+        flw::Dict{Symbol, Dict{Symbol, Vector{Float64}}},
         grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, 
         idx::quasiGrad.Idx,
         mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}},
@@ -154,7 +154,7 @@ function update_states_and_grads!(
     cgd::quasiGrad.Cgd, 
     ctb::Vector{Vector{Float64}},
     ctd::Vector{Vector{Float64}}, 
-    flw::Dict{Symbol, Vector{Float64}}, 
+    flw::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
     grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, 
     idx::quasiGrad.Idx, 
     mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
@@ -201,7 +201,7 @@ function update_states_and_grads!(
 
     # score the contingencies and take the gradients
     if qG.skip_ctg_eval
-        #println("Skipping ctg evaluation!")
+        println("Skipping ctg evaluation!")
     else
         quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
     end
@@ -1357,6 +1357,9 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Sym
             model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => 1))
             set_string_names_on_creation(model, false)
 
+            # lower the tolerance a bit..
+            quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", 1e-5)
+
             # safety margins should NEVER be 0
             q_margin = max(q_margin, 0.0)
             v_margin = max(v_margin, 0.0)
@@ -1506,16 +1509,39 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Sym
             @constraint(model, JacP_noref*x_in + msc[:pinj0][tii] .== nodal_p)
             @constraint(model, JacQ_noref*x_in + msc[:qinj0][tii] .== nodal_q)
 
+            # find the subset of devices with the highest bounds
+                # => if (sys.npr > 15) && (sys.ncs > 15)
+                # =>     dev_bound_inds = reverse(sortperm(dev_pub - dev_plb))
+                # =>     pr_to_vary     = intersect(dev_bound_inds, idx.pr_not_Jpqe)[1:Int(round(sys.npr/10))]
+                # =>     cs_to_vary     = intersect(dev_bound_inds, idx.cs_not_Jpqe)[1:Int(round(sys.ncs/10))]
+                # => else
+                # =>     # just vary them all..
+                # =>     pr_to_vary     = idx.pr_devs
+                # =>     cs_to_vary     = idx.cs_devs
+                # => end
+
             # objective: hold p (and v?) close to its initial value
             # => || msc[:pinj_ideal] - (p0 + dp) || + regularization
             if qG.Gurobi_pf_obj == "min_dispatch_distance"
                 # this finds a solution close to the dispatch point -- does not converge without v,a regularization
                 obj = AffExpr(0.0)
 
-                # every 10% of devices, introduce a new slack variable -- limit complexity
-                num_dev_per_slack  = Int(round(0.10*sys.ndev))
-                slack_power_weight = 15.0
+                # constraint some devices!
+                    # => for dev in 1:sys.ndev
+                    # =>     if (dev in pr_to_vary) || (dev in cs_to_vary)
+                    # =>         tmp_devp = @variable(model)
+                    # =>         @constraint(model, stt[:dev_p][tii][dev] - dev_p_vars[dev] <= tmp_devp)
+                    # =>         @constraint(model, dev_p_vars[dev] - stt[:dev_p][tii][dev] <= tmp_devp)
+                    # =>         add_to_expression!(obj, tmp_devp, 5.0/(0.1*sys.nb))
+                    # =>     else
+                    # =>         @constraint(model, stt[:dev_p][tii][dev] == dev_p_vars[dev])
+                    # =>     end
+                    # => end
 
+                # every 10% of devices, introduce a new slack variable -- limit complexity
+                num_dev_per_slack  = Int(round(0.1*sys.ndev))
+                slack_power_weight = 2.5
+                
                 tmp_devp = @variable(model)
                 add_to_expression!(obj, tmp_devp, slack_power_weight/(sys.nb/num_dev_per_slack))
                 for dev in 1:sys.ndev
@@ -1595,6 +1621,17 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Sym
                 # no matter what, we update the voltage soluion
                 stt[:vm][tii]        = stt[:vm][tii]        + value.(dvm)
                 stt[:va][tii][2:end] = stt[:va][tii][2:end] + value.(dva)
+
+                # now, apply the updated injections to the devices
+                #stt[:dev_p][tii]  = value.(dev_p_vars)
+                #stt[:p_on][tii]   = stt[:dev_p][tii] - stt[:p_su][tii] - stt[:p_sd][tii]
+                #stt[:dev_q][tii]  = value.(dev_q_vars)
+                #if sys.nldc > 0
+                #    stt[:dc_pfr][tii] =  value.(pdc_vars)
+                #    stt[:dc_pto][tii] = -value.(pdc_vars)  # also, performed in clipping
+                #    stt[:dc_qfr][tii] = value.(qdc_fr_vars)
+                #    stt[:dc_qto][tii] = value.(qdc_to_vars)
+                #end
 
                 if q_margin > 0.0
                     # Let's update the margins, but this isn't a valid (marginless) solution yet..

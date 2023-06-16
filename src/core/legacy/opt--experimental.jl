@@ -37,7 +37,7 @@ function full_adam!(adm::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}
     end
 end
 
-function adam_with_ls!(adm::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, alpha::Float64, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, cgd::quasiGrad.Cgd, ctb::Vector{Vector{Float64}}, ctd::Vector{Vector{Float64}}, flw::Dict{Symbol, Vector{Float64}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, ntk::quasiGrad.Ntk, scr::Dict{Symbol, Float64}, sys::quasiGrad.System, wct::Vector{Vector{Int64}})
+function adam_with_ls!(adm::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, alpha::Float64, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, cgd::quasiGrad.Cgd, ctb::Vector{Vector{Float64}}, ctd::Vector{Vector{Float64}}, flw::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, ntk::quasiGrad.Ntk, scr::Dict{Symbol, Float64}, sys::quasiGrad.System, wct::Vector{Vector{Int64}})
     
     z0 = copy(scr[:zms_penalized])
 

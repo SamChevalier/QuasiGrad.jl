@@ -5679,7 +5679,7 @@ function solve_economic_dispatch_with_sus!(idx::quasiGrad.Idx, prm::quasiGrad.Pa
 end
 
 
-function dcvm_initialization!(flw::Dict{Symbol, Vector{Float64}}, idx::quasiGrad.Idx, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+function dcvm_initialization!(flw::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, idx::quasiGrad.Idx, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
     # apply vm-dcpf to the economic dispatch solution -- again, doesn't really work :)
     #
     qinj = zeros(sys.nb)   # this will be overwritten

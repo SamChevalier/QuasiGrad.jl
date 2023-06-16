@@ -100,7 +100,7 @@ function post_process_stats(
     cgd::quasiGrad.Cgd, 
     ctb::Vector{Vector{Float64}},
     ctd::Vector{Vector{Float64}}, 
-    flw::Dict{Symbol, Vector{Float64}}, 
+    flw::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
     grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, 
     idx::quasiGrad.Idx, 
     mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
