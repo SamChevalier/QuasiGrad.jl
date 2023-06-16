@@ -17,15 +17,15 @@ function update_penalties!(prm::quasiGrad.Param, qG::quasiGrad.QG, tnow::Float64
     qG.constraint_grad_eps2 = 1.0 * (1.0-beta) + beta * 1e-4
     qG.acflow_grad_eps2     = 1.0 * (1.0-beta) + beta * 1e-4
 
-    # now, update the constraint penalties!
-        # qG.pqbal_grad_weight_p    = (1e-3*prm.vio.p_bus)*(1.0-beta) + beta*prm.vio.p_bus
-        # qG.pqbal_grad_weight_q    = (1e-3*prm.vio.q_bus)*(1.0-beta) + beta*prm.vio.q_bus
-        # qG.constraint_grad_weight = (1e-3*prm.vio.p_bus)*(1.0-beta) + beta*prm.vio.p_bus
-        # if prm.vio.s_flow < 1.5e3
-        #     # just leave these
-        #     qG.acflow_grad_weight = copy(prm.vio.s_flow)
-        # else
-        #     # don't lessen these quite so much
-        #     qG.acflow_grad_weight = (2.5e-2*prm.vio.s_flow)*(1.0-beta)  + beta*prm.vio.s_flow
-        # end
+    # also, update the constraint penalties!
+    qG.pqbal_grad_weight_p    = (1e-2*prm.vio.p_bus)*(1.0-beta) + beta*prm.vio.p_bus
+    qG.pqbal_grad_weight_q    = (1e-2*prm.vio.q_bus)*(1.0-beta) + beta*prm.vio.q_bus
+    qG.constraint_grad_weight = (1e-2*prm.vio.p_bus)*(1.0-beta) + beta*prm.vio.p_bus
+    if prm.vio.s_flow < 1.5e3
+        # just leave these
+        qG.acflow_grad_weight = copy(prm.vio.s_flow)
+    else
+        # don't lessen these quite so much
+        qG.acflow_grad_weight = (5e-2*prm.vio.s_flow)*(1.0-beta)  + beta*prm.vio.s_flow
+    end
 end
