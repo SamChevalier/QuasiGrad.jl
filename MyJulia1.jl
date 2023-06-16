@@ -6,6 +6,7 @@ Pkg.activate(DEPOT_PATH[1])
 # include("./src/quasiGrad.jl")
 
 function MyJulia1(InFile1::String, TimeLimitInSeconds::Any, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
+    using JuMP
     println("running MyJulia1")
     println("  $(InFile1)")
     println("  $(TimeLimitInSeconds)")
