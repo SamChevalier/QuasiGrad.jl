@@ -1185,7 +1185,7 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::Dict{Symbo
             else
                 # the solution is NOT valid, so we should increase bounds and try again
                 @warn "Constrained power flow cleanup failed at $(tii)! Running one shot of penalized cleanup."
-                quasiGrad.single_shot_pf_clearnup!(idx, Jac, msc, prm, qG, stt, sys, tii)
+                # quasiGrad.single_shot_pf_clearnup!(idx, Jac, msc, prm, qG, stt, sys, tii)
 
                 # all done with this time period -- move on
                 run_pf = false
