@@ -114,6 +114,8 @@ function compute_quasiGrad_solution_feas(InFile1::String, NewTimeLimitInSeconds:
     quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
     
     quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+
+    quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 end
 
 function compute_quasiGrad_solution_timed(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
