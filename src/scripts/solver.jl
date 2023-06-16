@@ -191,9 +191,6 @@ function compute_quasiGrad_solution_timed(InFile1::String, NewTimeLimitInSeconds
     end
     ###############################################################
     ###############################################################
-
-    println("made it here!")
-
     # Now, we're in the End Game.
     #
     # with all binaries and shunts fixed and power flow solved, we..

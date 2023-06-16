@@ -110,13 +110,13 @@ function solve_ctgs!(
         elseif qG.base_solver == "pcg"
             if sys.nb <= qG.min_buses_for_krylov
                 # too few buses -- just use LU
-                ctb[t_ind] .= ntk.Ybr\flw[:c]
+                ctb[t_ind] .= ntk.Ybr\flw[:c][tii]
             else
                 # solve with a hot start!
                 #
                 # note: ctg[:ctb][tii][end] is modified in place,
                 # and it represents the base case solution
-                _, ch = quasiGrad.cg!(ctb[t_ind], ntk.Ybr, flw[:c], abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
+                _, ch = quasiGrad.cg!(ctb[t_ind], ntk.Ybr, flw[:c][tii], abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
                 
                 # test the krylov solution
                 if ~(ch.isconverged)
@@ -132,7 +132,7 @@ function solve_ctgs!(
         stt[:zctg][tii] .= 0.0
 
         # zero out the gradients, which will be collected and applied all at once!
-        flw[:dz_dpinj_all] .= 0.0
+        flw[:dz_dpinj_all][tii] .= 0.0
 
         # define the ctg 
         cs = dt*prm.vio.s_flow*qG.scale_c_sflow_testing
@@ -144,20 +144,20 @@ function solve_ctgs!(
             ###########################################################
             for ctg_ii in 1:sys.nctg
                 # see the "else" case for comments and details
-                flw[:theta_k] .= special_wmi_update(ctb[t_ind], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], flw[:c])
+                flw[:theta_k][tii] .= special_wmi_update(ctb[t_ind], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], flw[:c][tii])
                 # => slow: flw[:pflow_k] .= ntk.Yfr*flw[:theta_k] .+ flw[:bt]
-                quasiGrad.mul!(flw[:pflow_k], ntk.Yfr, flw[:theta_k])
-                flw[:pflow_k] .+= flw[:bt]
-                flw[:sfr]     .= sqrt.(flw[:qfr2] .+ flw[:pflow_k].^2)
-                flw[:sto]     .= sqrt.(flw[:qto2] .+ flw[:pflow_k].^2)
-                flw[:sfr_vio] .= flw[:sfr] .- ntk.s_max
-                flw[:sto_vio] .= flw[:sto] .- ntk.s_max
-                flw[:sfr_vio][ntk.ctg_out_ind[ctg_ii]] .= 0.0
-                flw[:sto_vio][ntk.ctg_out_ind[ctg_ii]] .= 0.0
+                quasiGrad.mul!(flw[:pflow_k][tii], ntk.Yfr, flw[:theta_k][tii])
+                flw[:pflow_k][tii] .+= flw[:bt][tii]
+                flw[:sfr][tii]     .= sqrt.(flw[:qfr2][tii] .+ flw[:pflow_k][tii].^2)
+                flw[:sto][tii]     .= sqrt.(flw[:qto2][tii] .+ flw[:pflow_k][tii].^2)
+                flw[:sfr_vio][tii] .= flw[:sfr][tii] .- ntk.s_max
+                flw[:sto_vio][tii] .= flw[:sto][tii] .- ntk.s_max
+                flw[:sfr_vio][tii][ntk.ctg_out_ind[ctg_ii]] .= 0.0
+                flw[:sto_vio][tii][ntk.ctg_out_ind[ctg_ii]] .= 0.0
                     # => flw[:smax_vio] .= max.(flw[:sfr_vio], flw[:sto_vio], 0.0)
                     # => if helpful: zctg_s = cs*flw[:smax_vio]
                     # => if helpful: stt[:zctg][tii][ctg_ii] = -sum(zctg_s, init=0.0)
-                stt[:zctg][tii][ctg_ii] = -cs*sum(max.(flw[:sfr_vio], flw[:sto_vio], 0.0))
+                stt[:zctg][tii][ctg_ii] = -cs*sum(max.(flw[:sfr_vio][tii], flw[:sto_vio][tii], 0.0))
             end
 
             # score
