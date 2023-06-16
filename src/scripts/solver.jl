@@ -154,6 +154,8 @@ function compute_quasiGrad_solution_timed(InFile1::String, NewTimeLimitInSeconds
     # TT: time management:
     quasiGrad.manage_time!(time_left, qG)
 
+    pct_round = 100.0
+
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
     
