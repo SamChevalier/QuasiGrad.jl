@@ -467,7 +467,6 @@ function solve_Gurobi_projection_not_parallel!(final_projection::Bool, idx::quas
 
                     # warn!
                     @warn "Gurobi MILP projection failed (dev ($dev)) -- skip and try again later!"
-                    @assert 1 == 2
                 end
             end
         end
@@ -972,7 +971,6 @@ function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Idx, pr
 
                     # warn!
                     @warn "Gurobi MILP projection failed (dev ($dev)) -- skip and try again later!"
-                    @assert 1 == 2
                 end
             end
         end
