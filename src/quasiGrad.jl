@@ -41,6 +41,13 @@ include("./core/power_balance.jl")
 include("./core/initializations.jl")
 include("./core/economic_dispatch.jl")
 
+# for plotting!
+using GLMakie
+using Makie
+
+# include plotting tools
+include("./core/plotting.jl")
+
 # define static data constants
 const eps_int    = 1e-8::Float64
 const eps_time   = 1e-6::Float64

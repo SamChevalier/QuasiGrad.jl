@@ -1,5 +1,5 @@
 # get injection bounds
-function get_injection_bounds!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
+function get_injection_bounds!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
     # note 1: this function DOES take reactive power equality constrained injections
     #         into account: i.e., dev_q ∈ Jpqe is fixed constant.
 
@@ -14,14 +14,14 @@ function get_injection_bounds!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vec
     @info "note: the get_injection_bounds function does NOT take J pqe into account yet"
 
     # time index
-    t_ind = prm.ts.time_key_ind[tii]
+    tii = prm.ts.time_key_ind[tii]
 
     # at this time, compute the pr and cs upper and lower bounds across all devices --
     # -> skip pqe equality links!
-    dev_plb = stt[:u_on_dev][tii].*prm.dev.p_lb_tmdv[t_ind]
-    dev_pub = stt[:u_on_dev][tii].*prm.dev.p_ub_tmdv[t_ind]
-    dev_qlb = stt[:u_sum][tii].*prm.dev.q_lb_tmdv[t_ind]
-    dev_qub = stt[:u_sum][tii].*prm.dev.q_ub_tmdv[t_ind]
+    dev_plb = stt.u_on_dev[tii].*prm.dev.p_lb_tmdv[tii]
+    dev_pub = stt.u_on_dev[tii].*prm.dev.p_ub_tmdv[tii]
+    dev_qlb = stt.u_sum[tii].*prm.dev.q_lb_tmdv[tii]
+    dev_qub = stt.u_sum[tii].*prm.dev.q_ub_tmdv[tii]
 
     # note: clipping is based on the upper/lower bounds, and not
     # based on the beta linking equations -- so, we just treat
@@ -61,16 +61,16 @@ function get_injection_bounds!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vec
         dcto_Qub = sum(dcto_qub[idx.bus_is_dc_tos[bus]]; init=0.0) 
 
         # total: lb < -pb_slack < ub
-        msc[:pub][bus] = pr_Pub - (cs_Plb + dcfr_Plb + dcto_Plb)
-        msc[:plb][bus] = pr_Plb - (cs_Pub + dcfr_Pub + dcto_Pub)
+        msc.pub[bus] = pr_Pub - (cs_Plb + dcfr_Plb + dcto_Plb)
+        msc.plb[bus] = pr_Plb - (cs_Pub + dcfr_Pub + dcto_Pub)
         
         # total: lb < -qb_slack < ub
-        msc[:qub][bus] = pr_Qub - (cs_Qlb + dcfr_Qlb + dcto_Qlb)
-        msc[:qlb][bus] = pr_Qlb - (cs_Qub + dcfr_Qub + dcto_Qub)
+        msc.qub[bus] = pr_Qub - (cs_Qlb + dcfr_Qlb + dcto_Qlb)
+        msc.qlb[bus] = pr_Qlb - (cs_Qub + dcfr_Qub + dcto_Qub)
     end
 end
 
-function power_flow_residual_KP!(idx::quasiGrad.Idx, KP::Float64, pi_p::Vector{Float64}, residual::Vector{Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
+function power_flow_residual_KP!(idx::quasiGrad.Idx, KP::Float64, pi_p::Vector{Float64}, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
     # loop over each bus and compute the residual
     for bus in 1:sys.nb
         # active power balance: stt[:pb][:slack][tii][bus] to record with time
@@ -78,43 +78,43 @@ function power_flow_residual_KP!(idx::quasiGrad.Idx, KP::Float64, pi_p::Vector{F
             # slack!!!
             pi_p[bus]*KP + 
             # consumers (positive)
-            sum(stt[:dev_p][tii][idx.cs[bus]]; init=0.0) +
+            sum(stt.dev_p[tii][idx.cs[bus]]; init=0.0) +
             # shunt
-            sum(stt[:sh_p][tii][idx.sh[bus]]; init=0.0) +
+            sum(stt.sh_p[tii][idx.sh[bus]]; init=0.0) +
             # acline
-            sum(stt[:acline_pfr][tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
-            sum(stt[:acline_pto][tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
+            sum(stt.acline_pfr[tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
+            sum(stt.acline_pto[tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
             # xfm
-            sum(stt[:xfm_pfr][tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
-            sum(stt[:xfm_pto][tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
+            sum(stt.xfm_pfr[tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
+            sum(stt.xfm_pto[tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
             # dcline
-            sum(stt[:dc_pfr][tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
-            sum(stt[:dc_pto][tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
+            sum(stt.dc_pfr[tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
+            sum(stt.dc_pto[tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
             # producer (negative)
-            -sum(stt[:dev_p][tii][idx.pr[bus]]; init=0.0)
+            -sum(stt.dev_p[tii][idx.pr[bus]]; init=0.0)
     
         # reactive power balance
         residual[sys.nb + bus] = 
             # consumers (positive)
-            sum(stt[:dev_q][tii][idx.cs[bus]]; init=0.0) +
+            sum(stt.dev_q[tii][idx.cs[bus]]; init=0.0) +
             # shunt
-            sum(stt[:sh_q][tii][idx.sh[bus]]; init=0.0) +
+            sum(stt.sh_q[tii][idx.sh[bus]]; init=0.0) +
             # acline
-            sum(stt[:acline_qfr][tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
-            sum(stt[:acline_qto][tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
+            sum(stt.acline_qfr[tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
+            sum(stt.acline_qto[tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
             # xfm
-            sum(stt[:xfm_qfr][tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
-            sum(stt[:xfm_qto][tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
+            sum(stt.xfm_qfr[tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
+            sum(stt.xfm_qto[tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
             # dcline
-            sum(stt[:dc_qfr][tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
-            sum(stt[:dc_qto][tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
+            sum(stt.dc_qfr[tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
+            sum(stt.dc_qto[tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
             # producer (negative)
-            -sum(stt[:dev_q][tii][idx.pr[bus]]; init=0.0)
+            -sum(stt.dev_q[tii][idx.pr[bus]]; init=0.0)
     end
 end
 
 
-function power_flow_residual_kpkq!(idx::quasiGrad.Idx, KP::Float64, KQ::Float64, pi_p::Vector{Float64}, pi_q::Vector{Float64}, residual::Vector{Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
+function power_flow_residual_kpkq!(idx::quasiGrad.Idx, KP::Float64, KQ::Float64, pi_p::Vector{Float64}, pi_q::Vector{Float64}, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
     # loop over each bus and compute the residual
     for bus in 1:sys.nb
         # active power balance: stt[:pb][:slack][tii][bus] to record with time
@@ -122,56 +122,56 @@ function power_flow_residual_kpkq!(idx::quasiGrad.Idx, KP::Float64, KQ::Float64,
             # slack!!!
             pi_p[bus]*KP + 
             # consumers (positive)
-            sum(stt[:dev_p][tii][idx.cs[bus]]; init=0.0) +
+            sum(stt.dev_p[tii][idx.cs[bus]]; init=0.0) +
             # shunt
-            sum(stt[:sh_p][tii][idx.sh[bus]]; init=0.0) +
+            sum(stt.sh_p[tii][idx.sh[bus]]; init=0.0) +
             # acline
-            sum(stt[:acline_pfr][tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
-            sum(stt[:acline_pto][tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
+            sum(stt.acline_pfr[tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
+            sum(stt.acline_pto[tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
             # xfm
-            sum(stt[:xfm_pfr][tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
-            sum(stt[:xfm_pto][tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
+            sum(stt.xfm_pfr[tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
+            sum(stt.xfm_pto[tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
             # dcline
-            sum(stt[:dc_pfr][tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
-            sum(stt[:dc_pto][tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
+            sum(stt.dc_pfr[tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
+            sum(stt.dc_pto[tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
             # producer (negative)
-            -sum(stt[:dev_p][tii][idx.pr[bus]]; init=0.0)
+            -sum(stt.dev_p[tii][idx.pr[bus]]; init=0.0)
     
         # reactive power balance
         residual[sys.nb + bus] = 
             # slack!!!
             pi_q[bus]*KQ + 
             # consumers (positive)
-            sum(stt[:dev_q][tii][idx.cs[bus]]; init=0.0) +
+            sum(stt.dev_q[tii][idx.cs[bus]]; init=0.0) +
             # shunt
-            sum(stt[:sh_q][tii][idx.sh[bus]]; init=0.0) +
+            sum(stt.sh_q[tii][idx.sh[bus]]; init=0.0) +
             # acline
-            sum(stt[:acline_qfr][tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
-            sum(stt[:acline_qto][tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
+            sum(stt.acline_qfr[tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
+            sum(stt.acline_qto[tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
             # xfm
-            sum(stt[:xfm_qfr][tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
-            sum(stt[:xfm_qto][tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
+            sum(stt.xfm_qfr[tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
+            sum(stt.xfm_qto[tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
             # dcline
-            sum(stt[:dc_qfr][tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
-            sum(stt[:dc_qto][tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
+            sum(stt.dc_qfr[tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
+            sum(stt.dc_qto[tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
             # producer (negative)
-            -sum(stt[:dev_q][tii][idx.pr[bus]]; init=0.0)
+            -sum(stt.dev_q[tii][idx.pr[bus]]; init=0.0)
     end
 end
 
 # correct the reactive power injections into the network
-function apply_pq_injections!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
+function apply_pq_injections!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
     # warning
     @info "note: the apply_pq_injections! function does NOT take J pqe into account yet"
 
     # time index
-    t_ind = prm.ts.time_key_ind[tii]
+    tii = prm.ts.time_key_ind[tii]
 
     # at this time, compute the pr and cs upper and lower bounds across all devices
-    dev_plb = stt[:u_on_dev][tii].*prm.dev.p_lb_tmdv[t_ind]
-    dev_pub = stt[:u_on_dev][tii].*prm.dev.p_ub_tmdv[t_ind]
-    dev_qlb = stt[:u_sum][tii].*prm.dev.q_lb_tmdv[t_ind]
-    dev_qub = stt[:u_sum][tii].*prm.dev.q_ub_tmdv[t_ind]
+    dev_plb = stt.u_on_dev[tii].*prm.dev.p_lb_tmdv[tii]
+    dev_pub = stt.u_on_dev[tii].*prm.dev.p_ub_tmdv[tii]
+    dev_qlb = stt.u_sum[tii].*prm.dev.q_lb_tmdv[tii]
+    dev_qub = stt.u_sum[tii].*prm.dev.q_ub_tmdv[tii]
 
     # note: clipping is based on the upper/lower bounds, and not
     # based on the beta linking equations -- so, we just treat
@@ -199,26 +199,26 @@ function apply_pq_injections!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quas
         # active power balance
         pb_slack = 
                 # shunt
-                sum(stt[:sh_p][tii][idx.sh[bus]]; init=0.0) +
+                sum(stt.sh_p[tii][idx.sh[bus]]; init=0.0) +
                 # acline
-                sum(stt[:acline_pfr][tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
-                sum(stt[:acline_pto][tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
+                sum(stt.acline_pfr[tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
+                sum(stt.acline_pto[tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
                 # xfm
-                sum(stt[:xfm_pfr][tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
-                sum(stt[:xfm_pto][tii][idx.bus_is_xfm_tos[bus]]; init=0.0)
+                sum(stt.xfm_pfr[tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
+                sum(stt.xfm_pto[tii][idx.bus_is_xfm_tos[bus]]; init=0.0)
                 # dcline -- not included
                 # consumers (positive) -- not included
                 # producer (negative) -- not included
         # reactive power balance
         qb_slack = 
                 # shunt        
-                sum(stt[:sh_q][tii][idx.sh[bus]]; init=0.0) +
+                sum(stt.sh_q[tii][idx.sh[bus]]; init=0.0) +
                 # acline
-                sum(stt[:acline_qfr][tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
-                sum(stt[:acline_qto][tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
+                sum(stt.acline_qfr[tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
+                sum(stt.acline_qto[tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
                 # xfm
-                sum(stt[:xfm_qfr][tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
-                sum(stt[:xfm_qto][tii][idx.bus_is_xfm_tos[bus]]; init=0.0)
+                sum(stt.xfm_qfr[tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
+                sum(stt.xfm_qto[tii][idx.bus_is_xfm_tos[bus]]; init=0.0)
                 # dcline -- not included
                 # consumers (positive) -- not included
                 # producer (negative) -- not included
@@ -267,28 +267,28 @@ function apply_pq_injections!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quas
         if -qb_slack >= qub
             println("ub limit")
             # max everything out
-            stt[:dev_q][tii][idx.cs[bus]]             = dev_qub[idx.cs[bus]]
-            stt[:dev_q][tii][idx.pr[bus]]             = dev_qlb[idx.pr[bus]]
-            stt[:dc_qfr][tii][idx.bus_is_dc_frs[bus]] = dcfr_qub[idx.bus_is_dc_frs[bus]]
-            stt[:dc_qto][tii][idx.bus_is_dc_tos[bus]] = dcfr_qub[idx.bus_is_dc_tos[bus]]
+            stt.dev_q[tii][idx.cs[bus]]             = dev_qub[idx.cs[bus]]
+            stt.dev_q[tii][idx.pr[bus]]             = dev_qlb[idx.pr[bus]]
+            stt.dc_qfr[tii][idx.bus_is_dc_frs[bus]] = dcfr_qub[idx.bus_is_dc_frs[bus]]
+            stt.dc_qto[tii][idx.bus_is_dc_tos[bus]] = dcfr_qub[idx.bus_is_dc_tos[bus]]
         elseif -qb_slack < qlb
             println("lb limit")
 
             # min everything out
-            stt[:dev_q][tii][idx.cs[bus]]             = dev_qlb[idx.cs[bus]]
-            stt[:dev_q][tii][idx.pr[bus]]             = dev_qub[idx.pr[bus]]
-            stt[:dc_qfr][tii][idx.bus_is_dc_frs[bus]] = dcfr_qlb[idx.bus_is_dc_frs[bus]]
-            stt[:dc_qto][tii][idx.bus_is_dc_tos[bus]] = dcfr_qlb[idx.bus_is_dc_tos[bus]]
+            stt.dev_q[tii][idx.cs[bus]]             = dev_qlb[idx.cs[bus]]
+            stt.dev_q[tii][idx.pr[bus]]             = dev_qub[idx.pr[bus]]
+            stt.dc_qfr[tii][idx.bus_is_dc_frs[bus]] = dcfr_qlb[idx.bus_is_dc_frs[bus]]
+            stt.dc_qto[tii][idx.bus_is_dc_tos[bus]] = dcfr_qlb[idx.bus_is_dc_tos[bus]]
         else # in the middle -- all good
             println("middle")
             lb_dist  = -qb_slack - qlb
             bnd_dist = qub - qlb
             scale    = lb_dist/bnd_dist
 
-            stt[:dev_q][tii][idx.cs[bus]]             = dev_qlb[idx.cs[bus]]             + scale*(dev_qub[idx.cs[bus]]             - dev_qlb[idx.cs[bus]])
-            stt[:dev_q][tii][idx.pr[bus]]             = dev_qub[idx.pr[bus]]             - scale*(dev_qub[idx.pr[bus]]             - dev_qlb[idx.pr[bus]])
-            stt[:dc_qfr][tii][idx.bus_is_dc_frs[bus]] = dcfr_qlb[idx.bus_is_dc_frs[bus]] + scale*(dcfr_qub[idx.bus_is_dc_frs[bus]] - dcfr_qlb[idx.bus_is_dc_frs[bus]])
-            stt[:dc_qto][tii][idx.bus_is_dc_tos[bus]] = dcfr_qlb[idx.bus_is_dc_tos[bus]] + scale*(dcfr_qub[idx.bus_is_dc_tos[bus]] - dcfr_qlb[idx.bus_is_dc_tos[bus]])
+            stt.dev_q[tii][idx.cs[bus]]             = dev_qlb[idx.cs[bus]]             + scale*(dev_qub[idx.cs[bus]]             - dev_qlb[idx.cs[bus]])
+            stt.dev_q[tii][idx.pr[bus]]             = dev_qub[idx.pr[bus]]             - scale*(dev_qub[idx.pr[bus]]             - dev_qlb[idx.pr[bus]])
+            stt.dc_qfr[tii][idx.bus_is_dc_frs[bus]] = dcfr_qlb[idx.bus_is_dc_frs[bus]] + scale*(dcfr_qub[idx.bus_is_dc_frs[bus]] - dcfr_qlb[idx.bus_is_dc_frs[bus]])
+            stt.dc_qto[tii][idx.bus_is_dc_tos[bus]] = dcfr_qlb[idx.bus_is_dc_tos[bus]] + scale*(dcfr_qub[idx.bus_is_dc_tos[bus]] - dcfr_qlb[idx.bus_is_dc_tos[bus]])
         end
 
         # now, apply P using KP
@@ -296,28 +296,28 @@ function apply_pq_injections!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quas
         if -pb_slack >= pub
             println("ub limit")
             # max everything out
-            stt[:p_on][tii][idx.cs[bus]]              = dev_pub[idx.cs[bus]]
-            stt[:p_on][tii][idx.pr[bus]]              = dev_plb[idx.pr[bus]]
-            stt[:dc_pfr][tii][idx.bus_is_dc_frs[bus]] = dcfr_pub[idx.bus_is_dc_frs[bus]]
-            stt[:dc_pto][tii][idx.bus_is_dc_tos[bus]] = dcfr_pub[idx.bus_is_dc_tos[bus]]
+            stt.p_on[tii][idx.cs[bus]]              = dev_pub[idx.cs[bus]]
+            stt.p_on[tii][idx.pr[bus]]              = dev_plb[idx.pr[bus]]
+            stt.dc_pfr[tii][idx.bus_is_dc_frs[bus]] = dcfr_pub[idx.bus_is_dc_frs[bus]]
+            stt.dc_pto[tii][idx.bus_is_dc_tos[bus]] = dcfr_pub[idx.bus_is_dc_tos[bus]]
         elseif -pb_slack < plb
             println("lb limit")
 
             # min everything out
-            stt[:p_on][tii][idx.cs[bus]]              = dev_plb[idx.cs[bus]]
-            stt[:p_on][tii][idx.pr[bus]]              = dev_pub[idx.pr[bus]]
-            stt[:dc_pfr][tii][idx.bus_is_dc_frs[bus]] = dcfr_plb[idx.bus_is_dc_frs[bus]]
-            stt[:dc_pto][tii][idx.bus_is_dc_tos[bus]] = dcfr_plb[idx.bus_is_dc_tos[bus]]
+            stt.p_on[tii][idx.cs[bus]]              = dev_plb[idx.cs[bus]]
+            stt.p_on[tii][idx.pr[bus]]              = dev_pub[idx.pr[bus]]
+            stt.dc_pfr[tii][idx.bus_is_dc_frs[bus]] = dcfr_plb[idx.bus_is_dc_frs[bus]]
+            stt.dc_pto[tii][idx.bus_is_dc_tos[bus]] = dcfr_plb[idx.bus_is_dc_tos[bus]]
         else # in the middle -- all good
             println("middle")
 
             lb_dist  = -pb_slack - plb
             bnd_dist = pub - plb
             scale    = lb_dist/bnd_dist
-            stt[:p_on][tii][idx.cs[bus]]              = dev_plb[idx.cs[bus]]             + scale*(dev_pub[idx.cs[bus]]             - dev_plb[idx.cs[bus]])
-            stt[:p_on][tii][idx.pr[bus]]              = dev_pub[idx.pr[bus]]             - scale*(dev_pub[idx.pr[bus]]             - dev_plb[idx.pr[bus]])
-            stt[:dc_pfr][tii][idx.bus_is_dc_frs[bus]] = dcfr_plb[idx.bus_is_dc_frs[bus]] + scale*(dcfr_pub[idx.bus_is_dc_frs[bus]] - dcfr_plb[idx.bus_is_dc_frs[bus]])
-            stt[:dc_pto][tii][idx.bus_is_dc_tos[bus]] = dcfr_plb[idx.bus_is_dc_tos[bus]] + scale*(dcfr_pub[idx.bus_is_dc_tos[bus]] - dcfr_plb[idx.bus_is_dc_tos[bus]])
+            stt.p_on[tii][idx.cs[bus]]              = dev_plb[idx.cs[bus]]             + scale*(dev_pub[idx.cs[bus]]             - dev_plb[idx.cs[bus]])
+            stt.p_on[tii][idx.pr[bus]]              = dev_pub[idx.pr[bus]]             - scale*(dev_pub[idx.pr[bus]]             - dev_plb[idx.pr[bus]])
+            stt.dc_pfr[tii][idx.bus_is_dc_frs[bus]] = dcfr_plb[idx.bus_is_dc_frs[bus]] + scale*(dcfr_pub[idx.bus_is_dc_frs[bus]] - dcfr_plb[idx.bus_is_dc_frs[bus]])
+            stt.dc_pto[tii][idx.bus_is_dc_tos[bus]] = dcfr_plb[idx.bus_is_dc_tos[bus]] + scale*(dcfr_pub[idx.bus_is_dc_tos[bus]] - dcfr_plb[idx.bus_is_dc_tos[bus]])
         end
     end
 end
@@ -361,19 +361,19 @@ function transform_acpf_Jac(Jac::quasiGrad.SparseArrays.SparseMatrixCSC{Float64,
 end
 
 # compute slack factors
-function slack_factors(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
+function slack_factors(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
 
     # warning
     @info "note: the nodal_pq_bounds! function does NOT take J pqe into account yet"
 
     # time index
-    t_ind = prm.ts.time_key_ind[tii]
+    tii = prm.ts.time_key_ind[tii]
 
     # at this time, compute the pr and cs upper and lower bounds across all devices
-    dev_plb = stt[:u_on_dev][tii].*prm.dev.p_lb_tmdv[t_ind]
-    dev_pub = stt[:u_on_dev][tii].*prm.dev.p_ub_tmdv[t_ind]
-    dev_qlb = stt[:u_sum][tii].*prm.dev.q_lb_tmdv[t_ind]
-    dev_qub = stt[:u_sum][tii].*prm.dev.q_ub_tmdv[t_ind]
+    dev_plb = stt.u_on_dev[tii].*prm.dev.p_lb_tmdv[tii]
+    dev_pub = stt.u_on_dev[tii].*prm.dev.p_ub_tmdv[tii]
+    dev_qlb = stt.u_sum[tii].*prm.dev.q_lb_tmdv[tii]
+    dev_qub = stt.u_sum[tii].*prm.dev.q_ub_tmdv[tii]
 
     # note: clipping is based on the upper/lower bounds, and not
     # based on the beta linking equations -- so, we just treat
@@ -406,26 +406,26 @@ function slack_factors(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::Dict{Symbo
         # active power balance
         pb_slack = 
                 # shunt
-                sum(stt[:sh_p][tii][idx.sh[bus]]; init=0.0) +
+                sum(stt.sh_p[tii][idx.sh[bus]]; init=0.0) +
                 # acline
-                sum(stt[:acline_pfr][tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
-                sum(stt[:acline_pto][tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
+                sum(stt.acline_pfr[tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
+                sum(stt.acline_pto[tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
                 # xfm
-                sum(stt[:xfm_pfr][tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
-                sum(stt[:xfm_pto][tii][idx.bus_is_xfm_tos[bus]]; init=0.0)
+                sum(stt.xfm_pfr[tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
+                sum(stt.xfm_pto[tii][idx.bus_is_xfm_tos[bus]]; init=0.0)
                 # dcline -- not included
                 # consumers (positive) -- not included
                 # producer (negative) -- not included
         # reactive power balance
         qb_slack = 
                 # shunt        
-                sum(stt[:sh_q][tii][idx.sh[bus]]; init=0.0) +
+                sum(stt.sh_q[tii][idx.sh[bus]]; init=0.0) +
                 # acline
-                sum(stt[:acline_qfr][tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
-                sum(stt[:acline_qto][tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
+                sum(stt.acline_qfr[tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
+                sum(stt.acline_qto[tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
                 # xfm
-                sum(stt[:xfm_qfr][tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
-                sum(stt[:xfm_qto][tii][idx.bus_is_xfm_tos[bus]]; init=0.0)
+                sum(stt.xfm_qfr[tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
+                sum(stt.xfm_qto[tii][idx.bus_is_xfm_tos[bus]]; init=0.0)
                 # dcline -- not included
                 # consumers (positive) -- not included
                 # producer (negative) -- not included
@@ -505,7 +505,7 @@ end
 
 
 # solve power flow
-function solve_power_flow(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, KP::Float64, pi_p::Vector{Float64}, prm::quasiGrad.Param, PQidx::Vector{Int64}, qG::quasiGrad.QG, residual::Vector{Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol, Ybus_real::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, Ybus_imag::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64})
+function solve_power_flow(grd::quasiGrad.Grad, idx::quasiGrad.Idx, KP::Float64, pi_p::Vector{Float64}, prm::quasiGrad.Param, PQidx::Vector{Int64}, qG::quasiGrad.QG, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8, Ybus_real::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, Ybus_imag::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64})
     # initialize
     run_pf = true
 
@@ -522,7 +522,7 @@ function solve_power_flow(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Flo
     while run_pf == true
         #
         # build the state
-        x = [stt[:vm][tii][PQidx]; KP; stt[:va][tii][2:end]]
+        x = [stt.vm[tii][PQidx]; KP; stt.va[tii][2:end]]
         
         # loop over each bus and compute the residual
         quasiGrad.power_flow_residual!(idx, KP, pi_p, residual, stt, sys, tii)
@@ -543,9 +543,9 @@ function solve_power_flow(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Flo
             x = x - (Jac\residual[residual_idx])
 
             # update the state
-            stt[:vm][tii][PQidx] = x[1:nPQ]
+            stt.vm[tii][PQidx] = x[1:nPQ]
             KP = x[nPQ + 1]
-            stt[:va][tii][2:end] = x[(nPQ+2):end]
+            stt.va[tii][2:end] = x[(nPQ+2):end]
 
             # update the flows and residual and such
             quasiGrad.update_states_for_distributed_slack_pf!(bit, grd, idx, prm, qG, stt)
@@ -556,48 +556,48 @@ function solve_power_flow(grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Flo
     return KP
 end
 
-function power_flow_residual!(idx::quasiGrad.Idx, residual::Vector{Float64}, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System, tii::Symbol)
+function power_flow_residual!(idx::quasiGrad.Idx, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
     # loop over each bus and compute the residual
     for bus in 1:sys.nb
         # active power balance: stt[:pb][:slack][tii][bus] to record with time
         residual[bus] = 
             # consumers (positive)
-            sum(stt[:dev_p][tii][idx.cs[bus]]; init=0.0) +
+            sum(stt.dev_p[tii][idx.cs[bus]]; init=0.0) +
             # shunt
-            sum(stt[:sh_p][tii][idx.sh[bus]]; init=0.0) +
+            sum(stt.sh_p[tii][idx.sh[bus]]; init=0.0) +
             # acline
-            sum(stt[:acline_pfr][tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
-            sum(stt[:acline_pto][tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
+            sum(stt.acline_pfr[tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
+            sum(stt.acline_pto[tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
             # xfm
-            sum(stt[:xfm_pfr][tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
-            sum(stt[:xfm_pto][tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
+            sum(stt.xfm_pfr[tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
+            sum(stt.xfm_pto[tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
             # dcline
-            sum(stt[:dc_pfr][tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
-            sum(stt[:dc_pto][tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
+            sum(stt.dc_pfr[tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
+            sum(stt.dc_pto[tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
             # producer (negative)
-            -sum(stt[:dev_p][tii][idx.pr[bus]]; init=0.0)
+            -sum(stt.dev_p[tii][idx.pr[bus]]; init=0.0)
     
         # reactive power balance
         residual[sys.nb + bus] = 
             # consumers (positive)
-            sum(stt[:dev_q][tii][idx.cs[bus]]; init=0.0) +
+            sum(stt.dev_q[tii][idx.cs[bus]]; init=0.0) +
             # shunt
-            sum(stt[:sh_q][tii][idx.sh[bus]]; init=0.0) +
+            sum(stt.sh_q[tii][idx.sh[bus]]; init=0.0) +
             # acline
-            sum(stt[:acline_qfr][tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
-            sum(stt[:acline_qto][tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
+            sum(stt.acline_qfr[tii][idx.bus_is_acline_frs[bus]]; init=0.0) + 
+            sum(stt.acline_qto[tii][idx.bus_is_acline_tos[bus]]; init=0.0) +
             # xfm
-            sum(stt[:xfm_qfr][tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
-            sum(stt[:xfm_qto][tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
+            sum(stt.xfm_qfr[tii][idx.bus_is_xfm_frs[bus]]; init=0.0) + 
+            sum(stt.xfm_qto[tii][idx.bus_is_xfm_tos[bus]]; init=0.0) +
             # dcline
-            sum(stt[:dc_qfr][tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
-            sum(stt[:dc_qto][tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
+            sum(stt.dc_qfr[tii][idx.bus_is_dc_frs[bus]]; init=0.0) + 
+            sum(stt.dc_qto[tii][idx.bus_is_dc_tos[bus]]; init=0.0) +
             # producer (negative)
-            -sum(stt[:dev_q][tii][idx.pr[bus]]; init=0.0)
+            -sum(stt.dev_q[tii][idx.pr[bus]]; init=0.0)
     end
 end
 
-function update_states_for_distributed_slack_pf!(bit::Dict{Symbol, Dict{Symbol, BitVector}}, grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
+function update_states_for_distributed_slack_pf!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # in this function, we only update the flow, xfm, and shunt states
     #
     # clip voltage

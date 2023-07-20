@@ -39,18 +39,18 @@ for dev in 1:sys.ndev
     scr[:z_enmin][dev] = -sum(stt[:zw_enmin][dev]; init=0.0)
 end
 
-for (t_ind, tii) in enumerate(prm.ts.time_keys)
+for tii in prm.ts.time_keys
     for dev in 1:sys.ndev
-        quasiGrad.apply_dev_q_grads!(tii, t_ind, prm, qG, idx, stt, grd, mgd, dev, grd[:dx][:dq][tii][dev])
-        quasiGrad.apply_dev_p_grads!(tii, t_ind, prm, qG, stt, grd, mgd, dev, grd[:dx][:dp][tii][dev])
+        quasiGrad.apply_dev_q_grads!(tii, prm, qG, idx, stt, grd, mgd, dev, grd.dx.dq[tii][dev])
+        quasiGrad.apply_dev_p_grads!(tii, prm, qG, stt, grd, mgd, dev, grd.dx.dp[tii][dev])
     end
 end
 z0   = copy(sum(values(scr[:z_enmax]), init=0.0) + sum(values(scr[:z_enmin]), init=0.0))
-dzdx = copy(mgd[:p_on][tii][ind])
+dzdx = copy(mgd.p_on[tii][ind])
 
 # update device power
-stt[:p_on][tii][ind] += epsilon
-stt[:dev_p][tii] = stt[:p_on][tii] + stt[:p_su][tii] + stt[:p_sd][tii]
+stt.p_on[tii][ind] += epsilon
+stt.dev_p[tii] = stt.p_on[tii] + stt.p_su[tii] + stt.p_sd[tii]
 quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
 for dev in 1:sys.ndev
     scr[:z_enmax][dev] = -sum(stt[:zw_enmax][dev]; init=0.0)

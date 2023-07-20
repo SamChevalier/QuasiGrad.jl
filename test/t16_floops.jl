@@ -77,10 +77,10 @@ qG.num_threads = 12
 
 # %% 7)
 qG.num_threads = 1
-@btime quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
+@btime quasiGrad.device_startup_states!(grd, idx, mgd, msc, prm, qG, stt, sys)
 
 qG.num_threads = 12
-@btime quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
+@btime quasiGrad.device_startup_states!(grd, idx, mgd, msc, prm, qG, stt, sys)
 
 # %% 8)
 qG.num_threads = 1
@@ -91,10 +91,10 @@ qG.num_threads = 12
 
 # %% 9) 
 qG.num_threads = 1
-@btime quasiGrad.device_reactive_powers!(idx, prm, qG, stt, sys)
+@btime quasiGrad.device_reactive_powers!(idx, prm, qG, stt)
 
 qG.num_threads = 12
-@btime quasiGrad.device_reactive_powers!(idx, prm, qG, stt, sys)
+@btime quasiGrad.device_reactive_powers!(idx, prm, qG, stt)
 
 # %% 10) 
 qG.num_threads = 1

@@ -5,20 +5,21 @@ using Revise
 # load things
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D3/C3S0N00073/scenario_002.json"
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
-#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E1_20230214/D1/C3E1N01576D1/scenario_117.json"
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S3.1_20230606/C3S3N01576D1/scenario_007.json"
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
 
 # load
 jsn = quasiGrad.load_json(path)
 
 # initialize the system
 adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
-stt, sys, upd, wct = quasiGrad.base_initialization(jsn, true, 1.0);
+stt, sys, upd, wct = quasiGrad.base_initialization(jsn, perturb_states = true);
 
 # %% reset -- to help with numerical conditioning of the market surplus function 
 # (so that we can take its derivative numerically)
 qG.scale_c_pbus_testing  = 0.00001 #1.0 #
 qG.scale_c_qbus_testing  = 0.00001 #1.0 #
-qG.scale_c_sflow_testing = 1.0 #1.0 #
+qG.scale_c_sflow_testing = 1.0     #1.0 #
 
 # test
 #
@@ -36,14 +37,14 @@ qG.reserve_grad_is_soft_abs    = false
 
 #
 # %% 1. transformer phase shift (phi) =======================================================================
-tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
+tii     = Int8(round(rand(1)[1]*sys.nT)); (tii == 0 ? tii = Int8(1) : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nx)); (ind == 0 ? ind = 1 : ind = ind)
 epsilon = 1e-4
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-dzdx    = mgd[:phi][tii][ind]
+dzdx    = mgd.phi[tii][ind]
 
 # perturb and test
-stt[:phi][tii][ind] += epsilon 
+stt.phi[tii][ind] += epsilon 
 zp = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -51,13 +52,13 @@ println(dzdx_num)
 #println((dzdx - dzdx_num)/dzdx_num)
 
 # %% 2. transformer winding ratio (tau) =======================================================================
-tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
+tii     = Int8(round(rand(1)[1]*sys.nT)); (tii == 0 ? tii = Int8(1) : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nx)); (ind == 0 ? ind = 1 : ind = ind)
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-dzdx    = mgd[:tau][tii][ind]
+dzdx    = mgd.tau[tii][ind]
 
 # perturb and test
-stt[:tau][tii][ind] += epsilon 
+stt.tau[tii][ind] += epsilon 
 zp = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -71,56 +72,52 @@ qG.scale_c_sflow_testing = 1.0
 
 # %% for flow testing!!
 epsilon = 1e-5
-
-tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
+tii     = Int8(round(rand(1)[1]*sys.nT)); (tii == 0 ? tii = Int8(1) : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nb)); (ind == 0 ? ind = 1 : ind = ind)
-
-# %%
-
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-dzdx    = mgd[:vm][tii][ind]
+dzdx    = mgd.vm[tii][ind]
 
 # perturb and test
-stt[:vm][tii][ind] += epsilon 
+stt.vm[tii][ind] += epsilon 
 zp = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
 println(dzdx_num)
 
 # %% 4. voltage phase =======================================================================
-tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
+tii     = Int8(round(rand(1)[1]*sys.nT)); (tii == 0 ? tii = Int8(1) : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nb)); (ind == 0 ? ind = 1 : ind = ind)
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-dzdx    = mgd[:va][tii][ind]
+dzdx    = mgd.va[tii][ind]
 
 # perturb and test
-stt[:va][tii][ind] += epsilon 
+stt.va[tii][ind] += epsilon 
 zp = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
 println(dzdx_num)
 
 # %% 5. dc -- qfr =======================================================================
-tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
+tii     = Int8(round(rand(1)[1]*sys.nT)); (tii == 0 ? tii = Int8(1) : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nldc)); (ind == 0 ? ind = 1 : ind = ind)
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-dzdx    = mgd[:dc_qfr][tii][ind]
+dzdx    = mgd.dc_qfr[tii][ind]
 
 # perturb and test
-stt[:dc_qfr][tii][ind] += epsilon 
+stt.dc_qfr[tii][ind] += epsilon 
 zp = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
 println(dzdx_num)
 
 # %% 6. dc -- qto =======================================================================
-tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
+tii     = Int8(round(rand(1)[1]*sys.nT)); (tii == 0 ? tii = Int8(1) : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nldc)); (ind == 0 ? ind = 1 : ind = ind)
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-dzdx    = mgd[:dc_qto][tii][ind]
+dzdx    = mgd.dc_qto[tii][ind]
 
 # perturb and test
-stt[:dc_qto][tii][ind] += epsilon 
+stt.dc_qto[tii][ind] += epsilon 
 zp = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -132,14 +129,14 @@ println(dzdx_num)
 # power at one bus by the same amount it decreases power at another bus.
 # thus, if one bus has too much, and one has too little, then the change
 # in the cost function will always be symmetric.
-tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
+tii     = Int8(round(rand(1)[1]*sys.nT)); (tii == 0 ? tii = Int8(1) : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nldc)); (ind == 0 ? ind = 1 : ind = ind)
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-dzdx    = mgd[:dc_pfr][tii][ind]
+dzdx    = mgd.dc_pfr[tii][ind]
 
 # perturb and test
-stt[:dc_pfr][tii][ind] += epsilon 
-stt[:dc_pto][tii][ind] -= epsilon 
+stt.dc_pfr[tii][ind] += epsilon 
+stt.dc_pto[tii][ind] -= epsilon 
 zp = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -151,17 +148,17 @@ println(dzdx_num)
 #           prm.acline.disconnection_cost .= 1000000.0
 #
 # be sure to turn them off after :)
-tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
+tii     = Int8(round(rand(1)[1]*sys.nT)); (tii == 0 ? tii = Int8(1) : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nl)); (ind == 0 ? ind = 1 : ind = ind)
 
 # to ensure we're not tipping over into some new space
-stt[:u_on_acline][tii][ind]               = 0.9  # for su :) -- reverse for sd :)
-stt[:u_on_acline][prm.ts.tmin1[tii]][ind] = 0.5  # drives infeasibility!!!
+stt.u_on_acline[tii][ind]               = 0.9  # for su :) -- reverse for sd :)
+stt.u_on_acline[prm.ts.tmin1[tii]][ind] = 0.5  # drives infeasibility!!!
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-dzdx    = copy(mgd[:u_on_acline][tii][ind])
+dzdx    = copy(mgd.u_on_acline[tii][ind])
 
 # perturb and test
-stt[:u_on_acline][tii][ind] += epsilon 
+stt.u_on_acline[tii][ind] += epsilon 
 zp = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -173,33 +170,33 @@ println(dzdx_num)
 #           prm.xfm.disconnection_cost .= 1000000.0
 #
 # be sure to turn them off after :)
-tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
+tii     = Int8(round(rand(1)[1]*sys.nT)); (tii == 0 ? tii = Int8(1) : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nx)); (ind == 0 ? ind = 1 : ind = ind)
 
 # to ensure we're not tipping over into some new space
-stt[:u_on_xfm][tii][ind]                   = 0.9  # for su :) -- reverse for sd :)
-stt[:u_on_xfm][prm.ts.tmin1[tii]][ind] = 0.5
+stt.u_on_xfm[tii][ind]                   = 0.9  # for su :) -- reverse for sd :)
+stt.u_on_xfm[prm.ts.tmin1[tii]][ind] = 0.5
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-dzdx    = mgd[:u_on_xfm][tii][ind]
+dzdx    = mgd.u_on_xfm[tii][ind]
 
 # perturb and test
-stt[:u_on_xfm][tii][ind] += epsilon 
+stt.u_on_xfm[tii][ind] += epsilon 
 zp = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
 println(dzdx_num)
 
 # %% 10. :u_step_shunt =======================================================================
-tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
+tii     = Int8(round(rand(1)[1]*sys.nT)); (tii == 0 ? tii = Int8(1) : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.nsh)) # -- most have a 0-bs/gs value, so choose wisely :)
 
 # to ensure we're not tipping over into some new space
-stt[:u_step_shunt][tii][ind] = 0.4
+stt.u_step_shunt[tii][ind] = 0.4
 z0    = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-dzdx  = copy(mgd[:u_step_shunt][tii][ind])
+dzdx  = copy(mgd.u_step_shunt[tii][ind])
 
 # perturb and test
-stt[:u_step_shunt][tii][ind] += epsilon 
+stt.u_step_shunt[tii][ind] += epsilon 
 zp = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -209,7 +206,7 @@ println(dzdx_num)
 #
 # loop over time
 for tii in prm.ts.time_keys
-    stt[:u_on_dev][tii] = rand(sys.ndev)
+    stt.u_on_dev[tii] = rand(sys.ndev)
 end
 
 # %% README: if you perturb over the max power, the device cost will error
@@ -236,7 +233,7 @@ qG.reserve_grad_is_soft_abs    = false
 #              1         2      3       4       5       6      7        8          9          10           11        12      13
 var     = [:u_on_dev, :dev_q, :p_on, :p_rgu, :p_rgd, :p_scr, :p_nsc, :p_rru_on, :p_rrd_on, :p_rru_off, :p_rrd_off, :q_qru, :q_qrd]    
 vii     = 3
-tii     = Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
+tii     = Int8(round(rand(1)[1]*sys.nT)); (tii == 0 ? tii = Int8(1) : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.ndev)); (ind == 0 ? ind = 1 : ind = ind)
 
 epsilon = 1e-5
@@ -270,5 +267,5 @@ end
 
 # %% loop over time
 for tii in prm.ts.time_keys
-    stt[:u_on_dev][tii] = rand(sys.ndev)
+    stt.u_on_dev[tii] = rand(sys.ndev)
 end

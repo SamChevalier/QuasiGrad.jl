@@ -41,4 +41,4 @@ yticks!([-1:1:1;], ["10^{-1}", "zero", "max"])
 
 
 # %%
-sum(sum(stt[:zen_dev][tii][idx.cs_devs] for tii in prm.ts.time_keys))
+sum(sum(stt.zen_dev[tii][idx.cs_devs] for tii in prm.ts.time_keys))

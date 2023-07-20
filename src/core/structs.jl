@@ -238,14 +238,11 @@ struct Violation
 end
 
 struct Timeseries
-    time_keys::Vector{Symbol}     
-    tmin1::Dict{Symbol, Symbol}          
-    duration::Dict{Symbol, Float64}       
+    time_keys::Vector{Int8}    
+    tmin1::Vector{Int8}         
+    duration::Vector{Float64}       
     start_time::Vector{Float64}     
     end_time::Vector{Float64}
-    start_time_dict::Dict{Symbol, Float64}
-    end_time_dict::Dict{Symbol, Float64}  
-    time_key_ind::Dict{Symbol, Int64}  
 end
 
 struct Device
@@ -253,6 +250,7 @@ struct Device
     id::Vector{String}
     bus::Vector{String}
     device_type::Vector{String}
+    dev_keys::Vector{Int32}
     startup_cost::Vector{Float64}
     startup_states::Vector{Vector{Vector{Float64}}}
     num_sus::Vector{Int64}
@@ -383,43 +381,43 @@ struct Idx
     pr_qzone::Dict{Int64, Vector{Int64}}
     cs_qzone::Dict{Int64, Vector{Int64}}
     dev_qzone::Dict{Int64, Vector{Int64}}
-    Ts_mndn::Vector{Vector{Vector{Symbol}}}
-    Ts_mnup::Vector{Vector{Vector{Symbol}}} 
-    Ts_sdpc::Vector{Vector{Vector{Symbol}}} 
-    ps_sdpc_set::Vector{Vector{Vector{Float64}}} 
-    Ts_supc::Vector{Vector{Vector{Symbol}}} 
-    ps_supc_set::Vector{Vector{Vector{Float64}}} 
-    Ts_sus_jft::Vector{Vector{Vector{Vector{Symbol}}}} 
-    Ts_sus_jf::Vector{Vector{Vector{Vector{Symbol}}}} 
-    Ts_en_max::Vector{Vector{Vector{Symbol}}} 
-    Ts_en_min::Vector{Vector{Vector{Symbol}}} 
-    Ts_su_max::Vector{Vector{Vector{Symbol}}}
+    Ts_mndn::Vector{Vector{Vector{Int8}}}
+    Ts_mnup::Vector{Vector{Vector{Int8}}}
+    Ts_sdpc::Vector{Vector{Vector{Int8}}}
+    ps_sdpc_set::Vector{Vector{Vector{Float64}}}
+    Ts_supc::Vector{Vector{Vector{Int8}}}
+    ps_supc_set::Vector{Vector{Vector{Float64}}}
+    Ts_sus_jft::Vector{Vector{Vector{Vector{Int8}}}}
+    Ts_sus_jf::Vector{Vector{Vector{Vector{Int8}}}}
+    Ts_en_max::Vector{Vector{Vector{Int8}}}
+    Ts_en_min::Vector{Vector{Vector{Int8}}}
+    Ts_su_max::Vector{Vector{Vector{Int8}}}
 end
 
 # constant gradient terms -- precomputed for speed
 struct Cgd
-    ctg_avg::Dict{Symbol, Float64}
-    ctg_min::Dict{Symbol, Float64}
-    dzon_dev_du_on_dev::Dict{Symbol, Vector{Float64}}
+    ctg_avg::Vector{Float64}
+    ctg_min::Vector{Float64}
+    dzon_dev_du_on_dev::Vector{Vector{Float64}}
     dzt_dzen::Vector{Float64}
-    dzrgu_dp_rgu::Dict{Symbol, Vector{Float64}}
-    dzrgd_dp_rgd::Dict{Symbol, Vector{Float64}}
-    dzscr_dp_scr::Dict{Symbol, Vector{Float64}}
-    dznsc_dp_nsc::Dict{Symbol, Vector{Float64}}
-    dzrru_dp_rru_on::Dict{Symbol, Vector{Float64}}
-    dzrru_dp_rru_off::Dict{Symbol, Vector{Float64}}
-    dzrrd_dp_rrd_on::Dict{Symbol, Vector{Float64}}
-    dzrrd_dp_rrd_off::Dict{Symbol, Vector{Float64}}
-    dzqru_dq_qru::Dict{Symbol, Vector{Float64}}
-    dzqrd_dq_qrd::Dict{Symbol, Vector{Float64}}
-    dzrgu_zonal_dp_rgu_zonal_penalty::Dict{Symbol, Vector{Float64}}
-    dzrgd_zonal_dp_rgd_zonal_penalty::Dict{Symbol, Vector{Float64}}
-    dzscr_zonal_dp_scr_zonal_penalty::Dict{Symbol, Vector{Float64}}
-    dznsc_zonal_dp_nsc_zonal_penalty::Dict{Symbol, Vector{Float64}}
-    dzrru_zonal_dp_rru_zonal_penalty::Dict{Symbol, Vector{Float64}}
-    dzrrd_zonal_dp_rrd_zonal_penalty::Dict{Symbol, Vector{Float64}}
-    dzqru_zonal_dq_qru_zonal_penalty::Dict{Symbol, Vector{Float64}}
-    dzqrd_zonal_dq_qrd_zonal_penalty::Dict{Symbol, Vector{Float64}}
+    dzrgu_dp_rgu::Vector{Vector{Float64}}
+    dzrgd_dp_rgd::Vector{Vector{Float64}}
+    dzscr_dp_scr::Vector{Vector{Float64}}
+    dznsc_dp_nsc::Vector{Vector{Float64}}
+    dzrru_dp_rru_on::Vector{Vector{Float64}}
+    dzrru_dp_rru_off::Vector{Vector{Float64}}
+    dzrrd_dp_rrd_on::Vector{Vector{Float64}}
+    dzrrd_dp_rrd_off::Vector{Vector{Float64}}
+    dzqru_dq_qru::Vector{Vector{Float64}}
+    dzqrd_dq_qrd::Vector{Vector{Float64}}
+    dzrgu_zonal_dp_rgu_zonal_penalty::Vector{Vector{Float64}}
+    dzrgd_zonal_dp_rgd_zonal_penalty::Vector{Vector{Float64}}
+    dzscr_zonal_dp_scr_zonal_penalty::Vector{Vector{Float64}}
+    dznsc_zonal_dp_nsc_zonal_penalty::Vector{Vector{Float64}}
+    dzrru_zonal_dp_rru_zonal_penalty::Vector{Vector{Float64}}
+    dzrrd_zonal_dp_rrd_zonal_penalty::Vector{Vector{Float64}}
+    dzqru_zonal_dq_qru_zonal_penalty::Vector{Vector{Float64}}
+    dzqrd_zonal_dq_qrd_zonal_penalty::Vector{Vector{Float64}}
 end
 
 struct Ntk
@@ -447,4 +445,432 @@ struct Ntk
     g_k::Dict{Int64, Float64}
     Ybus_acline_real::SparseArrays.SparseMatrixCSC{Float64, Int64}
     Ybus_acline_imag::SparseArrays.SparseMatrixCSC{Float64, Int64}
+end
+
+struct Flow
+    ac_phi::Vector{Vector{Float64}}
+    ac_qfr::Vector{Vector{Float64}}         
+    ac_qto::Vector{Vector{Float64}}         
+    qfr2::Vector{Vector{Float64}}           
+    qto2::Vector{Vector{Float64}}           
+    bt::Vector{Vector{Float64}}             
+    dsmax_dp_flow::Vector{Vector{Float64}} 
+    dsmax_dqfr_flow::Vector{Vector{Float64}}
+    dsmax_dqto_flow::Vector{Vector{Float64}}
+    pflow_k::Vector{Vector{Float64}}        
+    sfr::Vector{Vector{Float64}}            
+    sto::Vector{Vector{Float64}}            
+    sfr_vio::Vector{Vector{Float64}}        
+    sto_vio::Vector{Vector{Float64}}        
+    p_inj::Vector{Vector{Float64}}          
+    theta_k::Vector{Vector{Float64}}        
+    rhs::Vector{Vector{Float64}}            
+    dz_dpinj::Vector{Vector{Float64}}       
+    dz_dpinj_all::Vector{Vector{Float64}}   
+    c::Vector{Vector{Float64}}
+end
+
+struct State
+    vm::Vector{Vector{Float64}}            
+    va::Vector{Vector{Float64}}              
+    acline_pfr::Vector{Vector{Float64}}      
+    acline_qfr::Vector{Vector{Float64}}      
+    acline_pto::Vector{Vector{Float64}}      
+    acline_qto::Vector{Vector{Float64}}      
+    u_on_acline::Vector{Vector{Float64}}     
+    u_su_acline::Vector{Vector{Float64}}     
+    u_sd_acline::Vector{Vector{Float64}}     
+    phi::Vector{Vector{Float64}}            
+    tau::Vector{Vector{Float64}}            
+    xfm_pfr::Vector{Vector{Float64}}        
+    xfm_qfr::Vector{Vector{Float64}}        
+    xfm_pto::Vector{Vector{Float64}}        
+    xfm_qto::Vector{Vector{Float64}}        
+    u_on_xfm::Vector{Vector{Float64}}       
+    u_su_xfm::Vector{Vector{Float64}}       
+    u_sd_xfm::Vector{Vector{Float64}}           
+    dc_pfr::Vector{Vector{Float64}}         
+    dc_pto::Vector{Vector{Float64}}         
+    dc_qfr::Vector{Vector{Float64}}         
+    dc_qto::Vector{Vector{Float64}}         
+    sh_p::Vector{Vector{Float64}}           
+    sh_q::Vector{Vector{Float64}}           
+    u_step_shunt::Vector{Vector{Float64}}   
+    u_on_dev::Vector{Vector{Float64}}    
+    u_on_dev_Trx::Vector{Vector{Float64}}
+    dev_p::Vector{Vector{Float64}}       
+    dev_q::Vector{Vector{Float64}}       
+    u_on_dev_GRB::Vector{Vector{Float64}}  
+    u_su_dev::Vector{Vector{Float64}}    
+    u_su_dev_Trx::Vector{Vector{Float64}}  
+    u_sd_dev::Vector{Vector{Float64}}  
+    u_sd_dev_Trx::Vector{Vector{Float64}}  
+    u_sum::Vector{Vector{Float64}}    
+    u_sum_Trx::Vector{Vector{Float64}}
+    p_on::Vector{Vector{Float64}}        
+    p_su::Vector{Vector{Float64}}        
+    p_sd::Vector{Vector{Float64}}        
+    p_rgu::Vector{Vector{Float64}}       
+    p_rgd::Vector{Vector{Float64}}
+    p_scr::Vector{Vector{Float64}}       
+    p_nsc::Vector{Vector{Float64}}       
+    p_rru_on::Vector{Vector{Float64}}    
+    p_rru_off::Vector{Vector{Float64}}   
+    p_rrd_on::Vector{Vector{Float64}}    
+    p_rrd_off::Vector{Vector{Float64}}   
+    q_qru::Vector{Vector{Float64}}       
+    q_qrd::Vector{Vector{Float64}}       
+    zctg::Vector{Vector{Float64}}        
+    zen_dev::Vector{Vector{Float64}}     
+    zsu_dev::Vector{Vector{Float64}}      
+    zsu_acline::Vector{Vector{Float64}}   
+    zsu_xfm::Vector{Vector{Float64}}      
+    zsd_dev::Vector{Vector{Float64}}      
+    zsd_acline::Vector{Vector{Float64}}   
+    zsd_xfm::Vector{Vector{Float64}}      
+    zon_dev::Vector{Vector{Float64}}      
+    zsus_dev::Vector{Vector{Float64}}     
+    zs_acline::Vector{Vector{Float64}}    
+    zs_xfm::Vector{Vector{Float64}}       
+    zrgu::Vector{Vector{Float64}}         
+    zrgd::Vector{Vector{Float64}}  
+    zscr::Vector{Vector{Float64}}  
+    znsc::Vector{Vector{Float64}}  
+    zrru::Vector{Vector{Float64}}  
+    zrrd::Vector{Vector{Float64}}  
+    zqru::Vector{Vector{Float64}}  
+    zqrd::Vector{Vector{Float64}}  
+    zp::Vector{Vector{Float64}}    
+    zq::Vector{Vector{Float64}}    
+    zrgu_zonal::Vector{Vector{Float64}}  
+    zrgd_zonal::Vector{Vector{Float64}}  
+    zscr_zonal::Vector{Vector{Float64}}  
+    znsc_zonal::Vector{Vector{Float64}}  
+    zrru_zonal::Vector{Vector{Float64}}  
+    zrrd_zonal::Vector{Vector{Float64}}  
+    zqru_zonal::Vector{Vector{Float64}}  
+    zqrd_zonal::Vector{Vector{Float64}}  
+    p_rgu_zonal_REQ::Vector{Vector{Float64}}  
+    p_rgd_zonal_REQ::Vector{Vector{Float64}}  
+    p_scr_zonal_REQ::Vector{Vector{Float64}}  
+    p_nsc_zonal_REQ::Vector{Vector{Float64}}  
+    p_rgu_zonal_penalty::Vector{Vector{Float64}}  
+    p_rgd_zonal_penalty::Vector{Vector{Float64}}  
+    p_scr_zonal_penalty::Vector{Vector{Float64}}  
+    p_nsc_zonal_penalty::Vector{Vector{Float64}}  
+    p_rru_zonal_penalty::Vector{Vector{Float64}}  
+    p_rrd_zonal_penalty::Vector{Vector{Float64}}  
+    q_qru_zonal_penalty::Vector{Vector{Float64}}  
+    q_qrd_zonal_penalty::Vector{Vector{Float64}}  
+    zhat_mndn::Vector{Vector{Float64}}          
+    zhat_mnup::Vector{Vector{Float64}}          
+    zhat_rup::Vector{Vector{Float64}}           
+    zhat_rd::Vector{Vector{Float64}}            
+    zhat_rgu::Vector{Vector{Float64}}           
+    zhat_rgd::Vector{Vector{Float64}}           
+    zhat_scr::Vector{Vector{Float64}}           
+    zhat_nsc::Vector{Vector{Float64}}           
+    zhat_rruon::Vector{Vector{Float64}}         
+    zhat_rruoff::Vector{Vector{Float64}}        
+    zhat_rrdon::Vector{Vector{Float64}}         
+    zhat_rrdoff::Vector{Vector{Float64}}        
+    zhat_pmax::Vector{Vector{Float64}}          
+    zhat_pmin::Vector{Vector{Float64}}          
+    zhat_pmaxoff::Vector{Vector{Float64}}       
+    zhat_qmax::Vector{Vector{Float64}}          
+    zhat_qmin::Vector{Vector{Float64}}          
+    zhat_qmax_beta::Vector{Vector{Float64}}     
+    zhat_qmin_beta::Vector{Vector{Float64}}                 
+end
+
+struct Msc
+    pinj_ideal::Vector{Vector{Float64}}      
+    qinj_ideal::Vector{Vector{Float64}}      
+    pb_slack::Vector{Vector{Float64}}        
+    qb_slack::Vector{Vector{Float64}}        
+    pub::Vector{Vector{Float64}}             
+    plb::Vector{Vector{Float64}}             
+    qub::Vector{Vector{Float64}}             
+    qlb::Vector{Vector{Float64}}             
+    pinj0::Vector{Vector{Float64}}           
+    qinj0::Vector{Vector{Float64}}           
+    pinj_dc::Vector{Vector{Float64}}         
+    cos_ftp::Vector{Vector{Float64}}         
+    sin_ftp::Vector{Vector{Float64}}         
+    vff::Vector{Vector{Float64}}             
+    vtt::Vector{Vector{Float64}}             
+    vft::Vector{Vector{Float64}}             
+    pfr::Vector{Vector{Float64}}             
+    pto::Vector{Vector{Float64}}             
+    qfr::Vector{Vector{Float64}}             
+    qto::Vector{Vector{Float64}}               
+    acline_sfr::Vector{Vector{Float64}}      
+    acline_sto::Vector{Vector{Float64}}      
+    acline_sfr_plus::Vector{Vector{Float64}} 
+    acline_sto_plus::Vector{Vector{Float64}} 
+    cos_ftp_x::Vector{Vector{Float64}}       
+    sin_ftp_x::Vector{Vector{Float64}}       
+    vff_x::Vector{Vector{Float64}}           
+    vtt_x::Vector{Vector{Float64}}           
+    vft_x::Vector{Vector{Float64}}           
+    vt_tau_x::Vector{Vector{Float64}}        
+    vf_tau_x::Vector{Vector{Float64}}        
+    vf_tau2_x::Vector{Vector{Float64}}       
+    vff_tau2_x::Vector{Vector{Float64}}      
+    vft_tau_x::Vector{Vector{Float64}}       
+    vft_tau2_x::Vector{Vector{Float64}}      
+    vff_tau3_x::Vector{Vector{Float64}}      
+    pfr_x::Vector{Vector{Float64}}           
+    pto_x::Vector{Vector{Float64}}           
+    qfr_x::Vector{Vector{Float64}}           
+    qto_x::Vector{Vector{Float64}}           
+    xfm_sfr_x::Vector{Vector{Float64}}       
+    xfm_sto_x::Vector{Vector{Float64}}       
+    xfm_sfr_plus_x::Vector{Vector{Float64}}  
+    xfm_sto_plus_x::Vector{Vector{Float64}}  
+    acline_scale_fr::Vector{Vector{Float64}} 
+    acline_scale_to::Vector{Vector{Float64}} 
+    scale_fr_x::Vector{Vector{Float64}}      
+    scale_to_x::Vector{Vector{Float64}}      
+    vm2_sh::Vector{Vector{Float64}}          
+    g_tv_shunt::Vector{Vector{Float64}}      
+    b_tv_shunt::Vector{Vector{Float64}}      
+    u_sus_bnd::Vector{Vector{Vector{Float64}}}
+    zsus_dev::Vector{Vector{Vector{Float64}}}
+end
+
+# mini gradient structs
+struct Acline_pfr
+    vmfr::Vector{Vector{Float64}}
+    vmto::Vector{Vector{Float64}}
+    vafr::Vector{Vector{Float64}}
+    vato::Vector{Vector{Float64}}
+    uon::Vector{Vector{Float64}} 
+end
+
+struct Acline_qfr
+    vmfr::Vector{Vector{Float64}}
+    vmto::Vector{Vector{Float64}}
+    vafr::Vector{Vector{Float64}}
+    vato::Vector{Vector{Float64}}
+    uon::Vector{Vector{Float64}} 
+end
+
+struct Acline_pto
+    vmfr::Vector{Vector{Float64}}
+    vmto::Vector{Vector{Float64}}
+    vafr::Vector{Vector{Float64}}
+    vato::Vector{Vector{Float64}}
+    uon::Vector{Vector{Float64}} 
+end
+
+struct Acline_qto
+    vmfr::Vector{Vector{Float64}}
+    vmto::Vector{Vector{Float64}}
+    vafr::Vector{Vector{Float64}}
+    vato::Vector{Vector{Float64}}
+    uon::Vector{Vector{Float64}} 
+end
+
+struct Zs_acline
+    acline_pfr::Vector{Vector{Float64}}
+    acline_qfr::Vector{Vector{Float64}}
+    acline_pto::Vector{Vector{Float64}}
+    acline_qto::Vector{Vector{Float64}}
+end
+
+struct Xfm_pfr
+    vmfr::Vector{Vector{Float64}}
+    vmto::Vector{Vector{Float64}}
+    vafr::Vector{Vector{Float64}}
+    vato::Vector{Vector{Float64}}
+    phi::Vector{Vector{Float64}} 
+    tau::Vector{Vector{Float64}} 
+    uon::Vector{Vector{Float64}} 
+end
+
+struct Xfm_qfr
+    vmfr::Vector{Vector{Float64}}
+    vmto::Vector{Vector{Float64}}
+    vafr::Vector{Vector{Float64}}
+    vato::Vector{Vector{Float64}}
+    phi::Vector{Vector{Float64}} 
+    tau::Vector{Vector{Float64}} 
+    uon::Vector{Vector{Float64}} 
+end
+
+struct Xfm_pto
+    vmfr::Vector{Vector{Float64}}
+    vmto::Vector{Vector{Float64}}
+    vafr::Vector{Vector{Float64}}
+    vato::Vector{Vector{Float64}}
+    phi::Vector{Vector{Float64}} 
+    tau::Vector{Vector{Float64}} 
+    uon::Vector{Vector{Float64}} 
+end
+
+struct Xfm_qto
+    vmfr::Vector{Vector{Float64}}
+    vmto::Vector{Vector{Float64}}
+    vafr::Vector{Vector{Float64}}
+    vato::Vector{Vector{Float64}}
+    phi::Vector{Vector{Float64}} 
+    tau::Vector{Vector{Float64}} 
+    uon::Vector{Vector{Float64}} 
+end
+
+struct Zs_xfm
+    xfm_pfr::Vector{Vector{Float64}}
+    xfm_qfr::Vector{Vector{Float64}}
+    xfm_pto::Vector{Vector{Float64}}
+    xfm_qto::Vector{Vector{Float64}}
+end
+
+struct Sh_p
+    vm::Vector{Vector{Float64}}        
+    g_tv_shunt::Vector{Vector{Float64}}
+end
+
+struct Sh_q
+    vm::Vector{Vector{Float64}}        
+    b_tv_shunt::Vector{Vector{Float64}}
+end
+
+struct Zp
+    pb_slack::Vector{Vector{Float64}}  
+end
+
+struct Zq
+    qb_slack::Vector{Vector{Float64}}  
+end
+
+struct Zen_dev
+    dev_p::Vector{Vector{Float64}}  
+end
+
+struct U_su_dev
+    u_on_dev::Vector{Vector{Float64}}  
+    u_on_dev_prev::Vector{Vector{Float64}}  
+end
+
+struct U_sd_dev
+    u_on_dev::Vector{Vector{Float64}}  
+    u_on_dev_prev::Vector{Vector{Float64}}  
+end
+
+struct U_su_acline
+    u_on_acline::Vector{Vector{Float64}}       
+    u_on_acline_prev::Vector{Vector{Float64}}  
+end
+
+struct U_sd_acline
+    u_on_acline::Vector{Vector{Float64}}       
+    u_on_acline_prev::Vector{Vector{Float64}}  
+end
+
+struct U_su_xfm
+    u_on_xfm::Vector{Vector{Float64}}       
+    u_on_xfm_prev::Vector{Vector{Float64}}  
+end
+
+struct U_sd_xfm
+    u_on_xfm::Vector{Vector{Float64}}       
+    u_on_xfm_prev::Vector{Vector{Float64}}  
+end
+
+struct Dx
+    dp::Vector{Vector{Float64}}  
+    dq::Vector{Vector{Float64}}  
+end
+
+struct Grad
+    acline_pfr::Acline_pfr
+    acline_qfr::Acline_qfr
+    acline_pto::Acline_pto
+    acline_qto::Acline_qto
+    zs_acline::Zs_acline
+    xfm_pfr::Xfm_pfr
+    xfm_qfr::Xfm_qfr
+    xfm_pto::Xfm_pto
+    xfm_qto::Xfm_qto
+    zs_xfm::Zs_xfm
+    sh_p::Sh_p
+    sh_q::Sh_q
+    zp::Zp
+    zq::Zq
+    zen_dev::Zen_dev
+    u_su_dev::U_su_dev
+    u_sd_dev::U_sd_dev
+    u_su_acline::U_su_acline
+    u_sd_acline::U_sd_acline
+    u_su_xfm::U_su_xfm
+    u_sd_xfm::U_sd_xfm
+    dx::Dx
+end
+
+struct Bit
+    acline_sfr_plus::Vector{BitVector}
+    acline_sto_plus::Vector{BitVector}
+    xfm_sfr_plus_x::Vector{BitVector} 
+    xfm_sto_plus_x::Vector{BitVector} 
+    sfr_vio::Vector{BitVector}        
+    sto_vio::Vector{BitVector}        
+end
+
+struct Mgd
+    vm::Vector{Vector{Float64}}          
+    va::Vector{Vector{Float64}}          
+    tau::Vector{Vector{Float64}}         
+    phi::Vector{Vector{Float64}}         
+    dc_pfr::Vector{Vector{Float64}}      
+    dc_qfr::Vector{Vector{Float64}}      
+    dc_qto::Vector{Vector{Float64}}      
+    u_on_acline::Vector{Vector{Float64}} 
+    u_on_xfm::Vector{Vector{Float64}}    
+    u_step_shunt::Vector{Vector{Float64}}
+    u_on_dev::Vector{Vector{Float64}} 
+    p_on::Vector{Vector{Float64}}     
+    dev_q::Vector{Vector{Float64}}    
+    p_rgu::Vector{Vector{Float64}}    
+    p_rgd::Vector{Vector{Float64}}    
+    p_scr::Vector{Vector{Float64}}    
+    p_nsc::Vector{Vector{Float64}}    
+    p_rru_on::Vector{Vector{Float64}} 
+    p_rrd_on::Vector{Vector{Float64}} 
+    p_rru_off::Vector{Vector{Float64}}
+    p_rrd_off::Vector{Vector{Float64}}
+    q_qru::Vector{Vector{Float64}}    
+    q_qrd::Vector{Vector{Float64}}
+end
+
+struct MV
+    m::Vector{Vector{Float64}}
+    v::Vector{Vector{Float64}}
+end
+
+struct Adam
+    keys::Vector{Symbol}
+    vm::MV
+    va::MV
+    tau::MV
+    phi::MV
+    dc_pfr::MV
+    dc_qfr::MV
+    dc_qto::MV
+    u_on_acline::MV
+    u_on_xfm::MV
+    u_step_shunt::MV
+    u_on_dev::MV
+    p_on::MV
+    dev_q::MV
+    p_rgu::MV
+    p_rgd::MV
+    p_scr::MV
+    p_nsc::MV
+    p_rru_on::MV
+    p_rrd_on::MV
+    p_rru_off::MV
+    p_rrd_off::MV
+    q_qru::MV
+    q_qrd::MV
 end

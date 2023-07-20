@@ -167,26 +167,37 @@ function compute_quasiGrad_solution_feas(InFile1::String, NewTimeLimitInSeconds:
     jsn = quasiGrad.load_json(InFile1)
 
     # initialize
-    adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn, hpc_params=true)
+    adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn, hpc_params=false)
 
     # solve
     fix       = true
     pct_round = 100.0
     quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+    sleep(5.0)
     quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+    sleep(5.0)
     quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+    sleep(5.0)
 
-    qG.adam_max_time = 20.0
+    qG.adam_max_time = 30.0
     quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+    sleep(5.0)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
+    sleep(5.0)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
+    sleep(5.0)
     quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
     quasiGrad.cleanup_constrained_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
+    sleep(5.0)
     quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-    
     quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
-
     quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+
+    edscr = scr[:ed_obj]
+    zms   = scr[:zms]
+    println()
+    println("Economic dispatch upper bound: $edscr")
+    println("Final market suplus(zms): $zms")
 end
 
 function compute_quasiGrad_solution_timed(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)

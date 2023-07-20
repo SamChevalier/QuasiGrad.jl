@@ -36,7 +36,7 @@ zp1 = sum(sum([zpf[:zp][tii] for tii in prm.ts.time_keys]))
 zq1 = sum(sum([zpf[:zq][tii] for tii in prm.ts.time_keys]))
 
 # correct
-quasiGrad.correct_reactive_injections!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+quasiGrad.correct_reactive_injections!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
 
 # rescore :)
 quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
@@ -74,7 +74,7 @@ for ii in 1:1500
     stp = sum(pf_lbfgs_step[:step][tii] for tii in prm.ts.time_keys)/sys.nT
     println("P penalty is $(zp), Q penalty is $(zq) and average step is $(stp)!")
 
-    #println(stt[:vm][:t2][3])
+    #println(stt.vm[:t2][3])
 end
 
 # %% write solution
@@ -90,6 +90,6 @@ soln_dict = quasiGrad.prepare_solution(prm, stt, sys)
 quasiGrad.write_solution("solution.jl", qG, soln_dict, scr)
 
 # %% ================== 
-# sum(sum([qG.cdist_psolve*(stt[:p_on][tii] - dpf0[:p_on][tii]).^2 for tii in prm.ts.time_keys]))
+# sum(sum([qG.cdist_psolve*(stt.p_on[tii] - dpf0[:p_on][tii]).^2 for tii in prm.ts.time_keys]))
 # z = sum(sum([zpf[:zq][tii] for tii in prm.ts.time_keys]))
 

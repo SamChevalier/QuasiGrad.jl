@@ -43,9 +43,6 @@ function parse_json(json_data::Dict{String, Any})
             device_prm, 
             reserve_prm)
 
-    #prm = quasiGrad.join_params(ts_prm,dc_prm, ctg_prm, bus_prm, xfm_prm, vio_prm,
-    #                            shunt_prm, acline_prm, device_prm, reserve_prm)
-
     # join the mappings into one idx
     idx = quasiGrad.initialize_indices(prm, sys)
 
@@ -431,6 +428,7 @@ function parse_json_device(json_data::Dict)
     bus              = [device[ind]["bus"] for ind in device_inds]
     device_type      = [device[ind]["device_type"] for ind in device_inds]
     ndev             = length(device_inds)
+    dev_keys         = Int32.(1:ndev)
 
     # costs -- some of the time interval "ints" are set to "float"
     startup_cost       = Float64.([device[ind]["startup_cost"] for ind in device_inds])
@@ -558,6 +556,7 @@ function parse_json_device(json_data::Dict)
         device_id,
         bus,
         device_type,
+        dev_keys,
         startup_cost,
         startup_states,
         num_dev_sus,
@@ -830,16 +829,12 @@ function parse_json_timeseries(json_data::Dict)
     #
     # this is a ORDERED vector of time keys
     nT              = Int64(json_data["time_series_input"]["general"]["time_periods"])
-    time_keys       = [Symbol("t"*string(ii)) for ii in 1:nT]
-    prev_time_keys  = Dict(time_keys[ii] => time_keys[ii-1] for ii in 2:nT)
-    duration_vec    = Float64.(json_data["time_series_input"]["general"]["interval_duration"])
-    duration        = Dict(time_keys[ii] => duration_vec[ii] for ii in 1:nT)
-    cum_time_vec    = cumsum(duration_vec)
-    start_time      = [0; cum_time_vec[1:end-1]]
-    end_time        = cum_time_vec
-    start_time_dict = Dict(time_keys[ii] => start_time[ii] for ii in 1:nT)
-    end_time_dict   = Dict(time_keys[ii] => end_time[ii] for ii in 1:nT)
-    time_key_ind    = Dict(time_keys[ii] => ii for ii in 1:nT)
+    time_keys       = Int8.(1:nT)
+    prev_time_keys  = Int8.(0:nT-1)
+    duration        = Float64.(json_data["time_series_input"]["general"]["interval_duration"])
+    cum_time        = cumsum(duration)
+    start_time      = [0; cum_time[1:end-1]]
+    end_time        = cum_time
     #
     # 2. active_zonal_reserve -- dealt with in "reserve"
     #
@@ -853,21 +848,7 @@ function parse_json_timeseries(json_data::Dict)
         prev_time_keys,
         duration,
         start_time,
-        end_time,
-        start_time_dict,
-        end_time_dict,
-        time_key_ind)
-
-    #= timeseries_param = Dict(
-        :time_keys       => time_keys,
-        :tmin1           => prev_time_keys,
-        :duration        => duration,
-        :start_time      => start_time,
-        :end_time        => end_time,
-        :start_time_dict => start_time_dict,
-        :end_time_dict   => end_time_dict,
-        :time_key_ind    => time_key_ind)
-        =#
+        end_time)
 
     # output
     return timeseries_param

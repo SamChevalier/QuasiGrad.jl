@@ -16,9 +16,9 @@ Division              = 1
 NetworkModel          = "test"
 AllowSwitching        = 0
 
-quasiGrad.compute_triage_quasiGrad_solution(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
+# quasiGrad.compute_triage_quasiGrad_solution(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
 
-# %% this is the master function which executes quasiGrad.
+# this is the master function which executes quasiGrad.
 # 
 #
 # =====================================================\\
@@ -35,10 +35,13 @@ stt, sys, upd, wct = quasiGrad.base_initialization(jsn, Div=Division);
 @warn "homotopy ON"
 qG.apply_grad_weight_homotopy = true
 
-# I3. run an economic dispatch and update the states
+# %% I3. run an economic dispatch and update the states
 quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
 
-# TT: time
+# %%
+quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
+
+# %% TT: time
 time_spent_before_loop = time() - start_time
 
 # TT: how much time is left?
@@ -56,9 +59,11 @@ quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys
 # %% L2. clean-up reserves by solving softly constrained LP
 quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 
-# L3. run adam
+# %% L3. run adam
+qG.adam_max_time = 60.0
 quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
 
+# %%
 quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
 
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
@@ -78,11 +83,11 @@ Ybus_real, Ybus_imag = quasiGrad.update_Ybus(idx, ntk, prm, stt, sys, tii);
 Jac = quasiGrad.build_acpf_Jac_and_pq0(msc, qG, stt, sys, tii, Ybus_real, Ybus_imag);
 
 # %%
-msc[:pinj_ideal][tii]
-msc[:qinj_ideal][tii]
+msc.pinj_ideal[tii]
+msc.qinj_ideal[tii]
 
-msc[:pinj0][tii]
-msc[:qinj0][tii]
+msc.pinj0[tii]
+msc.qinj0[tii]
 
 # %% =====================
 qG.num_threads = 6
@@ -129,7 +134,7 @@ qG.alpha_0 = alpha_0
 # %% %%%%%%%%%%%%%
 stt = deepcopy(stt0)
 # %% %%%%%%%%%%%%%
-quasiGrad.flush_adam!(adm, mgd, prm, upd)
+quasiGrad.flush_adam!(adm, prm, upd)
 
 # %%
 qG.pqbal_grad_weight_p    = (1e-3*prm.vio.p_bus)

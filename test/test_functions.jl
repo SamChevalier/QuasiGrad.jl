@@ -602,29 +602,29 @@ end
 function perturb!(stt, prm, idx, grd, sys, qG, gamma)
     # we pertub, clip and fix states in the mastergrad
     for tii in prm.ts.time_keys
-        stt[:vm][tii]  = 1.0 .+ gamma*0.1*randn(sys.nb)
-        stt[:va][tii]  = gamma*0.1*randn(sys.nb)
-        stt[:tau][tii] = 1.0 .+ gamma*0.1*randn(sys.nx)
-        stt[:phi][tii]          = gamma*0.1*randn(sys.nx)        
-        stt[:dc_pfr][tii]       = gamma*0.1*rand(sys.nldc)    
-        stt[:dc_qfr][tii]       = gamma*0.1*rand(sys.nldc)       
-        stt[:dc_qto][tii]       = gamma*0.1*rand(sys.nldc)  
-        stt[:u_on_acline][tii]  = 0*gamma*rand(sys.nl)     +  ones(sys.nl)
-        stt[:u_on_xfm][tii]     = 0*gamma*rand(sys.nx)     +  ones(sys.nx)
-        stt[:u_step_shunt][tii] = gamma*rand(sys.nsh) 
-        stt[:u_on_dev][tii]     = 0*gamma*rand(sys.ndev)   +  ones(sys.ndev)
-        stt[:p_on][tii]         = gamma*rand(sys.ndev)    
-        stt[:dev_q][tii]        = gamma*rand(sys.ndev)  
-        stt[:p_rgu][tii]        = gamma*rand(sys.ndev) 
-        stt[:p_rgd][tii]        = gamma*rand(sys.ndev)   
-        stt[:p_scr][tii]        = gamma*rand(sys.ndev)      
-        stt[:p_nsc][tii]        = gamma*rand(sys.ndev)    
-        stt[:p_rru_on][tii]     = gamma*rand(sys.ndev)      
-        stt[:p_rrd_on][tii]     = gamma*rand(sys.ndev)      
-        stt[:p_rru_off][tii]    = gamma*rand(sys.ndev)  
-        stt[:p_rrd_off][tii]    = gamma*rand(sys.ndev)     
-        stt[:q_qru][tii]        = gamma*rand(sys.ndev)    
-        stt[:q_qrd][tii]        = gamma*rand(sys.ndev) 
+        stt.vm[tii]  = 1.0 .+ gamma*0.1*randn(sys.nb)
+        stt.va[tii]  = gamma*0.1*randn(sys.nb)
+        stt.tau[tii] = 1.0 .+ gamma*0.1*randn(sys.nx)
+        stt.phi[tii]          = gamma*0.1*randn(sys.nx)        
+        stt.dc_pfr[tii]       = gamma*0.1*rand(sys.nldc)    
+        stt.dc_qfr[tii]       = gamma*0.1*rand(sys.nldc)       
+        stt.dc_qto[tii]       = gamma*0.1*rand(sys.nldc)  
+        stt.u_on_acline[tii]  = 0*gamma*rand(sys.nl)     +  ones(sys.nl)
+        stt.u_on_xfm[tii]     = 0*gamma*rand(sys.nx)     +  ones(sys.nx)
+        stt.u_step_shunt[tii] = gamma*rand(sys.nsh) 
+        stt.u_on_dev[tii]     = 0*gamma*rand(sys.ndev)   +  ones(sys.ndev)
+        stt.p_on[tii]         = gamma*rand(sys.ndev)    
+        stt.dev_q[tii]        = gamma*rand(sys.ndev)  
+        stt.p_rgu[tii]        = gamma*rand(sys.ndev) 
+        stt.p_rgd[tii]        = gamma*rand(sys.ndev)   
+        stt.p_scr[tii]        = gamma*rand(sys.ndev)      
+        stt.p_nsc[tii]        = gamma*rand(sys.ndev)    
+        stt.p_rru_on[tii]     = gamma*rand(sys.ndev)      
+        stt.p_rrd_on[tii]     = gamma*rand(sys.ndev)      
+        stt.p_rru_off[tii]    = gamma*rand(sys.ndev)  
+        stt.p_rrd_off[tii]    = gamma*rand(sys.ndev)     
+        stt.q_qru[tii]        = gamma*rand(sys.ndev)    
+        stt.q_qrd[tii]        = gamma*rand(sys.ndev) 
     end
 end
 
@@ -655,9 +655,9 @@ function calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
     # device powers
     quasiGrad.all_device_statuses_and_costs!(grd, prm, qG, stt)
-    quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
+    quasiGrad.device_startup_states!(grd, idx, mgd, msc, prm, qG, stt, sys)
     quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
-    quasiGrad.device_reactive_powers!(idx, prm, qG, stt, sys)
+    quasiGrad.device_reactive_powers!(idx, prm, qG, stt)
     quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
     quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
     quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
@@ -766,3 +766,55 @@ function load_and_project(path::String, solution_file::String)
     quasiGrad.write_solution(solution_file, prm, qG, stt, sys)
     quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 end
+
+## %% ============
+#function f_t_symbols(stt::quasiGrad.State, dev::Int64, tkeys::Vector{Symbol})
+#    output = sum(stt.vm[tii][dev] for tii in tkeys)
+#end
+#
+#function f_t_inds(stt_v::Dict{Symbol, Vector{Vector{Float64}}}, dev::Int64, t_ind_vec::UnitRange{Int64})
+#    output =  sum(stt_v[:vm][tii][dev] for tii in t_ind_vec)
+#end
+#
+#function f_t_inds_vm(stt_v_vm::Vector{Vector{Float64}}, dev::Int64, t_ind_vec::UnitRange{Int64})
+#    output =  sum(stt_v_vm[tii][dev] for tii in t_ind_vec)
+#end
+#
+#function f_t_inds_vall(stt_v_all::Vector{Vector{Vector{Float64}}}, dev::Int64, t_ind_int::Vector{Int64}, mm2::map_inds2)
+#    #output =  sum(stt_v_all[mm2.vm][tii][dev] for tii in t_ind_int)
+#
+#    output =  sum(getindex.(stt_v_all[mm2.vm],dev)[t_ind_int])
+#
+#end
+#
+#function f_t_inds_vst(stt_vst::v_st, dev::Int64, t_ind_int::Vector{Int64}, mm2::map_inds2)
+#    output =  sum(stt_vst.vm[tii][dev] for tii in t_ind_int)
+#end
+#
+#function f_t_inds_vst_mut(stt_vst_mut::v_st_mut, dev::Int64, t_ind_int::Vector{Int64}, mm2::map_inds2)
+#    output =  sum(stt_vst_mut.vm[tii][dev] for tii in t_ind_int)
+#end
+#
+#function f_t_inds_vst_rep(stt_vst::v_st, dev::Int64, t_ind_int::Vector{Int64}, mm2::map_inds2)
+#    for tii in t_ind_int
+#        stt_vst.vm[tii] .= stt_vst.vm[tii].^2
+#    end
+#end
+#
+#function f_t_inds_vst_mut_rep(stt_vst_mut::v_st_mut, dev::Int64, t_ind_int::Vector{Int64}, mm2::map_inds2)
+#    for tii in t_ind_int
+#        stt_vst_mut.vm[tii] .= stt_vst_mut.vm[tii].^2
+#    end
+#end
+#
+#function f_t_inds_vall_d(stt_d::Dict{Int64, Vector{Vector{Float64}}}, dev::Int64, t_ind_int::Vector{Int64}, mm2::map_inds2)
+#    output =  sum(stt_d[mm2.vm][tii][dev] for tii in t_ind_int)
+#end
+#
+#function f_t_inds_vec(stt_v::Dict{Symbol, Vector{Vector{Float64}}}, dev::Int64, t_ind_int::Vector{Int64})
+#    output =  sum(stt_v[:vm][tii][dev] for tii in t_ind_int)
+#end
+#
+#function f_t_inds_vec_fast(stt_v::Dict{Symbol, Vector{Vector{Float64}}}, dev::Int64, t_ind_int::Vector{UInt8})
+#    output =  sum(stt_v[:vm][tii][dev] for tii in t_ind_int)
+#end
