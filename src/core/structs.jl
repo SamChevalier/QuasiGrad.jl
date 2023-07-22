@@ -20,7 +20,7 @@ end
 mutable struct QG
     nT::Int64
     num_threads::Int64
-    change_ac_device_bins::Bool
+    update_acline_xfm_bins::Bool
     print_projection_success::Bool
     print_reserve_cleanup_success::Bool
     compute_sus_on_each_iteration::Bool
@@ -607,7 +607,29 @@ struct Msc
     acline_sfr::Vector{Vector{Float64}}      
     acline_sto::Vector{Vector{Float64}}      
     acline_sfr_plus::Vector{Vector{Float64}} 
-    acline_sto_plus::Vector{Vector{Float64}} 
+    acline_sto_plus::Vector{Vector{Float64}}
+    # begin -- acline gradients --
+    vmfrpfr::Vector{Vector{Float64}}
+    vmtopfr::Vector{Vector{Float64}}
+    vafrpfr::Vector{Vector{Float64}}
+    vatopfr::Vector{Vector{Float64}}
+    uonpfr::Vector{Vector{Float64}}
+    vmfrqfr::Vector{Vector{Float64}}
+    vmtoqfr::Vector{Vector{Float64}}
+    vafrqfr::Vector{Vector{Float64}}
+    vatoqfr::Vector{Vector{Float64}}
+    uonqfr::Vector{Vector{Float64}}
+    vmfrpto::Vector{Vector{Float64}}
+    vmtopto::Vector{Vector{Float64}}
+    vafrpto::Vector{Vector{Float64}}
+    vatopto::Vector{Vector{Float64}}
+    uonpto::Vector{Vector{Float64}}
+    vmfrqto::Vector{Vector{Float64}}
+    vmtoqto::Vector{Vector{Float64}}
+    vafrqto::Vector{Vector{Float64}}
+    vatoqto::Vector{Vector{Float64}}
+    uonqto::Vector{Vector{Float64}}
+    # end -- acline gradients --
     cos_ftp_x::Vector{Vector{Float64}}       
     sin_ftp_x::Vector{Vector{Float64}}       
     vff_x::Vector{Vector{Float64}}           
@@ -627,7 +649,37 @@ struct Msc
     xfm_sfr_x::Vector{Vector{Float64}}       
     xfm_sto_x::Vector{Vector{Float64}}       
     xfm_sfr_plus_x::Vector{Vector{Float64}}  
-    xfm_sto_plus_x::Vector{Vector{Float64}}  
+    xfm_sto_plus_x::Vector{Vector{Float64}}
+    # begin -- xfm gradients --
+    vmfrpfr_x::Vector{Vector{Float64}}
+    vmtopfr_x::Vector{Vector{Float64}}
+    vafrpfr_x::Vector{Vector{Float64}}
+    vatopfr_x::Vector{Vector{Float64}}
+    taupfr_x::Vector{Vector{Float64}}
+    phipfr_x::Vector{Vector{Float64}}
+    uonpfr_x::Vector{Vector{Float64}}
+    vmfrqfr_x::Vector{Vector{Float64}}
+    vmtoqfr_x::Vector{Vector{Float64}}
+    vafrqfr_x::Vector{Vector{Float64}}
+    vatoqfr_x::Vector{Vector{Float64}}
+    tauqfr_x::Vector{Vector{Float64}}
+    phiqfr_x::Vector{Vector{Float64}}
+    uonqfr_x::Vector{Vector{Float64}}
+    vmfrpto_x::Vector{Vector{Float64}}
+    vmtopto_x::Vector{Vector{Float64}}
+    vafrpto_x::Vector{Vector{Float64}}
+    vatopto_x::Vector{Vector{Float64}}
+    taupto_x::Vector{Vector{Float64}}
+    phipto_x::Vector{Vector{Float64}}
+    uonpto_x::Vector{Vector{Float64}}
+    vmfrqto_x::Vector{Vector{Float64}}
+    vmtoqto_x::Vector{Vector{Float64}}
+    vafrqto_x::Vector{Vector{Float64}}
+    vatoqto_x::Vector{Vector{Float64}}
+    tauqto_x::Vector{Vector{Float64}}
+    phiqto_x::Vector{Vector{Float64}}
+    uonqto_x::Vector{Vector{Float64}}
+    # end -- xfm gradients --
     acline_scale_fr::Vector{Vector{Float64}} 
     acline_scale_to::Vector{Vector{Float64}} 
     scale_fr_x::Vector{Vector{Float64}}      

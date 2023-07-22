@@ -147,10 +147,10 @@ qG.num_threads = 12
 
 # %% compute the master grad
 qG.num_threads = 1
-@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
+@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
 
 qG.num_threads = 12
-@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
+@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
 
 # %% 16)
 qG.num_threads = 1

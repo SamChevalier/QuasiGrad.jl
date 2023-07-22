@@ -7871,7 +7871,7 @@ function acline_flows_st!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGra
                     (g_sr.*msc_im.sin_ftp[tii] .- b_sr.*msc_im.cos_ftp[tii]).*msc_im.vft[tii])
             grd.acline_pfr.vato[tii] .= stt_im.u_on_acline[tii].*(
                     (.-g_sr.*msc_im.sin_ftp[tii] .+ b_sr.*msc_im.cos_ftp[tii]).*msc_im.vft[tii])
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 grd.acline_pfr.uon[tii] .= msc_im.pfr[tii]   
             end
             # ====================================================== #
@@ -7885,7 +7885,7 @@ function acline_flows_st!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGra
                     (.-b_sr.*msc_im.sin_ftp[tii] .- g_sr.*msc_im.cos_ftp[tii]).*msc_im.vft[tii])
             grd.acline_qfr.vato[tii] .= stt_im.u_on_acline[tii].*(
                     (b_sr.*msc_im.sin_ftp[tii] .+ g_sr.*msc_im.cos_ftp[tii]).*msc_im.vft[tii])
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 grd.acline_qfr.uon[tii] .= msc_im.qfr[tii] 
             end
             # ====================================================== #
@@ -7902,7 +7902,7 @@ function acline_flows_st!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGra
                     (g_sr.*msc_im.sin_ftp[tii] .+ b_sr.*msc_im.cos_ftp[tii]).*msc_im.vft[tii])
             grd.acline_pto.vato[tii] .= stt_im.u_on_acline[tii].*(
                     (.-g_sr.*msc_im.sin_ftp[tii] .- b_sr.*msc_im.cos_ftp[tii]).*msc_im.vft[tii])
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 grd.acline_pto.uon[tii] .= msc_im.pto[tii]
             end
             # ====================================================== #
@@ -7916,7 +7916,7 @@ function acline_flows_st!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGra
                     (.-b_sr.*msc_im.sin_ftp[tii] .+ g_sr.*msc_im.cos_ftp[tii]).*msc_im.vft[tii])
             grd.acline_qto.vato[tii] .= stt_im.u_on_acline[tii].*(
                     (b_sr.*msc_im.sin_ftp[tii] .- g_sr.*msc_im.cos_ftp[tii]).*msc_im.vft[tii])
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 grd.acline_qto.uon[tii] .= msc_im.qto[tii] 
             end
 

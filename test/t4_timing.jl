@@ -161,7 +161,7 @@ print("t18: ")
 @btime quasiGrad.score_zms!(scr)
 
 print("t19: ")
-@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
+@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
 println("")
 
 print("t20: ")
@@ -200,7 +200,7 @@ ProfileView.@profview quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx
 
 # %% ------------------------------
 # @code_warntype quasiGrad.energy_penalties!(grd, prm, qG, scr, stt, sys)
-# @code_warntype quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
+# @code_warntype quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
 
 
 # %% --- write
@@ -351,8 +351,8 @@ f2(v1, v2) = v1 .+ v2
 
 # %%
 
-@time quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
-@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
+@time quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
+@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
 
 # %%
 line = 1

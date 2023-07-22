@@ -680,7 +680,7 @@ function calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     quasiGrad.score_zms!(scr)
 
     # compute the master grad
-    quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
+    quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
     # output
 
     return -scr[:zms_penalized] # previously => scr[:nzms]

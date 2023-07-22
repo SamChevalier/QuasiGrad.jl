@@ -75,7 +75,7 @@ function acline_flows!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.I
                     (g_sr.*msc.sin_ftp[tii] .- b_sr.*msc.cos_ftp[tii]).*msc.vft[tii])
             grd.acline_pfr.vato[tii] .= stt.u_on_acline[tii].*(
                     (.-g_sr.*msc.sin_ftp[tii] .+ b_sr.*msc.cos_ftp[tii]).*msc.vft[tii])
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 grd.acline_pfr.uon[tii] .= msc.pfr[tii]   
             end
             # ====================================================== #
@@ -89,7 +89,7 @@ function acline_flows!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.I
                     (.-b_sr.*msc.sin_ftp[tii] .- g_sr.*msc.cos_ftp[tii]).*msc.vft[tii])
             grd.acline_qfr.vato[tii] .= stt.u_on_acline[tii].*(
                     (b_sr.*msc.sin_ftp[tii] .+ g_sr.*msc.cos_ftp[tii]).*msc.vft[tii])
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 grd.acline_qfr.uon[tii] .= msc.qfr[tii] 
             end
             # ====================================================== #
@@ -106,7 +106,7 @@ function acline_flows!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.I
                     (g_sr.*msc.sin_ftp[tii] .+ b_sr.*msc.cos_ftp[tii]).*msc.vft[tii])
             grd.acline_pto.vato[tii] .= stt.u_on_acline[tii].*(
                     (.-g_sr.*msc.sin_ftp[tii] .- b_sr.*msc.cos_ftp[tii]).*msc.vft[tii])
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 grd.acline_pto.uon[tii] .= msc.pto[tii]
             end
             # ====================================================== #
@@ -120,7 +120,7 @@ function acline_flows!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.I
                     (.-b_sr.*msc.sin_ftp[tii] .+ g_sr.*msc.cos_ftp[tii]).*msc.vft[tii])
             grd.acline_qto.vato[tii] .= stt.u_on_acline[tii].*(
                     (b_sr.*msc.sin_ftp[tii] .- g_sr.*msc.cos_ftp[tii]).*msc.vft[tii])
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 grd.acline_qto.uon[tii] .= msc.qto[tii] 
             end
 
@@ -304,7 +304,7 @@ function xfm_flows!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.Idx,
             grd.xfm_pfr.tau[tii] .= u_on_xfm.*((-2.0).*(g_sr.+g_fr).*msc.vff_tau3_x[tii] .+ 
                     .-(.-g_sr.*msc.cos_ftp_x[tii] .- b_sr.*msc.sin_ftp_x[tii]).*msc.vft_tau2_x[tii])
             grd.xfm_pfr.phi[tii] .= grd.xfm_pfr.vato[tii]
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 grd.xfm_pfr.uon[tii] .= msc.pfr_x[tii]
             end
 
@@ -321,7 +321,7 @@ function xfm_flows!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.Idx,
             grd.xfm_qfr.tau[tii]  .= u_on_xfm.*(.-2.0.*(.-b_sr.-b_fr.-b_ch./2.0).*msc.vff_tau3_x[tii] .+
                     .-(b_sr.*msc.cos_ftp_x[tii] .- g_sr.*msc.sin_ftp_x[tii]).*msc.vft_tau2_x[tii])
             grd.xfm_qfr.phi[tii]  .= grd.xfm_qfr.vato[tii]
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 grd.xfm_qfr.uon[tii]  .= msc.qfr_x[tii]
             end
             
@@ -341,7 +341,7 @@ function xfm_flows!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.Idx,
             grd.xfm_pto.tau[tii] .= u_on_xfm.*(
                     .-(.-g_sr.*msc.cos_ftp_x[tii] .+ b_sr.*msc.sin_ftp_x[tii]).*msc.vft_tau2_x[tii])
             grd.xfm_pto.phi[tii] .= grd.xfm_pto.vato[tii]
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 grd.xfm_pto.uon[tii] .= msc.pto_x[tii]
             end
     
@@ -358,7 +358,7 @@ function xfm_flows!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.Idx,
             grd.xfm_qto.tau[tii]  .= u_on_xfm.*(
                     .-(b_sr.*msc.cos_ftp_x[tii] .+ g_sr.*msc.sin_ftp_x[tii]).*msc.vft_tau2_x[tii])
             grd.xfm_qto.phi[tii] .= grd.xfm_qto.vato[tii]
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 grd.xfm_qto.uon[tii] .= msc.qto_x[tii]
             end
 

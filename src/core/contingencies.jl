@@ -406,7 +406,7 @@ function zctgs_grad_qfr_acline!(aclfr_alpha::Vector{Float64}, bit::quasiGrad.Bit
     end
 
     # NOT efficient
-    if qG.change_ac_device_bins
+    if qG.update_acline_xfm_bins
         uonqfr  = aclfr_alpha.*grd.acline_qfr.uon[tii][bit.sfr_vio[tii][1:sys.nl]]
         for (ii,ln) in enumerate(prm.acline.line_inds[bit.sfr_vio[tii][1:sys.nl]])
             mgd.u_on_acline[tii][ln]           += uonqfr[ii]
@@ -439,7 +439,7 @@ function zctgs_grad_qto_acline!(aclto_alpha::Vector{Float64}, bit::quasiGrad.Bit
     end
 
     # NOT efficient
-    if qG.change_ac_device_bins
+    if qG.update_acline_xfm_bins
         uonqto  = aclto_alpha.*grd.acline_qto.uon[tii][bit.sto_vio[tii][1:sys.nl]]
         for (ii,ln) in enumerate(prm.acline.line_inds[bit.sto_vio[tii][1:sys.nl]])
             mgd.u_on_acline[tii][ln]           += uonqto[ii]
@@ -483,7 +483,7 @@ function zctgs_grad_qfr_xfm!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasi
     end
 
     # NOT efficient
-    if qG.change_ac_device_bins
+    if qG.update_acline_xfm_bins
         uonqfr  = xfr_alpha.*grd.xfm_qfr.uon[tii][bit.sfr_vio[tii][(sys.nl+1):sys.nac]]
         for (ii,xfm) in enumerate(prm.xfm.xfm_inds[bit.sfr_vio[tii][(sys.nl+1):sys.nac]])
             mgd.u_on_xfm[tii][xfm] += uonqfr[ii]
@@ -526,7 +526,7 @@ function zctgs_grad_qto_xfm!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasi
     end
 
     # NOT efficient
-    if qG.change_ac_device_bins
+    if qG.update_acline_xfm_bins
         uonqto  = xto_alpha.*grd.xfm_qto.uon[tii][bit.sto_vio[tii][(sys.nl+1):sys.nac]]
         for (ii,xfm) in enumerate(prm.xfm.xfm_inds[bit.sto_vio[tii][(sys.nl+1):sys.nac]])
             mgd.u_on_xfm[tii][xfm]           += uonqto[ii]

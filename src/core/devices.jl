@@ -705,7 +705,7 @@ function all_device_statuses_and_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Para
             stt.u_su_dev[tii] .=   max.(stt.u_on_dev[tii] .- prm.dev.init_on_status, 0.0)
             stt.u_sd_dev[tii] .= .-min.(stt.u_on_dev[tii] .- prm.dev.init_on_status, 0.0)
 
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 # aclines
                 stt.u_su_acline[tii] .=   max.(stt.u_on_acline[tii] .- prm.acline.init_on_status, 0.0)
                 stt.u_sd_acline[tii] .= .-min.(stt.u_on_acline[tii] .- prm.acline.init_on_status, 0.0)
@@ -720,7 +720,7 @@ function all_device_statuses_and_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Para
                 grd.u_su_dev.u_on_dev[tii] .=   sign.(stt.u_su_dev[tii])
                 grd.u_sd_dev.u_on_dev[tii] .= .-sign.(stt.u_sd_dev[tii])
 
-                if qG.change_ac_device_bins
+                if qG.update_acline_xfm_bins
                     # aclines
                     grd.u_su_acline.u_on_acline[tii] .=   sign.(stt.u_su_acline[tii])
                     grd.u_sd_acline.u_on_acline[tii] .= .-sign.(stt.u_sd_acline[tii])
@@ -734,7 +734,7 @@ function all_device_statuses_and_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Para
             stt.u_su_dev[tii] .=   max.(stt.u_on_dev[tii] .- stt.u_on_dev[prm.ts.tmin1[tii]], 0.0)
             stt.u_sd_dev[tii] .= .-min.(stt.u_on_dev[tii] .- stt.u_on_dev[prm.ts.tmin1[tii]], 0.0)
 
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 # aclines
                 stt.u_su_acline[tii] .=   max.(stt.u_on_acline[tii] .- stt.u_on_acline[prm.ts.tmin1[tii]], 0.0)
                 stt.u_sd_acline[tii] .= .-min.(stt.u_on_acline[tii] .- stt.u_on_acline[prm.ts.tmin1[tii]], 0.0)
@@ -751,7 +751,7 @@ function all_device_statuses_and_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Para
                 grd.u_su_dev.u_on_dev[tii] .=   sign.(stt.u_su_dev[tii])
                 grd.u_sd_dev.u_on_dev[tii] .= .-sign.(stt.u_sd_dev[tii])
 
-                if qG.change_ac_device_bins
+                if qG.update_acline_xfm_bins
                     # aclines
                     grd.u_su_acline.u_on_acline[tii] .=   sign.(stt.u_su_acline[tii])
                     grd.u_sd_acline.u_on_acline[tii] .= .-sign.(stt.u_sd_acline[tii])
@@ -766,7 +766,7 @@ function all_device_statuses_and_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Para
                 grd.u_su_dev.u_on_dev_prev[tii] .= .-sign.(stt.u_su_dev[tii])
                 grd.u_sd_dev.u_on_dev_prev[tii] .=   sign.(stt.u_sd_dev[tii])
 
-                if qG.change_ac_device_bins
+                if qG.update_acline_xfm_bins
                     # aclines
                     grd.u_su_acline.u_on_acline_prev[tii] .= .-sign.(stt.u_su_acline[tii])
                     grd.u_sd_acline.u_on_acline_prev[tii] .=   sign.(stt.u_sd_acline[tii])
@@ -781,7 +781,7 @@ function all_device_statuses_and_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Para
         stt.zon_dev[tii] .= dt.*prm.dev.on_cost.*stt.u_on_dev[tii]
         stt.zsu_dev[tii] .= prm.dev.startup_cost.*stt.u_su_dev[tii]
         stt.zsd_dev[tii] .= prm.dev.shutdown_cost.*stt.u_sd_dev[tii]
-        if qG.change_ac_device_bins
+        if qG.update_acline_xfm_bins
             # aclines
                 # stt[:zon_acline][tii] ---> this does not exist
             stt.zsu_acline[tii] .= prm.acline.connection_cost.*stt.u_su_acline[tii]

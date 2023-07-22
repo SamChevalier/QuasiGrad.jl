@@ -26,7 +26,7 @@ qG.adam_max_time = 60.0
 qG.num_threads   = 10
 
 # ========================
-qG.num_threads = 4
+qG.num_threads = 6
 for ii in 1:1000
     # safepoint
     #GC.safepoint()
@@ -80,26 +80,114 @@ for ii in 1:1000
 
     # compute the master grad
     #GC.safepoint()
-    #quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
+    #quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
 
     # print the market surplus function value
     #quasiGrad.print_zms(qG, scr)
 
     # compute the master grad
-    # quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
-    if mod(ii,5) == 0
+    # quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
+    if mod(ii,1) == 0
         println(ii)
     end
 end
 
 # %%
+tii = Int8(1)
+@btime quasiGrad.master_grad_zs_acline!(tii, idx, grd, mgd, msc, qG, sys)
 
-qG.num_threads = 6
+@btime quasiGrad.master_grad_zs_xfm!(tii, idx, grd, mgd, msc, qG, sys)
+
+
+# %%
+@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
+
+# %%
+@time idx.pr_pzone[zone][argmax(@view stt.dev_p[tii][idx.pr_pzone[zone]])];
+
+# %%
+@time quasiGrad.master_grad_zp!(tii, prm, idx, grd, mgd, sys)
+@time quasiGrad.master_grad_zq!(tii, prm, idx, grd, mgd, sys)
+
+# %%
+zone = 1
+    # g17 (zrgu_zonal):
+    # OG => mgd_com = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrgu_zonal] * cgd.dzrgu_zonal_dp_rgu_zonal_penalty[tii][zone] #grd[:zrgu_zonal][:p_rgu_zonal_penalty][tii][zone]
+    if qG.reserve_grad_is_soft_abs
+        mgd_com = cgd.dzrgu_zonal_dp_rgu_zonal_penalty[tii][zone]*quasiGrad.soft_abs_reserve_grad(stt.p_rgu_zonal_penalty[tii][zone], qG)
+    else
+        mgd_com = cgd.dzrgu_zonal_dp_rgu_zonal_penalty[tii][zone]*sign(stt.p_rgu_zonal_penalty[tii][zone])
+    end
+    mgd.p_rgu[tii][idx.dev_pzone[zone]] .-= mgd_com
+
+
+# %%
+v = ones(15)
+
+v .+= 5.5
+
+# %%
+
+qG.num_threads = 7
 for ii in 1:1000
     # start by looping over the terms which can be safely looped over in time
     @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         quasiGrad.master_grad_zs_acline_test!(tii, idx, grd, mgd, qG, sys)
     end
+    println(ii)
+end
+
+# %% ==========
+using Plots
+
+num_outer_loops    = 1000
+num_parallel_loops = 15
+time_vec        = zeros(num_outer_loops)
+rvec1           = randn(10000)
+rvec2           = randn(10000)
+for ii in 1:num_outer_loops
+    t1 = time()
+    Threads.@threads for jj in 1:num_parallel_loops
+        rvec_copy1 = rvec1.*rvec2
+        rvec_copy2 = rvec1.*rvec2
+        rvec_copy3 = rvec1.*rvec2
+        rvec_copy4 = rvec1.*rvec2
+        rvec_copy5 = rvec1.*rvec2
+    end
+    time_vec[ii] = time() - t1
+    println(ii)
+end
+
+# plot hanging
+Plots.plot(1:1000, time_vec, yaxis = :log, xlabel = "outer loop iteration", ylabel = "time (secs, log scale)")
+
+
+# %%
+qG.num_threads  = 10
+num_outer_loops = 5000
+for ii in 1:num_outer_loops
+    quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
+    println(ii)
+end
+
+# %%
+qG.num_threads = 6
+for ii in 1:1000
+    quasiGrad.@floop quasiGrad.ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+        vmfrpfr = grd.zs_acline.acline_pfr[tii].*grd.acline_pfr.vmfr[tii]
+        vmtopfr = grd.zs_acline.acline_pfr[tii].*grd.acline_pfr.vmto[tii]
+        vafrpfr = grd.zs_acline.acline_pfr[tii].*grd.acline_pfr.vafr[tii]
+        vatopfr = grd.zs_acline.acline_pfr[tii].*grd.acline_pfr.vato[tii]
+
+        # final qfr gradients
+        # OG => mgqfr   = mg_com.*qfr_com
+        # mgqfr * everything below:
+        vmfrqfr = grd.zs_acline.acline_qfr[tii].*grd.acline_qfr.vmfr[tii]
+        vmtoqfr = grd.zs_acline.acline_qfr[tii].*grd.acline_qfr.vmto[tii]
+        vafrqfr = grd.zs_acline.acline_qfr[tii].*grd.acline_qfr.vafr[tii]
+        vatoqfr = grd.zs_acline.acline_qfr[tii].*grd.acline_qfr.vato[tii]
+    end
+
     println(ii)
 end
     #@floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys

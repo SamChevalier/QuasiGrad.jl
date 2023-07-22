@@ -226,7 +226,7 @@ function update_states_and_grads!(
 
     # compute the master grad
     GC.safepoint()
-    quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
+    quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
 end
 
 function update_states_and_grads_for_adam_pf!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quasiGrad.Mgd, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)

@@ -51,7 +51,7 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::quasiGrad.Grad, idx::quasiGrad.Id
             # OG=> gc_d = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsu_dev] * grd[:zsu_dev][:u_su_dev]
             mgd.u_on_dev[tii] .+= prm.dev.startup_cost .* grd.u_su_dev.u_on_dev[tii]
             
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 # acline
                 # OG => gc_l = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsu_acline] * grd[:zsu_acline][:u_su_acline]
                 mgd.u_on_acline[tii] .+= prm.acline.connection_cost .* grd.u_su_acline.u_on_acline[tii]
@@ -64,7 +64,7 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::quasiGrad.Grad, idx::quasiGrad.Id
             # include previous times?
             if tii != 1
                 mgd.u_on_dev[prm.ts.tmin1[tii]]        .+= prm.dev.startup_cost       .* grd.u_su_dev.u_on_dev_prev[tii]
-                if qG.change_ac_device_bins
+                if qG.update_acline_xfm_bins
                     mgd.u_on_acline[prm.ts.tmin1[tii]] .+= prm.acline.connection_cost .* grd.u_su_acline.u_on_acline_prev[tii]
                     mgd.u_on_xfm[prm.ts.tmin1[tii]]    .+= prm.xfm.connection_cost    .* grd.u_su_xfm.u_on_xfm_prev[tii]
                 end
@@ -76,7 +76,7 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::quasiGrad.Grad, idx::quasiGrad.Id
             # OG => grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsd_dev] * grd[:zsd_dev][:u_sd_dev]
             mgd.u_on_dev[tii] .+= prm.dev.shutdown_cost .* grd.u_sd_dev.u_on_dev[tii]
 
-            if qG.change_ac_device_bins
+            if qG.update_acline_xfm_bins
                 # acline
                 # OG => gc_l = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsd_acline] * grd[:zsd_acline][:u_sd_acline]
                 mgd.u_on_acline[tii] .+= prm.acline.disconnection_cost .* grd.u_sd_acline.u_on_acline[tii]
@@ -88,7 +88,7 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::quasiGrad.Grad, idx::quasiGrad.Id
             # include previous times?
             if tii != 1
                 mgd.u_on_dev[prm.ts.tmin1[tii]]    .+= prm.dev.shutdown_cost         .* grd.u_sd_dev.u_on_dev_prev[tii]
-                if qG.change_ac_device_bins
+                if qG.update_acline_xfm_bins
                     mgd.u_on_acline[prm.ts.tmin1[tii]] .+= prm.acline.disconnection_cost .* grd.u_sd_acline.u_on_acline_prev[tii]
                     mgd.u_on_xfm[prm.ts.tmin1[tii]]    .+= prm.xfm.disconnection_cost    .* grd.u_sd_xfm.u_on_xfm_prev[tii]
                 end
