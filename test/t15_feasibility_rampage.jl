@@ -283,7 +283,7 @@ quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
 
 # %% ======================= 
-quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
 quasiGrad.acline_flows_parallel!(bit, grd, idx, msc, prm, qG, stt, sys)
 
 # %% ===

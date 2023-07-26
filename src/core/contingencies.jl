@@ -44,7 +44,8 @@ function solve_ctgs!(
     end
 
     # loop over time
-    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    @batch per=thread for tii in prm.ts.time_keys
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # duration
         dt = prm.ts.duration[tii]
 

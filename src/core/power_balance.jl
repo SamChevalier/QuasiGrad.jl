@@ -3,11 +3,9 @@ function power_balance!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc::quasiGrad.
     cp = prm.vio.p_bus * qG.scale_c_pbus_testing
     cq = prm.vio.q_bus * qG.scale_c_qbus_testing
 
-    # note: msc.pb_slack[tii] and stt[:pq][:slack] are just
-    #       endlessly overwritten
-
     # loop over each time period and compute the power balance
-    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    @batch per=thread for tii in prm.ts.time_keys
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # duration
         dt = prm.ts.duration[tii]
 
@@ -36,6 +34,9 @@ function power_balance!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc::quasiGrad.
             end
         end
     end
+
+    # sleep tasks
+    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 # fast sum

@@ -9,6 +9,7 @@ using JuMP
 using FLoops
 using Gurobi
 using Random
+using Polyester
 using Statistics
 using SparseArrays
 using LinearAlgebra

@@ -79,8 +79,8 @@ quasiGrad.get_largest_ctg_indices(bit, flw, qG, :sfr_vio, :sto_vio)
 #bit.sto_vio
 
 # %%
-@btime quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys);
-@btime quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys);
+@btime quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys);
+@btime quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys);
 
 # %%
 quasiGrad.get_largest_ctg_indices(bit, flw, qG, :sfr_vio, :sto_vio)

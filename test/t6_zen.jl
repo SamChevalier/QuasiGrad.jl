@@ -33,7 +33,7 @@ epsilon = 1e-3
 tii = :t1
 ind = 2
 quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
-quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
+quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
 for dev in 1:sys.ndev
     scr[:z_enmax][dev] = -sum(stt[:zw_enmax][dev]; init=0.0)
     scr[:z_enmin][dev] = -sum(stt[:zw_enmin][dev]; init=0.0)
@@ -51,7 +51,7 @@ dzdx = copy(mgd.p_on[tii][ind])
 # update device power
 stt.p_on[tii][ind] += epsilon
 stt.dev_p[tii] = stt.p_on[tii] + stt.p_su[tii] + stt.p_sd[tii]
-quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
+quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
 for dev in 1:sys.ndev
     scr[:z_enmax][dev] = -sum(stt[:zw_enmax][dev]; init=0.0)
     scr[:z_enmin][dev] = -sum(stt[:zw_enmin][dev]; init=0.0)

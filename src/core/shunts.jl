@@ -1,5 +1,6 @@
 function shunts!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
-    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    @batch per=thread for tii in prm.ts.time_keys
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         msc.vm2_sh[tii] .= (@view stt.vm[tii][idx.shunt_bus]).^2
 
         # define the shunts values
@@ -20,4 +21,7 @@ function shunts!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc::quasiGrad.Msc, pr
             grd.sh_q.b_tv_shunt[tii] .= .-msc.vm2_sh[tii]
         end
     end
+
+    # sleep tasks
+    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end

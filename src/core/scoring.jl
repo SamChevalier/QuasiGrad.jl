@@ -245,3 +245,13 @@ function soft_abs_reserve_grad(x::Float64, qG::quasiGrad.QG)
     # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
     return x/(sqrt(x^2 + qG.reserve_grad_eps2))
 end
+
+# soft abs derviative -- acflow
+function soft_abs_acflow_grad(x::Float64, qG::quasiGrad.QG)
+    # soft_abs(x)      = sqrt(x^2 + eps^2)
+    # soft_abs_grad(x) = x/sqrt(x^2 + eps^2)
+    #
+    # usage: instead of c*sign(max(x,0)), use c*soft_abs_grad(max(x,0))
+    # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
+    return x/(sqrt(x^2 + qG.acflow_grad_eps2))
+end

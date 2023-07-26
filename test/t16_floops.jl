@@ -49,17 +49,17 @@ qG.num_threads = 12
 
 # %% 3)
 qG.num_threads = 1
-@btime quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
 
 qG.num_threads = 12
-@btime quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
 
 # %% 4)
 qG.num_threads = 1
-@btime quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
 
 qG.num_threads = 12
-@btime quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
 
 # %% 5)
 qG.num_threads = 1
@@ -105,17 +105,17 @@ qG.num_threads = 12
 
 # %% 11)
 qG.num_threads = 1
-@btime quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
+@btime quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
 
 qG.num_threads = 12
-@btime quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
+@btime quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
 
 # %% 12)
 qG.num_threads = 1
-@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
+@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, msc, prm, qG, scr, stt, sys)
 
 qG.num_threads = 12
-@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
+@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, msc, prm, qG, scr, stt, sys)
 
 # %% 13)
 qG.num_threads = 1

@@ -649,8 +649,8 @@ function calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     # don't clip!!
     
     # compute network flows and injections
-    quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
-    quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
     quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
 
     # device powers
@@ -659,8 +659,8 @@ function calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
     quasiGrad.device_reactive_powers!(idx, prm, qG, stt)
     quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
-    quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
-    quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
+    quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
+    quasiGrad.penalized_device_constraints!(grd, idx, mgd, msc, prm, qG, scr, stt, sys)
     quasiGrad.device_reserve_costs!(prm, qG, stt)
 
     # now, we can compute the power balances

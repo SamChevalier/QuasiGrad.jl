@@ -110,10 +110,10 @@ print("t2: ")
 @btime quasiGrad.clip_all!(prm, qG, stt)
 
 print("t3: ")
-@btime quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
 
 print("t4: ")
-@btime quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
 
 print("t5: ")
 @btime quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
@@ -134,10 +134,10 @@ print("t9: ")
 @btime quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
 
 print("t10: ")
-@btime quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
+@btime quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
 
 print("t11: ")
-@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
+@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, msc, prm, qG, scr, stt, sys)
 
 print("t12: ")
 @btime quasiGrad.device_reserve_costs!(prm, qG, stt)
@@ -215,7 +215,7 @@ quasiGrad.write_solution(data_dir*file_name, qG, soln_dict, scr)
 
 # %% ===================
 # using ProfileView
-# ProfileView.@profview quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
+# ProfileView.@profview quasiGrad.penalized_device_constraints!(grd, idx, mgd, msc, prm, qG, scr, stt, sys)
 ProfileView.@profview quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 
 # %%

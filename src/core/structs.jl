@@ -679,16 +679,15 @@ struct Msc
     tauqto_x::Vector{Vector{Float64}}
     phiqto_x::Vector{Vector{Float64}}
     uonqto_x::Vector{Vector{Float64}}
-    # end -- xfm gradients --
-    acline_scale_fr::Vector{Vector{Float64}} 
-    acline_scale_to::Vector{Vector{Float64}} 
-    scale_fr_x::Vector{Vector{Float64}}      
-    scale_to_x::Vector{Vector{Float64}}      
+    # end -- xfm gradients -- 
     vm2_sh::Vector{Vector{Float64}}          
     g_tv_shunt::Vector{Vector{Float64}}      
     b_tv_shunt::Vector{Vector{Float64}}      
     u_sus_bnd::Vector{Vector{Vector{Float64}}}
     zsus_dev::Vector{Vector{Vector{Float64}}}
+    zhat_mxst_scr::Vector{Float64}
+    z_enmax_scr::Vector{Float64}
+    z_enmin_scr::Vector{Float64}
 end
 
 # mini gradient structs
@@ -861,10 +860,6 @@ struct Grad
 end
 
 struct Bit
-    acline_sfr_plus::Vector{BitVector}
-    acline_sto_plus::Vector{BitVector}
-    xfm_sfr_plus_x::Vector{BitVector} 
-    xfm_sto_plus_x::Vector{BitVector} 
     sfr_vio::Vector{BitVector}        
     sto_vio::Vector{BitVector}        
 end

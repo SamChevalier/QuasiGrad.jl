@@ -606,8 +606,8 @@ function update_states_for_distributed_slack_pf!(bit::quasiGrad.Bit, grd::quasiG
 
     # compute network flows and injections
     qG.eval_grad = false
-    quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
-    quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
     quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
     qG.eval_grad = true
 end

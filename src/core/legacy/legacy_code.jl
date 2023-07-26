@@ -8481,3 +8481,405 @@ function solve_Gurobi_projection_not_parallel!(final_projection::Bool, idx::quas
         end
     end
 end
+
+
+
+
+            # apply gradients
+            grd.zs_acline.acline_pfr[tii] .= 0.0
+            grd.zs_acline.acline_qfr[tii] .= 0.0
+            grd.zs_acline.acline_pto[tii] .= 0.0
+            grd.zs_acline.acline_qto[tii] .= 0.0  
+
+            # indicators
+            # => slower :( quasiGrad.get_largest_indices(msc, bit, :acline_sfr_plus, :acline_sto_plus)
+            bit.acline_sfr_plus[tii] .= (msc.acline_sfr_plus[tii] .> 0.0) .&& (msc.acline_sfr_plus[tii] .> msc.acline_sto_plus[tii]);
+            bit.acline_sto_plus[tii] .= (msc.acline_sto_plus[tii] .> 0.0) .&& (msc.acline_sto_plus[tii] .> msc.acline_sfr_plus[tii]); 
+            #
+            # slower alternative
+                # => max_sfst0 = [argmax([spfr, spto, 0.0]) for (spfr,spto) in zip(msc.acline_sfr_plus[tii], msc.acline_sto_plus[tii])]
+                # => ind_fr = max_sfst0 .== 1
+                # => ind_to = max_sfst0 .== 2
+
+            # flush -- set to 0 => [Not(ind_fr)] and [Not(ind_to)] was slow/memory inefficient
+            grd.zs_acline.acline_pfr[tii] .= 0.0
+            grd.zs_acline.acline_qfr[tii] .= 0.0
+            grd.zs_acline.acline_pto[tii] .= 0.0
+            grd.zs_acline.acline_qto[tii] .= 0.0
+
+            if qG.acflow_grad_is_soft_abs
+                # compute the scaled gradients
+                if sum(bit.acline_sfr_plus[tii]) > 0
+                    msc.acline_scale_fr[tii][bit.acline_sfr_plus[tii]]      .= msc.acline_sfr_plus[tii][bit.acline_sfr_plus[tii]]./sqrt.(msc.acline_sfr_plus[tii][bit.acline_sfr_plus[tii]].^2 .+ qG.acflow_grad_eps2);
+                    grd.zs_acline.acline_pfr[tii][bit.acline_sfr_plus[tii]] .= msc.acline_scale_fr[tii][bit.acline_sfr_plus[tii]].*((dt*qG.acflow_grad_weight).*stt.acline_pfr[tii][bit.acline_sfr_plus[tii]]./msc.acline_sfr[tii][bit.acline_sfr_plus[tii]])
+                    grd.zs_acline.acline_qfr[tii][bit.acline_sfr_plus[tii]] .= msc.acline_scale_fr[tii][bit.acline_sfr_plus[tii]].*((dt*qG.acflow_grad_weight).*stt.acline_qfr[tii][bit.acline_sfr_plus[tii]]./msc.acline_sfr[tii][bit.acline_sfr_plus[tii]])
+                end
+                # compute the scaled gradients
+                if sum(bit.acline_sto_plus[tii]) > 0
+                    msc.acline_scale_to[tii][bit.acline_sto_plus[tii]]      .= msc.acline_sto_plus[tii][bit.acline_sto_plus[tii]]./sqrt.(msc.acline_sto_plus[tii][bit.acline_sto_plus[tii]].^2 .+ qG.acflow_grad_eps2);
+                    grd.zs_acline.acline_pto[tii][bit.acline_sto_plus[tii]] .= msc.acline_scale_to[tii][bit.acline_sto_plus[tii]].*((dt*qG.acflow_grad_weight).*stt.acline_pto[tii][bit.acline_sto_plus[tii]]./msc.acline_sto[tii][bit.acline_sto_plus[tii]])
+                    grd.zs_acline.acline_qto[tii][bit.acline_sto_plus[tii]] .= msc.acline_scale_to[tii][bit.acline_sto_plus[tii]].*((dt*qG.acflow_grad_weight).*stt.acline_qto[tii][bit.acline_sto_plus[tii]]./msc.acline_sto[tii][bit.acline_sto_plus[tii]])
+                end
+            else
+                # gradients
+                grd.zs_acline.acline_pfr[tii][bit.acline_sfr_plus[tii]] .= (dt*cs).*stt.acline_pfr[tii][bit.acline_sfr_plus[tii]]./msc.acline_sfr[tii][bit.acline_sfr_plus[tii]]
+                grd.zs_acline.acline_qfr[tii][bit.acline_sfr_plus[tii]] .= (dt*cs).*stt.acline_qfr[tii][bit.acline_sfr_plus[tii]]./msc.acline_sfr[tii][bit.acline_sfr_plus[tii]]
+                grd.zs_acline.acline_pto[tii][bit.acline_sto_plus[tii]] .= (dt*cs).*stt.acline_pto[tii][bit.acline_sto_plus[tii]]./msc.acline_sto[tii][bit.acline_sto_plus[tii]]
+                grd.zs_acline.acline_qto[tii][bit.acline_sto_plus[tii]] .= (dt*cs).*stt.acline_qto[tii][bit.acline_sto_plus[tii]]./msc.acline_sto[tii][bit.acline_sto_plus[tii]]
+            end
+
+
+            #= Previous gradient junk
+            # loop
+            if qG.acflow_grad_is_soft_abs
+                dtgw = dt*qG.acflow_grad_weight
+                for xx in 1:sys.nl
+                    if (msc.acline_sfr_plus[tii][xx] >= msc.acline_sto_plus[tii][xx]) && (msc.acline_sfr_plus[tii][xx] > 0.0)
+                        #msc.pub[1] = quasiGrad.soft_abs_grad_ac(xx, msc, qG, :acline_sfr_plus)
+                        grd.zs_acline.acline_pfr[tii][xx] = msc.pub[1]#*dtgw#*stt.acline_pfr[tii][xx]/msc.acline_sfr[tii][xx]
+                        grd.zs_acline.acline_qfr[tii][xx] = msc.pub[1]#*dtgw#*stt.acline_qfr[tii][xx]/msc.acline_sfr[tii][xx]
+                    elseif (msc.acline_sto_plus[tii][xx] > 0.0)
+                        #msc.pub[1] = quasiGrad.soft_abs_grad_ac(xx, msc, qG, :acline_sto_plus)
+                        grd.zs_acline.acline_pto[tii][xx] = msc.pub[1]#*dtgw#*stt.acline_pto[tii][xx]/msc.acline_sto[tii][xx]
+                        grd.zs_acline.acline_qto[tii][xx] = msc.pub[1]#*dtgw#*stt.acline_qto[tii][xx]/msc.acline_sto[tii][xx]
+                    end
+                end
+            # no softabs -- use standard
+            else
+                dtcs = dt*cs
+                for xx in 1:sys.nl
+                    if (msc.acline_sfr_plus[tii][xx] >= msc.acline_sto_plus[tii][xx]) && (msc.acline_sfr_plus[tii][xx] > 0.0)
+                        grd.zs_acline.acline_pfr[tii][xx] = dtcs*stt.acline_pfr[tii][xx]/msc.acline_sfr[tii][xx]
+                        grd.zs_acline.acline_qfr[tii][xx] = dtcs*stt.acline_qfr[tii][xx]/msc.acline_sfr[tii][xx]
+                    elseif (msc.acline_sto_plus[tii][xx] > 0.0)
+                        grd.zs_acline.acline_pto[tii][xx] = dtcs*stt.acline_pto[tii][xx]/msc.acline_sto[tii][xx]
+                        grd.zs_acline.acline_qto[tii][xx] = dtcs*stt.acline_qto[tii][xx]/msc.acline_sto[tii][xx]
+                    end
+                end
+            end
+            =#
+
+            # ====================================================== #
+            # Gradients: apparent power flow -- to -> from
+            #
+            # penalty function derivatives
+            #=
+            grd[:acline_sfr_plus][:acline_pfr][tii] = stt.acline_pfr[tii]./acline_sfr
+            grd[:acline_sfr_plus][:acline_qfr][tii] = stt.acline_qfr[tii]./acline_sfr
+            grd[:acline_sto_plus][:acline_pto][tii] = stt.acline_pto[tii]./acline_sto
+            grd[:acline_sto_plus][:acline_qto][tii] = stt.acline_qto[tii]./acline_sto 
+            max_sfst0  = [argmax([spfr,spto,0]) for (spfr,spto) in zip(acline_sfr_plus,acline_sto_plus)]
+            grd[:zs_acline][:acline_sfr_plus][tii] = zeros(length(max_sfst0))
+            grd[:zs_acline][:acline_sfr_plus][tii][max_sfst0 .== 1] .= dt*cs
+            grd[:zs_acline][:acline_sto_plus][tii] = zeros(length(max_sfst0))
+            grd[:zs_acline][:acline_sto_plus][tii][max_sfst0 .== 2] .= dt*cs
+            =#
+
+
+                        
+
+            # indicators
+            # slower :( => quasiGrad.get_largest_indices(msc, bit, :xfm_sfr_plus_x, :xfm_sto_plus_x)
+            bit.xfm_sfr_plus_x[tii] .= (msc.xfm_sfr_plus_x[tii] .> 0.0) .&& (msc.xfm_sfr_plus_x[tii] .> msc.xfm_sto_plus_x[tii]);
+            bit.xfm_sto_plus_x[tii] .= (msc.xfm_sto_plus_x[tii] .> 0.0) .&& (msc.xfm_sto_plus_x[tii] .> msc.xfm_sfr_plus_x[tii]);
+            #
+            # slow alternative:
+                # => max_sfst0 = [argmax([spfr, spto, 0.0]) for (spfr,spto) in zip(msc.xfm_sfr_plus_x[tii],msc.xfm_sto_plus_x[tii])]
+                # => ind_fr = max_sfst0 .== 1
+                # => ind_to = max_sfst0 .== 2
+    
+            # flush -- set to 0 => [Not(ind_fr)] and [Not(ind_to)] was slow/memory inefficient
+            grd.zs_xfm.xfm_pfr[tii] .= 0.0
+            grd.zs_xfm.xfm_qfr[tii] .= 0.0
+            grd.zs_xfm.xfm_pto[tii] .= 0.0
+            grd.zs_xfm.xfm_qto[tii] .= 0.0
+    
+            if qG.acflow_grad_is_soft_abs
+                # compute the scaled gradients
+                if sum(bit.xfm_sfr_plus_x[tii]) > 0
+                    msc.scale_fr_x[tii][bit.xfm_sfr_plus_x[tii]]     .= msc.xfm_sfr_plus_x[tii][bit.xfm_sfr_plus_x[tii]]./sqrt.(msc.xfm_sfr_plus_x[tii][bit.xfm_sfr_plus_x[tii]].^2 .+ qG.acflow_grad_eps2);
+                    grd.zs_xfm.xfm_pfr[tii][bit.xfm_sfr_plus_x[tii]] .= msc.scale_fr_x[tii][bit.xfm_sfr_plus_x[tii]].*((dt*qG.acflow_grad_weight).*stt.xfm_pfr[tii][bit.xfm_sfr_plus_x[tii]]./msc.xfm_sfr_x[tii][bit.xfm_sfr_plus_x[tii]])
+                    grd.zs_xfm.xfm_qfr[tii][bit.xfm_sfr_plus_x[tii]] .= msc.scale_fr_x[tii][bit.xfm_sfr_plus_x[tii]].*((dt*qG.acflow_grad_weight).*stt.xfm_qfr[tii][bit.xfm_sfr_plus_x[tii]]./msc.xfm_sfr_x[tii][bit.xfm_sfr_plus_x[tii]])
+                end
+
+                # compute the scaled gradients
+                if sum(bit.xfm_sto_plus_x[tii]) > 0
+                    msc.scale_to_x[tii][bit.xfm_sto_plus_x[tii]]     .= msc.xfm_sto_plus_x[tii][bit.xfm_sto_plus_x[tii]]./sqrt.(msc.xfm_sto_plus_x[tii][bit.xfm_sto_plus_x[tii]].^2 .+ qG.acflow_grad_eps2);
+                    grd.zs_xfm.xfm_pto[tii][bit.xfm_sto_plus_x[tii]] .= msc.scale_to_x[tii][bit.xfm_sto_plus_x[tii]].*((dt*qG.acflow_grad_weight).*stt.xfm_pto[tii][bit.xfm_sto_plus_x[tii]]./msc.xfm_sto_x[tii][bit.xfm_sto_plus_x[tii]])
+                    grd.zs_xfm.xfm_qto[tii][bit.xfm_sto_plus_x[tii]] .= msc.scale_to_x[tii][bit.xfm_sto_plus_x[tii]].*((dt*qG.acflow_grad_weight).*stt.xfm_qto[tii][bit.xfm_sto_plus_x[tii]]./msc.xfm_sto_x[tii][bit.xfm_sto_plus_x[tii]])
+                end
+            else
+                # gradients
+                grd.zs_xfm.xfm_pfr[tii][bit.xfm_sfr_plus_x[tii]] .= (dt*cs).*stt.xfm_pfr[tii][bit.xfm_sfr_plus_x[tii]]./msc.xfm_sfr_x[tii][bit.xfm_sfr_plus_x[tii]]
+                grd.zs_xfm.xfm_qfr[tii][bit.xfm_sfr_plus_x[tii]] .= (dt*cs).*stt.xfm_qfr[tii][bit.xfm_sfr_plus_x[tii]]./msc.xfm_sfr_x[tii][bit.xfm_sfr_plus_x[tii]]
+                grd.zs_xfm.xfm_pto[tii][bit.xfm_sto_plus_x[tii]] .= (dt*cs).*stt.xfm_pto[tii][bit.xfm_sto_plus_x[tii]]./msc.xfm_sto_x[tii][bit.xfm_sto_plus_x[tii]]
+                grd.zs_xfm.xfm_qto[tii][bit.xfm_sto_plus_x[tii]] .= (dt*cs).*stt.xfm_qto[tii][bit.xfm_sto_plus_x[tii]]./msc.xfm_sto_x[tii][bit.xfm_sto_plus_x[tii]]
+            end
+
+
+            #= Previous gradient junk!
+            # apply gradients
+            if qG.acflow_grad_is_soft_abs
+                dtgw = dt*qG.acflow_grad_weight
+                for xx in 1:sys.nx
+                    if (msc.xfm_sfr_plus_x[tii][xx] >= msc.xfm_sto_plus_x[tii][xx]) && (msc.xfm_sfr_plus_x[tii][xx] > 0.0)
+                        sc = soft_abs_grad_ac(msc.xfm_sfr_plus_x[tii][xx], qG)
+                        grd.zs_xfm.xfm_pfr[tii][xx] = sc*(dtgw*stt.xfm_pfr[tii][xx]/msc.xfm_sfr_x[tii][xx])
+                        grd.zs_xfm.xfm_qfr[tii][xx] = sc*(dtgw*stt.xfm_qfr[tii][xx]/msc.xfm_sfr_x[tii][xx])
+                    elseif (msc.xfm_sto_plus_x[tii][xx] > 0.0)
+                        sc = soft_abs_grad_ac(msc.xfm_sto_plus_x[tii][xx], qG)
+                        grd.zs_xfm.xfm_pto[tii][xx] = sc*(dtgw*stt.xfm_pto[tii][xx]/msc.xfm_sto_x[tii][xx])
+                        grd.zs_xfm.xfm_qto[tii][xx] = sc*(dtgw*stt.xfm_qto[tii][xx]/msc.xfm_sto_x[tii][xx])
+                    else
+                        grd.zs_xfm.xfm_pfr[tii][xx] = 0.0
+                        grd.zs_xfm.xfm_qfr[tii][xx] = 0.0
+                        grd.zs_xfm.xfm_pto[tii][xx] = 0.0
+                        grd.zs_xfm.xfm_qto[tii][xx] = 0.0  
+                    end
+                end
+            # no softabs -- use standard
+            else
+                dtcs = dt*cs
+                for xx in 1:sys.nx
+                    if (msc.xfm_sfr_plus_x[tii][xx] >= msc.xfm_sto_plus_x[tii][xx]) && (msc.xfm_sfr_plus_x[tii][xx] > 0.0)
+                        grd.zs_xfm.xfm_pfr[tii][xx] = dtcs*stt.xfm_pfr[tii][xx]/msc.xfm_sfr_x[tii][xx]
+                        grd.zs_xfm.xfm_qfr[tii][xx] = dtcs*stt.xfm_qfr[tii][xx]/msc.xfm_sfr_x[tii][xx]
+                    elseif (msc.xfm_sto_plus_x[tii][xx] > 0.0)
+                        grd.zs_xfm.xfm_pto[tii][xx] = dtcs*stt.xfm_pto[tii][xx]/msc.xfm_sto_x[tii][ind_to]
+                        grd.zs_xfm.xfm_qto[tii][xx] = dtcs*stt.xfm_qto[tii][xx]/msc.xfm_sto_x[tii][ind_to]
+                    else
+                        grd.zs_xfm.xfm_pfr[tii][xx] = 0.0
+                        grd.zs_xfm.xfm_qfr[tii][xx] = 0.0
+                        grd.zs_xfm.xfm_pto[tii][xx] = 0.0
+                        grd.zs_xfm.xfm_qto[tii][xx] = 0.0  
+                    end
+                end
+            end
+            =#
+
+            # ====================================================== #
+            # Gradients: apparent power flow -- to -> from
+            #
+            # penalty function derivatives
+            #=
+            grd[:msc.xfm_sfr_plus_x[tii]][:xfm_pfr][tii] = stt.xfm_pfr[tii]./msc.xfm_sfr_x[tii]
+            grd[:msc.xfm_sfr_plus_x[tii]][:xfm_qfr][tii] = stt.xfm_qfr[tii]./msc.xfm_sfr_x[tii]
+            grd[:msc.xfm_sto_plus_x[tii]][:xfm_pto][tii] = stt.xfm_pto[tii]./msc.xfm_sto_x[tii]
+            grd[:msc.xfm_sto_plus_x[tii]][:xfm_qto][tii] = stt.xfm_qto[tii]./msc.xfm_sto_x[tii]
+    
+            max_sfst0  = [argmax([spfr,spto,0]) for (spfr,spto) in zip(msc.xfm_sfr_plus_x[tii],msc.xfm_sto_plus_x[tii])]
+            grd[:zs_xfm][:msc.xfm_sfr_plus_x[tii]][tii] = zeros(length(max_sfst0))
+            grd[:zs_xfm][:msc.xfm_sfr_plus_x[tii]][tii][max_sfst0 .== 1] .= dt*cs
+            grd[:zs_xfm][:msc.xfm_sto_plus_x[tii]][tii] = zeros(length(max_sfst0))
+            grd[:zs_xfm][:msc.xfm_sto_plus_x[tii]][tii][max_sfst0 .== 2] .= dt*cs
+            =#
+
+
+            function device_startup_states_safe!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quasiGrad.Mgd, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+                # NOTE:   - msc.zsus_dev[tii][dev][sus]
+                #         - msc.u_sus_bnd[tii][dev][sus]
+                #
+                # before looping over the startup states, flush msc
+                @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+                    for dev in prm.dev.dev_keys
+                        msc.zsus_dev[tii][dev]  .= 0.0
+                        msc.u_sus_bnd[tii][dev] .= 0.0
+                    end
+                end
+                
+                # parallel loop over devices
+                @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
+                    # loop over each time period
+                    for tii in prm.ts.time_keys
+                        # first, we bound ("bnd") the startup state ("sus"):
+                        # the startup state can only be active if the device
+                        # has been on within some recent time period.
+                        #
+                        # flush the sus (state)
+                        stt.zsus_dev[tii][dev] = 0.0
+            
+                        # loop over sus (i.e., f in F)
+                        if prm.dev.num_sus[dev] > 0
+                            for ii in 1:prm.dev.num_sus[dev]
+                                if prm.dev.startup_states[dev][ii][1] < 0.0 # skip if 0! why are these even here?
+                                    #   => T_sus_jft = idx.Ts_sus_jft[dev][tii][ii] # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
+                                    #   => T_sus_jf  = idx.Ts_sus_jf[dev][tii][ii]  # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
+                                    if tii in idx.Ts_sus_jf[dev][tii][ii]
+                                        if tii == 1
+                                            # this is an edge case, where there are no previous states which
+                                            # could be "on" (since we can't turn on the generator in the fixed
+                                            # past, and it wasn't on)
+                                            # ** stt[:u_sus_bnd][tii][dev][ii] = 0.0
+                                            msc.u_sus_bnd[tii][dev][ii] = 0.0
+                                        else
+                                            # grab the largest:
+                                            msc.u_sus_bnd[tii][dev][ii] = maximum(stt.u_on_dev_Trx[dev][idx.Ts_sus_jft[dev][tii][ii]])
+                                            # => u_on_max_ind                = argmax(@view stt.u_on_dev_Trx[dev][idx.Ts_sus_jft[dev][tii][ii]])
+                                            # => msc.u_sus_bnd[tii][dev][ii] = stt.u_on_dev_Trx[dev][idx.Ts_sus_jft[dev][tii][ii][u_on_max_ind]]
+                                        end
+                                        #
+                                        # note: u_on_max == stt.u_on_dev[T_sus_jft[u_on_max_ind]][dev]
+                                        #
+                                        # previous bound based on directly taking the max:
+                                            # stt[:u_sus_bnd][tii][dev][ii] = max.([stt.u_on_dev[tii_inst][dev] for tii_inst in T_sus_jft])
+                                        # previous bound based on the sum (rather than max)
+                                            # stt[:u_sus_bnd][tii][dev][ii] = max.(sum(stt.u_on_dev[tii_inst][dev] for tii_inst in T_sus_jft; init=0.0), 1.0)
+                                    else
+                                        # ok, in this case the device was on in a sufficiently recent time (based on
+                                        # startup conditions), so we don't need to compute a bound
+                                        msc.u_sus_bnd[tii][dev][ii] = 1.0
+                                    end
+            
+                                    # now, compute the discount/cost
+                                    if msc.u_sus_bnd[tii][dev][ii] > 0.0
+                                        msc.zsus_dev[tii][dev][ii] = prm.dev.startup_states[dev][ii][1]*min(stt.u_su_dev_Trx[dev][tii],msc.u_sus_bnd[tii][dev][ii])
+                                    end
+                                end
+                            end
+            
+                            # now, we score, and then take a gradient
+                            ii = argmin(msc.zsus_dev[tii][dev])
+                            if msc.zsus_dev[tii][dev][ii] < 0.0
+                                # update the score and take the gradient  ==> this is "+=", since it is over all (f in F) states
+                                stt.zsus_dev[tii][dev] += msc.zsus_dev[tii][dev][ii]
+                                # this is all pretty expensive, so let's take the gradient right here
+                                #
+                                # evaluate gradient?
+                                if qG.eval_grad
+                                    # OG => gc = grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zsus_dev] * prm.dev.startup_states[dev][ii][1]
+                                    # test which was smaller: u_su, or the su_bound?
+                                    #
+                                    # we want "<=" so that we never end up in a case where 
+                                    # we try to take the gradient of u_sus_bnd == 1 (see else case above)
+                                    if stt.u_su_dev[tii][dev] <= msc.u_sus_bnd[tii][dev][ii] # ** stt[:u_sus_bnd][tii][dev][ii]
+                                        # in this case, there is an available discount, so we want u_su
+                                        # to feel a bit less downward pressure and rise up (potentially)
+                                        mgd.u_on_dev[tii][dev] += prm.dev.startup_states[dev][ii][1]*grd.u_su_dev.u_on_dev[tii][dev]
+                                        if tii != 1
+                                            # previous time?
+                                            mgd.u_on_dev[prm.ts.tmin1[tii]][dev] += prm.dev.startup_states[dev][ii][1]*grd.u_su_dev.u_on_dev_prev[tii][dev]
+                                        end
+                                    else
+                                        # in this case, sus bound is lower than u_su, so we'll put some pressure on the
+                                        # previous largest u_on, trying to push it up, in order to extract a little value
+                                        # from this sus.. :)
+                                        #
+                                        # what time is associated with this derivative? it is the time associated with the max u_on
+                                        if tii != 1
+                                            # skip the gradient if tii == 1, since stt[:u_sus_bnd] == 0 and no gradient exists
+                                            # -- this is a weird edge case, but it does make sense if you think about it for
+                                            # long enough.....
+                                                # => tt_max = T_sus_jft[u_on_max_ind]
+                                            u_on_max_ind = argmax(@view stt.u_on_dev_Trx[dev][idx.Ts_sus_jft[dev][tii][ii]])
+                                            mgd.u_on_dev[idx.Ts_sus_jft[dev][tii][ii][u_on_max_ind]][dev] += prm.dev.startup_states[dev][ii][1]*grd.u_su_dev.u_on_dev[idx.Ts_sus_jft[dev][tii][ii][u_on_max_ind]][dev]
+                                            if idx.Ts_sus_jft[dev][tii][ii][u_on_max_ind] != 1
+                                                # previous time?
+                                                mgd.u_on_dev[prm.ts.tmin1[idx.Ts_sus_jft[dev][tii][ii][u_on_max_ind]]][dev] += prm.dev.startup_states[dev][ii][1]*grd.u_su_dev.u_on_dev_prev[idx.Ts_sus_jft[dev][tii][ii][u_on_max_ind]][dev]
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+
+            function reserve_balance!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+                # for the "endogenous" reserve requirements
+                rgu_sigma = prm.reserve.rgu_sigma
+                rgd_sigma = prm.reserve.rgd_sigma 
+                scr_sigma = prm.reserve.scr_sigma 
+                nsc_sigma = prm.reserve.nsc_sigma  
+            
+                # finally, call the penalty costt
+                crgu = prm.vio.rgu_zonal
+                crgd = prm.vio.rgd_zonal
+                cscr = prm.vio.scr_zonal
+                cnsc = prm.vio.nsc_zonal
+                crru = prm.vio.rru_zonal
+                crrd = prm.vio.rrd_zonal
+                cqru = prm.vio.qru_zonal
+                cqrd = prm.vio.qrd_zonal
+                
+                # we need access to the time index itself
+                #@batch per=thread for tii in prm.ts.time_keys
+                @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+                    # duration
+                    dt = prm.ts.duration[tii]
+            
+                    # loop over the zones (active power)
+                    for zone in 1:sys.nzP
+                        # endogenous sum
+                        if isempty(idx.cs_pzone[zone])
+                            # in the case there are NO consumers in a zone
+                            stt.p_rgu_zonal_REQ[tii][zone] = 0.0
+                            stt.p_rgd_zonal_REQ[tii][zone] = 0.0
+                        else
+                            psum = quasiGrad.sum_power(idx, stt, tii, zone) 
+                            stt.p_rgu_zonal_REQ[tii][zone] = rgu_sigma[zone]*psum
+                            stt.p_rgd_zonal_REQ[tii][zone] = rgd_sigma[zone]*psum
+                                # => sum(stt.dev_p[tii][dev] for dev in idx.cs_pzone[zone]; init=0.0)
+                        end
+            
+                        # endogenous max
+                        if isempty(idx.pr_pzone[zone])
+                            # in the case there are NO producers in a zone
+                            stt.p_scr_zonal_REQ[tii][zone] = 0.0
+                            stt.p_nsc_zonal_REQ[tii][zone] = 0.0
+                        else
+                            pmax = quasiGrad.max_power(idx, stt, tii, zone) 
+                            stt.p_scr_zonal_REQ[tii][zone] = scr_sigma[zone]*pmax
+                            stt.p_nsc_zonal_REQ[tii][zone] = nsc_sigma[zone]*pmax
+                                # => maximum(stt.dev_p[tii][dev] for dev in idx.pr_pzone[zone])
+                        end
+            
+                        # balance equations -- compute the shortfall values
+                        stt.p_rgu_zonal_penalty[tii][zone] = max(stt.p_rgu_zonal_REQ[tii][zone] - 
+                                    sum(stt.p_rgu[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
+                        
+                        stt.p_rgd_zonal_penalty[tii][zone] = max(stt.p_rgd_zonal_REQ[tii][zone] - 
+                                    sum(stt.p_rgd[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
+            
+                        stt.p_scr_zonal_penalty[tii][zone] = max(stt.p_rgu_zonal_REQ[tii][zone] + 
+                                    stt.p_scr_zonal_REQ[tii][zone] -
+                                    sum(stt.p_rgu[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) -
+                                    sum(stt.p_scr[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
+            
+                        stt.p_nsc_zonal_penalty[tii][zone] = max(stt.p_rgu_zonal_REQ[tii][zone] + 
+                                    stt.p_scr_zonal_REQ[tii][zone] +
+                                    stt.p_nsc_zonal_REQ[tii][zone] -
+                                    sum(stt.p_rgu[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) -
+                                    sum(stt.p_scr[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) - 
+                                    sum(stt.p_nsc[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
+            
+                        stt.p_rru_zonal_penalty[tii][zone] = max(prm.reserve.rru_min[zone][tii] -
+                                    sum(stt.p_rru_on[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) - 
+                                    sum(stt.p_rru_off[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
+            
+                        stt.p_rrd_zonal_penalty[tii][zone] = max(prm.reserve.rrd_min[zone][tii] -
+                                    sum(stt.p_rrd_on[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) - 
+                                    sum(stt.p_rrd_off[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
+                    end
+            
+                    # loop over the zones (reactive power) -- gradients are computed in the master grad
+                    for zone in 1:sys.nzQ
+                        stt.q_qru_zonal_penalty[tii][zone] = max(prm.reserve.qru_min[zone][tii] -
+                                    sum(stt.q_qru[tii][dev] for dev in idx.dev_qzone[zone]; init=0.0),0.0)
+            
+                        stt.q_qrd_zonal_penalty[tii][zone] = max(prm.reserve.qrd_min[zone][tii] -
+                                    sum(stt.q_qrd[tii][dev] for dev in idx.dev_qzone[zone]; init=0.0),0.0)
+                    end
+            
+                    # shortfall penalties -- gradients are static and taken when initialized
+                    stt.zrgu_zonal[tii] .= (dt.*crgu).*stt.p_rgu_zonal_penalty[tii]
+                    stt.zrgd_zonal[tii] .= (dt.*crgd).*stt.p_rgd_zonal_penalty[tii]
+                    stt.zscr_zonal[tii] .= (dt.*cscr).*stt.p_scr_zonal_penalty[tii]
+                    stt.znsc_zonal[tii] .= (dt.*cnsc).*stt.p_nsc_zonal_penalty[tii]
+                    stt.zrru_zonal[tii] .= (dt.*crru).*stt.p_rru_zonal_penalty[tii]
+                    stt.zrrd_zonal[tii] .= (dt.*crrd).*stt.p_rrd_zonal_penalty[tii]
+                    stt.zqru_zonal[tii] .= (dt.*cqru).*stt.q_qru_zonal_penalty[tii]
+                    stt.zqrd_zonal[tii] .= (dt.*cqrd).*stt.q_qrd_zonal_penalty[tii]
+                end
+            end
+            

@@ -994,15 +994,16 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
         end
     end
 
-    #@info "Solving $(sys.nctg) wmi factors..."
-    FLoops.assistant(false)
-    @floop ThreadedEx(basesize = sys.nctg ÷ qG.num_threads) for ctg_ii in 1:sys.nctg
+    # => @info "Solving $(sys.nctg) wmi factors..."
+    # => FLoops.assistant(false)
+    @batch per=thread for ctg_ii in 1:sys.nctg
+    # @floop ThreadedEx(basesize = sys.nctg ÷ qG.num_threads) for ctg_ii in 1:sys.nctg
         # this code is optimized -- see above for comments!!!
         u_k[ctg_ii] .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
         g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
     end
-    FLoops.assistant(true)
-    #@info "Done."
+    # => FLoops.assistant(true)
+    # => @info "Done."
 
     # original code:
         #for ctg_ii in 1:sys.nctg
@@ -1690,10 +1691,6 @@ end
 
 function build_bit(sys::quasiGrad.System)
     bit = quasiGrad.Bit(
-        [BitArray(zeros(Int, sys.nl))  for ii in 1:(sys.nT)], # indices assocaited with acline_sfr_plus_x > acline_sto_plus_x && 0
-        [BitArray(zeros(Int, sys.nl))  for ii in 1:(sys.nT)], # indices assocaited with acline_sto_plus_x > acline_sfr_plus_x && 0
-        [BitArray(zeros(Int, sys.nx))  for ii in 1:(sys.nT)], # indices assocaited with xfm_sfr_plus_x > xfm_sto_plus_x && 0
-        [BitArray(zeros(Int, sys.nx))  for ii in 1:(sys.nT)], # indices assocaited with xfm_sto_plus_x > xfm_sfr_plus_x && 0
         [BitArray(zeros(Int, sys.nac)) for ii in 1:(sys.nT)], # indices assocaited with ctg flows: sfr_vio
         [BitArray(zeros(Int, sys.nac)) for ii in 1:(sys.nT)]) # indices assocaited with ctg flows: sto_vio
 
@@ -1928,15 +1925,14 @@ function build_miscellaneous(prm::quasiGrad.Param, sys::quasiGrad.System)
         [zeros(sys.nx) for tii in 1:(sys.nT)],
         [zeros(sys.nx) for tii in 1:(sys.nT)],
         [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
         [zeros(sys.nsh) for tii in 1:(sys.nT)],
         [zeros(sys.nsh) for tii in 1:(sys.nT)],
         [zeros(sys.nsh) for tii in 1:(sys.nT)],
         [[zeros(prm.dev.num_sus[dev]) for dev in 1:(sys.ndev)] for tii in 1:(sys.nT)],
-        [[zeros(prm.dev.num_sus[dev]) for dev in 1:(sys.ndev)] for tii in 1:(sys.nT)])
+        [[zeros(prm.dev.num_sus[dev]) for dev in 1:(sys.ndev)] for tii in 1:(sys.nT)],
+        zeros(sys.ndev),
+        zeros(sys.ndev),
+        zeros(sys.ndev))
 
     # output
     return msc

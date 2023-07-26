@@ -1,8 +1,9 @@
-function penalized_device_constraints!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quasiGrad.Mgd, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
+function penalized_device_constraints!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quasiGrad.Mgd, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
     # loop over each time period
     #
     # Note -- delta penalty (qG.constraint_grad_weight) applied later in the scoring
     #         function, but it is applied to the gradient here!
+    # => @batch per=thread for dev in prm.dev.dev_keys
     @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
         # for now, we use "del" thing in the scoring function to penalize all
         # constraint violations -- thus, don't call the "c_hat" constants
@@ -28,7 +29,7 @@ function penalized_device_constraints!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, 
             else
                 cvio = max(stt.u_su_dev[tii][dev] + sum(@view stt.u_sd_dev_Trx[dev][T_mndn]) - 1.0, 0.0)
             end
-            stt.zhat_mndn[tii][dev] = dt* cvio
+            stt.zhat_mndn[tii][dev] = dt*cvio
 
             # evaluate gradient?
             if qG.eval_grad
@@ -533,11 +534,12 @@ function penalized_device_constraints!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, 
             # NOTE => "zhat_mxst" does not need initialization, but it might allocate
         # 
         # now, loop over the startup constraints
+        msc.zhat_mxst_scr[dev] = 0.0
         for (w_ind, w_params) in enumerate(prm.dev.startups_ub[dev])
             # get the time periods
-            T_su_max           = idx.Ts_su_max[dev][w_ind] # => get_tsumax(w_params, prm)
-            zhat_mxst_ii       = max(sum(stt.u_su_dev[tii][dev] for tii in T_su_max; init=0.0) - w_params[3], 0.0)
-            @reduce zhat_mxst += zhat_mxst_ii
+            T_su_max            = idx.Ts_su_max[dev][w_ind] # => get_tsumax(w_params, prm)
+            zhat_mxst_ii        = max(sum(stt.u_su_dev[tii][dev] for tii in T_su_max; init=0.0) - w_params[3], 0.0)
+            msc.zhat_mxst_scr[dev] += zhat_mxst_ii
             # evaluate the gradient? -- make sure mgd has been flushed first!
             if qG.eval_grad
                 for tii in T_su_max
@@ -555,12 +557,13 @@ function penalized_device_constraints!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, 
     end
 
     # record the max start score
-    scr[:zhat_mxst] = zhat_mxst
+    scr[:zhat_mxst] = sum(msc.zhat_mxst_scr)
 end
 
 function device_reserve_costs!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # compute the costs associated with device reserve offers
-    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    @batch per=thread for tii in prm.ts.time_keys
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # duration
         dt = prm.ts.duration[tii]
         
@@ -576,6 +579,9 @@ function device_reserve_costs!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quas
         stt.zqru[tii] .= dt.*prm.dev.q_res_up_cost_tmdv[tii].*stt.q_qru[tii]      
         stt.zqrd[tii] .= dt.*prm.dev.q_res_down_cost_tmdv[tii].*stt.q_qrd[tii]
     end
+    
+    # sleep tasks
+    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 function energy_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
@@ -585,7 +591,8 @@ function energy_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Param, qG::quasiGrad.
         dt = prm.ts.duration[tii]
 
         # devices
-        @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
+        @batch per=thread for dev in prm.dev.dev_keys
+        # => @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
             cst = prm.dev.cum_cost_blocks[dev][tii][1]  # cost for each block (leading with 0)
             pbk = prm.dev.cum_cost_blocks[dev][tii][2]  # power in each block (leading with 0)
             pcm = prm.dev.cum_cost_blocks[dev][tii][3]  # accumulated power for each block!
@@ -636,24 +643,26 @@ function energy_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Param, qG::quasiGrad.
             end
         end
     end
+
+    # sleep tasks
+    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
-function energy_penalties!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
+function energy_penalties!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
     # loop over devices, not time
-    #
-    # initialize
-    scr[:z_enmax] = 0.0
-    scr[:z_enmin] = 0.0
+    # => @batch per=thread for dev in prm.dev.dev_keys
     @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
         Wub = prm.dev.energy_req_ub[dev]
         Wlb = prm.dev.energy_req_lb[dev]
+        msc.z_enmax_scr[dev] = 0
+        msc.z_enmin_scr[dev] = 0
 
         # upper bounds
         for (w_ind, w_params) in enumerate(Wub)
             T_en_max = idx.Ts_en_max[dev][w_ind] # = get_tenmax(w_params, prm)
             # => stt[:zw_enmax][dev][w_ind] = prm.vio.e_dev*max(sum(prm.ts.duration[tii]*stt.dev_p[tii][dev] for tii in T_en_max; init=0.0) - w_params[3], 0.0)
-            zw_enmax       = prm.vio.e_dev*max(sum(prm.ts.duration[tii]*stt.dev_p[tii][dev] for tii in T_en_max; init=0.0) - w_params[3], 0.0)
-            scr[:z_enmax] -= zw_enmax
+            zw_enmax = prm.vio.e_dev*max(sum(prm.ts.duration[tii]*stt.dev_p[tii][dev] for tii in T_en_max; init=0.0) - w_params[3], 0.0)
+            msc.z_enmax_scr[dev] -= zw_enmax
 
             # evaluate the gradient of ep_max? 
             if qG.eval_grad
@@ -674,7 +683,8 @@ function energy_penalties!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, prm::quasiGr
             T_en_min = idx.Ts_en_min[dev][w_ind] # get_tenmin(w_params, prm)
             # => stt[:zw_enmin][dev][w_ind] = prm.vio.e_dev*max(w_params[3] - sum(prm.ts.duration[tii]*stt.dev_p[tii][dev] for tii in T_en_min; init=0.0), 0.0)
             zw_enmin = prm.vio.e_dev*max(w_params[3] - sum(prm.ts.duration[tii]*stt.dev_p[tii][dev] for tii in T_en_min; init=0.0), 0.0)
-            scr[:z_enmin] -= zw_enmin
+            msc.z_enmin_scr[dev] -= zw_enmin
+            #scr[:z_enmin] -= zw_enmin
 
             # evaluate the gradient of ep_min?
             if qG.eval_grad
@@ -691,11 +701,16 @@ function energy_penalties!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, prm::quasiGr
             end
         end
     end
+
+    # get the scores
+    scr[:z_enmax] = sum(msc.z_enmax_scr) 
+    scr[:z_enmin] = sum(msc.z_enmin_scr)
 end
 
 function all_device_statuses_and_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # loop over each time period
-    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    @batch per=thread for tii in prm.ts.time_keys
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # duration
         dt = prm.ts.duration[tii]
         
@@ -792,11 +807,15 @@ function all_device_statuses_and_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Para
             stt.zsd_xfm[tii] .= prm.xfm.disconnection_cost.*stt.u_sd_xfm[tii]
         end
     end
+
+    # sleep tasks
+    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 function simple_device_statuses!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # loop over each time period
-    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    @batch per=thread for tii in prm.ts.time_keys
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # start up and shutdown costs
         if tii == 1
             # devices
@@ -810,7 +829,8 @@ function simple_device_statuses!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::q
     end
 
     # now, compute the u_sum
-    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    @batch per=thread for tii in prm.ts.time_keys
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         for dev in prm.dev.dev_keys
             T_supc = idx.Ts_supc[dev][tii] # => get_supc(tii, dev, prm)
             T_sdpc = idx.Ts_sdpc[dev][tii] # => get_sdpc(tii, dev, prm)
@@ -826,7 +846,8 @@ function device_active_powers!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::qua
         # the following is expensive, so we skip it during power flow solves
         # (and we don't update p_su/p_sd anyways!)
         if qG.run_susd_updates
-            @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
+            @batch per=thread for dev in prm.dev.dev_keys
+            # => @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
                 # first, get the startup power
                 # => T_supc     = idx.Ts_supc[dev][tii]     # => T_supc, p_supc_set   = get_supc(tii, dev, prm)
                 # => p_supc_set = idx.ps_supc_set[dev][tii] # => T_supc, p_supc_set   = get_supc(tii, dev, prm)
@@ -852,12 +873,16 @@ function device_active_powers!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::qua
         # finally, get the total power balance
         stt.dev_p[tii] .= stt.p_on[tii] .+ stt.p_su[tii] .+ stt.p_sd[tii]
     end
+
+    # sleep tasks
+    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 # reactive power computation
 function device_reactive_powers!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # loop over each time period
-    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    @batch per=thread for tii in prm.ts.time_keys
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         if isempty(idx.J_pqe)
             # nothing to compute in this case!
         else
@@ -877,14 +902,15 @@ function device_reactive_powers!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::q
             #     end
             # end
     end
+
+    # sleep tasks
+    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 function device_startup_states!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quasiGrad.Mgd, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
-    # NOTE:   - msc.zsus_dev[tii][dev][sus]
-    #         - msc.u_sus_bnd[tii][dev][sus]
-    #
     # before looping over the startup states, flush msc
-    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    @batch per=thread for tii in prm.ts.time_keys
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         for dev in prm.dev.dev_keys
             msc.zsus_dev[tii][dev]  .= 0.0
             msc.u_sus_bnd[tii][dev] .= 0.0
@@ -892,42 +918,32 @@ function device_startup_states!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::qu
     end
     
     # parallel loop over devices
-    @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
+    @batch per=thread for dev in prm.dev.dev_keys
+    # => @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
         # loop over each time period
         for tii in prm.ts.time_keys
             # first, we bound ("bnd") the startup state ("sus"):
             # the startup state can only be active if the device
             # has been on within some recent time period.
             #
-            # flush the sus
+            # flush the sus (state)
             stt.zsus_dev[tii][dev] = 0.0
 
             # loop over sus (i.e., f in F)
             if prm.dev.num_sus[dev] > 0
                 for ii in 1:prm.dev.num_sus[dev]
                     if prm.dev.startup_states[dev][ii][1] < 0.0 # skip if 0! why are these even here?
-                        #   => T_sus_jft = idx.Ts_sus_jft[dev][tii][ii] # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
-                        #   => T_sus_jf  = idx.Ts_sus_jf[dev][tii][ii]  # T_sus_jft, T_sus_jf = get_tsus_sets(tii, dev, prm, ii)
                         if tii in idx.Ts_sus_jf[dev][tii][ii]
                             if tii == 1
                                 # this is an edge case, where there are no previous states which
                                 # could be "on" (since we can't turn on the generator in the fixed
                                 # past, and it wasn't on)
-                                # ** stt[:u_sus_bnd][tii][dev][ii] = 0.0
                                 msc.u_sus_bnd[tii][dev][ii] = 0.0
                             else
-                                # grab the largest:
-                                msc.u_sus_bnd[tii][dev][ii] = maximum(stt.u_on_dev_Trx[dev][idx.Ts_sus_jft[dev][tii][ii]])
-                                # => u_on_max_ind                = argmax(@view stt.u_on_dev_Trx[dev][idx.Ts_sus_jft[dev][tii][ii]])
-                                # => msc.u_sus_bnd[tii][dev][ii] = stt.u_on_dev_Trx[dev][idx.Ts_sus_jft[dev][tii][ii][u_on_max_ind]]
+                                # grab the largest
+                                msc.u_sus_bnd[tii][dev][ii] = quasiGrad.max_binary(dev, idx, ii, stt, tii) 
+                                    # => msc.u_sus_bnd[tii][dev][ii] = maximum(stt.u_on_dev_Trx[dev][tij] for tij in idx.Ts_sus_jft[dev][tii][ii])
                             end
-                            #
-                            # note: u_on_max == stt.u_on_dev[T_sus_jft[u_on_max_ind]][dev]
-                            #
-                            # previous bound based on directly taking the max:
-                                # stt[:u_sus_bnd][tii][dev][ii] = max.([stt.u_on_dev[tii_inst][dev] for tii_inst in T_sus_jft])
-                            # previous bound based on the sum (rather than max)
-                                # stt[:u_sus_bnd][tii][dev][ii] = max.(sum(stt.u_on_dev[tii_inst][dev] for tii_inst in T_sus_jft; init=0.0), 1.0)
                         else
                             # ok, in this case the device was on in a sufficiently recent time (based on
                             # startup conditions), so we don't need to compute a bound
@@ -936,7 +952,7 @@ function device_startup_states!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::qu
 
                         # now, compute the discount/cost
                         if msc.u_sus_bnd[tii][dev][ii] > 0.0
-                            msc.zsus_dev[tii][dev][ii] = prm.dev.startup_states[dev][ii][1]*min(stt.u_su_dev_Trx[dev][tii],msc.u_sus_bnd[tii][dev][ii])
+                            msc.zsus_dev[tii][dev][ii] = prm.dev.startup_states[dev][ii][1]*min(stt.u_su_dev_Trx[dev][tii], msc.u_sus_bnd[tii][dev][ii])
                         end
                     end
                 end
@@ -971,9 +987,7 @@ function device_startup_states!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::qu
                             # what time is associated with this derivative? it is the time associated with the max u_on
                             if tii != 1
                                 # skip the gradient if tii == 1, since stt[:u_sus_bnd] == 0 and no gradient exists
-                                # -- this is a weird edge case, but it does make sense if you think about it for
-                                # long enough.....
-                                    # => tt_max = T_sus_jft[u_on_max_ind]
+                                # -- this is a weird edge case, but it does make sense if you think about it for long enough.....
                                 u_on_max_ind = argmax(@view stt.u_on_dev_Trx[dev][idx.Ts_sus_jft[dev][tii][ii]])
                                 mgd.u_on_dev[idx.Ts_sus_jft[dev][tii][ii][u_on_max_ind]][dev] += prm.dev.startup_states[dev][ii][1]*grd.u_su_dev.u_on_dev[idx.Ts_sus_jft[dev][tii][ii][u_on_max_ind]][dev]
                                 if idx.Ts_sus_jft[dev][tii][ii][u_on_max_ind] != 1
@@ -987,6 +1001,9 @@ function device_startup_states!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::qu
             end
         end
     end
+
+    # sleep tasks
+    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 # min downtimes:
@@ -1159,4 +1176,9 @@ function apply_p_sd_grad!(idx::quasiGrad.Idx, tii::Int8, dev::Union{Int32,Int64}
             mgd.u_on_dev[prm.ts.tmin1[tii_inst]][dev] += alpha*p_sdpc_set[ii]*grd.u_sd_dev.u_on_dev_prev[tii_inst][dev]
         end
     end
+end
+
+function max_binary(dev::Int32, idx::quasiGrad.Idx, ii::Int64, stt::quasiGrad.State, tii::Int8) 
+    # this function is needed because polyester can't deal with internal for loops (of the following form)
+    return maximum(stt.u_on_dev_Trx[dev][tij] for tij in idx.Ts_sus_jft[dev][tii][ii])
 end

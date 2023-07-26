@@ -1,5 +1,5 @@
 # ac line flows
-function acline_flows!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function acline_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # line parameters
     g_sr = prm.acline.g_sr
     b_sr = prm.acline.b_sr
@@ -13,7 +13,8 @@ function acline_flows!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.I
     cs = prm.vio.s_flow * qG.scale_c_sflow_testing
 
     # loop over time
-    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    @batch per=thread for tii in prm.ts.time_keys
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
 
         # duration
         dt = prm.ts.duration[tii]
@@ -124,100 +125,59 @@ function acline_flows!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.I
                 grd.acline_qto.uon[tii] .= msc.qto[tii] 
             end
 
-            # apply gradients
-            grd.zs_acline.acline_pfr[tii] .= 0.0
-            grd.zs_acline.acline_qfr[tii] .= 0.0
-            grd.zs_acline.acline_pto[tii] .= 0.0
-            grd.zs_acline.acline_qto[tii] .= 0.0  
-
-            # indicators
-            # => slower :( quasiGrad.get_largest_indices(msc, bit, :acline_sfr_plus, :acline_sto_plus)
-            bit.acline_sfr_plus[tii] .= (msc.acline_sfr_plus[tii] .> 0.0) .&& (msc.acline_sfr_plus[tii] .> msc.acline_sto_plus[tii]);
-            bit.acline_sto_plus[tii] .= (msc.acline_sto_plus[tii] .> 0.0) .&& (msc.acline_sto_plus[tii] .> msc.acline_sfr_plus[tii]); 
-            #
-            # slower alternative
-                # => max_sfst0 = [argmax([spfr, spto, 0.0]) for (spfr,spto) in zip(msc.acline_sfr_plus[tii], msc.acline_sto_plus[tii])]
-                # => ind_fr = max_sfst0 .== 1
-                # => ind_to = max_sfst0 .== 2
-
-            # flush -- set to 0 => [Not(ind_fr)] and [Not(ind_to)] was slow/memory inefficient
-            grd.zs_acline.acline_pfr[tii] .= 0.0
-            grd.zs_acline.acline_qfr[tii] .= 0.0
-            grd.zs_acline.acline_pto[tii] .= 0.0
-            grd.zs_acline.acline_qto[tii] .= 0.0
-
+            # loop and take the gradients of the penalties
             if qG.acflow_grad_is_soft_abs
-                # compute the scaled gradients
-                if sum(bit.acline_sfr_plus[tii]) > 0
-                    msc.acline_scale_fr[tii][bit.acline_sfr_plus[tii]]      .= msc.acline_sfr_plus[tii][bit.acline_sfr_plus[tii]]./sqrt.(msc.acline_sfr_plus[tii][bit.acline_sfr_plus[tii]].^2 .+ qG.acflow_grad_eps2);
-                    grd.zs_acline.acline_pfr[tii][bit.acline_sfr_plus[tii]] .= msc.acline_scale_fr[tii][bit.acline_sfr_plus[tii]].*((dt*qG.acflow_grad_weight).*stt.acline_pfr[tii][bit.acline_sfr_plus[tii]]./msc.acline_sfr[tii][bit.acline_sfr_plus[tii]])
-                    grd.zs_acline.acline_qfr[tii][bit.acline_sfr_plus[tii]] .= msc.acline_scale_fr[tii][bit.acline_sfr_plus[tii]].*((dt*qG.acflow_grad_weight).*stt.acline_qfr[tii][bit.acline_sfr_plus[tii]]./msc.acline_sfr[tii][bit.acline_sfr_plus[tii]])
-                end
-                # compute the scaled gradients
-                if sum(bit.acline_sto_plus[tii]) > 0
-                    msc.acline_scale_to[tii][bit.acline_sto_plus[tii]]      .= msc.acline_sto_plus[tii][bit.acline_sto_plus[tii]]./sqrt.(msc.acline_sto_plus[tii][bit.acline_sto_plus[tii]].^2 .+ qG.acflow_grad_eps2);
-                    grd.zs_acline.acline_pto[tii][bit.acline_sto_plus[tii]] .= msc.acline_scale_to[tii][bit.acline_sto_plus[tii]].*((dt*qG.acflow_grad_weight).*stt.acline_pto[tii][bit.acline_sto_plus[tii]]./msc.acline_sto[tii][bit.acline_sto_plus[tii]])
-                    grd.zs_acline.acline_qto[tii][bit.acline_sto_plus[tii]] .= msc.acline_scale_to[tii][bit.acline_sto_plus[tii]].*((dt*qG.acflow_grad_weight).*stt.acline_qto[tii][bit.acline_sto_plus[tii]]./msc.acline_sto[tii][bit.acline_sto_plus[tii]])
-                end
-            else
-                # gradients
-                grd.zs_acline.acline_pfr[tii][bit.acline_sfr_plus[tii]] .= (dt*cs).*stt.acline_pfr[tii][bit.acline_sfr_plus[tii]]./msc.acline_sfr[tii][bit.acline_sfr_plus[tii]]
-                grd.zs_acline.acline_qfr[tii][bit.acline_sfr_plus[tii]] .= (dt*cs).*stt.acline_qfr[tii][bit.acline_sfr_plus[tii]]./msc.acline_sfr[tii][bit.acline_sfr_plus[tii]]
-                grd.zs_acline.acline_pto[tii][bit.acline_sto_plus[tii]] .= (dt*cs).*stt.acline_pto[tii][bit.acline_sto_plus[tii]]./msc.acline_sto[tii][bit.acline_sto_plus[tii]]
-                grd.zs_acline.acline_qto[tii][bit.acline_sto_plus[tii]] .= (dt*cs).*stt.acline_qto[tii][bit.acline_sto_plus[tii]]./msc.acline_sto[tii][bit.acline_sto_plus[tii]]
-            end
-
-            #= Previous gradient junk
-            # loop
-            if qG.acflow_grad_is_soft_abs
-                dtgw = dt*qG.acflow_grad_weight
-                for xx in 1:sys.nl
-                    if (msc.acline_sfr_plus[tii][xx] >= msc.acline_sto_plus[tii][xx]) && (msc.acline_sfr_plus[tii][xx] > 0.0)
-                        #msc.pub[1] = quasiGrad.soft_abs_grad_ac(xx, msc, qG, :acline_sfr_plus)
-                        grd.zs_acline.acline_pfr[tii][xx] = msc.pub[1]#*dtgw#*stt.acline_pfr[tii][xx]/msc.acline_sfr[tii][xx]
-                        grd.zs_acline.acline_qfr[tii][xx] = msc.pub[1]#*dtgw#*stt.acline_qfr[tii][xx]/msc.acline_sfr[tii][xx]
-                    elseif (msc.acline_sto_plus[tii][xx] > 0.0)
-                        #msc.pub[1] = quasiGrad.soft_abs_grad_ac(xx, msc, qG, :acline_sto_plus)
-                        grd.zs_acline.acline_pto[tii][xx] = msc.pub[1]#*dtgw#*stt.acline_pto[tii][xx]/msc.acline_sto[tii][xx]
-                        grd.zs_acline.acline_qto[tii][xx] = msc.pub[1]#*dtgw#*stt.acline_qto[tii][xx]/msc.acline_sto[tii][xx]
+                # softabs
+                for ln in 1:sys.nl
+                    if (msc.acline_sfr_plus[tii][ln] > 0.0) && (msc.acline_sfr_plus[tii][ln] > msc.acline_sto_plus[tii][ln])
+                        scale_fr                          = dt*qG.acflow_grad_weight*quasiGrad.soft_abs_acflow_grad(msc.acline_sfr_plus[tii][ln], qG)
+                        grd.zs_acline.acline_pfr[tii][ln] = scale_fr*stt.acline_pfr[tii][ln]/msc.acline_sfr[tii][ln]
+                        grd.zs_acline.acline_qfr[tii][ln] = scale_fr*stt.acline_qfr[tii][ln]/msc.acline_sfr[tii][ln]
+                        grd.zs_acline.acline_pto[tii][ln] = 0.0
+                        grd.zs_acline.acline_qto[tii][ln] = 0.0
+                    elseif (msc.acline_sto_plus[tii][ln] > 0.0) && (msc.acline_sto_plus[tii][ln] > msc.acline_sfr_plus[tii][ln])
+                        grd.zs_acline.acline_pfr[tii][ln] = 0.0
+                        grd.zs_acline.acline_qfr[tii][ln] = 0.0
+                        scale_to                          = dt*qG.acflow_grad_weight*quasiGrad.soft_abs_acflow_grad(msc.acline_sto_plus[tii][ln], qG)
+                        grd.zs_acline.acline_pto[tii][ln] = scale_to*stt.acline_pto[tii][ln]/msc.acline_sto[tii][ln]
+                        grd.zs_acline.acline_qto[tii][ln] = scale_to*stt.acline_qto[tii][ln]/msc.acline_sto[tii][ln]
+                    else 
+                        grd.zs_acline.acline_pfr[tii][ln] = 0.0
+                        grd.zs_acline.acline_qfr[tii][ln] = 0.0
+                        grd.zs_acline.acline_pto[tii][ln] = 0.0
+                        grd.zs_acline.acline_qto[tii][ln] = 0.0
                     end
                 end
-            # no softabs -- use standard
             else
-                dtcs = dt*cs
-                for xx in 1:sys.nl
-                    if (msc.acline_sfr_plus[tii][xx] >= msc.acline_sto_plus[tii][xx]) && (msc.acline_sfr_plus[tii][xx] > 0.0)
-                        grd.zs_acline.acline_pfr[tii][xx] = dtcs*stt.acline_pfr[tii][xx]/msc.acline_sfr[tii][xx]
-                        grd.zs_acline.acline_qfr[tii][xx] = dtcs*stt.acline_qfr[tii][xx]/msc.acline_sfr[tii][xx]
-                    elseif (msc.acline_sto_plus[tii][xx] > 0.0)
-                        grd.zs_acline.acline_pto[tii][xx] = dtcs*stt.acline_pto[tii][xx]/msc.acline_sto[tii][xx]
-                        grd.zs_acline.acline_qto[tii][xx] = dtcs*stt.acline_qto[tii][xx]/msc.acline_sto[tii][xx]
+                # standard
+                for ln in 1:sys.nl
+                    if (msc.acline_sfr_plus[tii][ln] > 0.0) && (msc.acline_sfr_plus[tii][ln] > msc.acline_sto_plus[tii][ln])
+                        grd.zs_acline.acline_pfr[tii][ln] = dt*cs*stt.acline_pfr[tii][ln]/msc.acline_sfr[tii][ln]
+                        grd.zs_acline.acline_qfr[tii][ln] = dt*cs*stt.acline_qfr[tii][ln]/msc.acline_sfr[tii][ln]
+                        grd.zs_acline.acline_pto[tii][ln] = 0.0
+                        grd.zs_acline.acline_qto[tii][ln] = 0.0
+                    elseif (msc.acline_sto_plus[tii][ln] > 0.0) && (msc.acline_sto_plus[tii][ln] > msc.acline_sfr_plus[tii][ln])
+                        grd.zs_acline.acline_pfr[tii][ln] = 0.0
+                        grd.zs_acline.acline_qfr[tii][ln] = 0.0
+                        grd.zs_acline.acline_pto[tii][ln] = dt*cs*stt.acline_pto[tii][ln]/msc.acline_sto[tii][ln]
+                        grd.zs_acline.acline_qto[tii][ln] = dt*cs*stt.acline_qto[tii][ln]/msc.acline_sto[tii][ln]
+                    else 
+                        grd.zs_acline.acline_pfr[tii][ln] = 0.0
+                        grd.zs_acline.acline_qfr[tii][ln] = 0.0
+                        grd.zs_acline.acline_pto[tii][ln] = 0.0
+                        grd.zs_acline.acline_qto[tii][ln] = 0.0
                     end
                 end
             end
-            =#
-
-            # ====================================================== #
-            # Gradients: apparent power flow -- to -> from
-            #
-            # penalty function derivatives
-            #=
-            grd[:acline_sfr_plus][:acline_pfr][tii] = stt.acline_pfr[tii]./acline_sfr
-            grd[:acline_sfr_plus][:acline_qfr][tii] = stt.acline_qfr[tii]./acline_sfr
-            grd[:acline_sto_plus][:acline_pto][tii] = stt.acline_pto[tii]./acline_sto
-            grd[:acline_sto_plus][:acline_qto][tii] = stt.acline_qto[tii]./acline_sto 
-            max_sfst0  = [argmax([spfr,spto,0]) for (spfr,spto) in zip(acline_sfr_plus,acline_sto_plus)]
-            grd[:zs_acline][:acline_sfr_plus][tii] = zeros(length(max_sfst0))
-            grd[:zs_acline][:acline_sfr_plus][tii][max_sfst0 .== 1] .= dt*cs
-            grd[:zs_acline][:acline_sto_plus][tii] = zeros(length(max_sfst0))
-            grd[:zs_acline][:acline_sto_plus][tii][max_sfst0 .== 2] .= dt*cs
-            =#
         end
     end
+
+    # sleep tasks
+    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 # xfm line flows
-function xfm_flows!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function xfm_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     g_sr = prm.xfm.g_sr
     b_sr = prm.xfm.b_sr
     b_ch = prm.xfm.b_ch
@@ -230,7 +190,8 @@ function xfm_flows!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.Idx,
     cs = prm.vio.s_flow * qG.scale_c_sflow_testing
     
     # loop over time
-    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    @batch per=thread for tii in prm.ts.time_keys
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # duration
         dt = prm.ts.duration[tii]
 
@@ -362,100 +323,53 @@ function xfm_flows!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.Idx,
                 grd.xfm_qto.uon[tii] .= msc.qto_x[tii]
             end
 
-            # indicators
-            # slower :( => quasiGrad.get_largest_indices(msc, bit, :xfm_sfr_plus_x, :xfm_sto_plus_x)
-            bit.xfm_sfr_plus_x[tii] .= (msc.xfm_sfr_plus_x[tii] .> 0.0) .&& (msc.xfm_sfr_plus_x[tii] .> msc.xfm_sto_plus_x[tii]);
-            bit.xfm_sto_plus_x[tii] .= (msc.xfm_sto_plus_x[tii] .> 0.0) .&& (msc.xfm_sto_plus_x[tii] .> msc.xfm_sfr_plus_x[tii]);
-            #
-            # slow alternative:
-                # => max_sfst0 = [argmax([spfr, spto, 0.0]) for (spfr,spto) in zip(msc.xfm_sfr_plus_x[tii],msc.xfm_sto_plus_x[tii])]
-                # => ind_fr = max_sfst0 .== 1
-                # => ind_to = max_sfst0 .== 2
-    
-            # flush -- set to 0 => [Not(ind_fr)] and [Not(ind_to)] was slow/memory inefficient
-            grd.zs_xfm.xfm_pfr[tii] .= 0.0
-            grd.zs_xfm.xfm_qfr[tii] .= 0.0
-            grd.zs_xfm.xfm_pto[tii] .= 0.0
-            grd.zs_xfm.xfm_qto[tii] .= 0.0
-    
+            # loop and take the gradients of the penalties
             if qG.acflow_grad_is_soft_abs
-                # compute the scaled gradients
-                if sum(bit.xfm_sfr_plus_x[tii]) > 0
-                    msc.scale_fr_x[tii][bit.xfm_sfr_plus_x[tii]]     .= msc.xfm_sfr_plus_x[tii][bit.xfm_sfr_plus_x[tii]]./sqrt.(msc.xfm_sfr_plus_x[tii][bit.xfm_sfr_plus_x[tii]].^2 .+ qG.acflow_grad_eps2);
-                    grd.zs_xfm.xfm_pfr[tii][bit.xfm_sfr_plus_x[tii]] .= msc.scale_fr_x[tii][bit.xfm_sfr_plus_x[tii]].*((dt*qG.acflow_grad_weight).*stt.xfm_pfr[tii][bit.xfm_sfr_plus_x[tii]]./msc.xfm_sfr_x[tii][bit.xfm_sfr_plus_x[tii]])
-                    grd.zs_xfm.xfm_qfr[tii][bit.xfm_sfr_plus_x[tii]] .= msc.scale_fr_x[tii][bit.xfm_sfr_plus_x[tii]].*((dt*qG.acflow_grad_weight).*stt.xfm_qfr[tii][bit.xfm_sfr_plus_x[tii]]./msc.xfm_sfr_x[tii][bit.xfm_sfr_plus_x[tii]])
-                end
-
-                # compute the scaled gradients
-                if sum(bit.xfm_sto_plus_x[tii]) > 0
-                    msc.scale_to_x[tii][bit.xfm_sto_plus_x[tii]]     .= msc.xfm_sto_plus_x[tii][bit.xfm_sto_plus_x[tii]]./sqrt.(msc.xfm_sto_plus_x[tii][bit.xfm_sto_plus_x[tii]].^2 .+ qG.acflow_grad_eps2);
-                    grd.zs_xfm.xfm_pto[tii][bit.xfm_sto_plus_x[tii]] .= msc.scale_to_x[tii][bit.xfm_sto_plus_x[tii]].*((dt*qG.acflow_grad_weight).*stt.xfm_pto[tii][bit.xfm_sto_plus_x[tii]]./msc.xfm_sto_x[tii][bit.xfm_sto_plus_x[tii]])
-                    grd.zs_xfm.xfm_qto[tii][bit.xfm_sto_plus_x[tii]] .= msc.scale_to_x[tii][bit.xfm_sto_plus_x[tii]].*((dt*qG.acflow_grad_weight).*stt.xfm_qto[tii][bit.xfm_sto_plus_x[tii]]./msc.xfm_sto_x[tii][bit.xfm_sto_plus_x[tii]])
-                end
-            else
-                # gradients
-                grd.zs_xfm.xfm_pfr[tii][bit.xfm_sfr_plus_x[tii]] .= (dt*cs).*stt.xfm_pfr[tii][bit.xfm_sfr_plus_x[tii]]./msc.xfm_sfr_x[tii][bit.xfm_sfr_plus_x[tii]]
-                grd.zs_xfm.xfm_qfr[tii][bit.xfm_sfr_plus_x[tii]] .= (dt*cs).*stt.xfm_qfr[tii][bit.xfm_sfr_plus_x[tii]]./msc.xfm_sfr_x[tii][bit.xfm_sfr_plus_x[tii]]
-                grd.zs_xfm.xfm_pto[tii][bit.xfm_sto_plus_x[tii]] .= (dt*cs).*stt.xfm_pto[tii][bit.xfm_sto_plus_x[tii]]./msc.xfm_sto_x[tii][bit.xfm_sto_plus_x[tii]]
-                grd.zs_xfm.xfm_qto[tii][bit.xfm_sto_plus_x[tii]] .= (dt*cs).*stt.xfm_qto[tii][bit.xfm_sto_plus_x[tii]]./msc.xfm_sto_x[tii][bit.xfm_sto_plus_x[tii]]
-            end
-
-            #= Previous gradient junk!
-            # apply gradients
-            if qG.acflow_grad_is_soft_abs
-                dtgw = dt*qG.acflow_grad_weight
-                for xx in 1:sys.nx
-                    if (msc.xfm_sfr_plus_x[tii][xx] >= msc.xfm_sto_plus_x[tii][xx]) && (msc.xfm_sfr_plus_x[tii][xx] > 0.0)
-                        sc = soft_abs_grad_ac(msc.xfm_sfr_plus_x[tii][xx], qG)
-                        grd.zs_xfm.xfm_pfr[tii][xx] = sc*(dtgw*stt.xfm_pfr[tii][xx]/msc.xfm_sfr_x[tii][xx])
-                        grd.zs_xfm.xfm_qfr[tii][xx] = sc*(dtgw*stt.xfm_qfr[tii][xx]/msc.xfm_sfr_x[tii][xx])
-                    elseif (msc.xfm_sto_plus_x[tii][xx] > 0.0)
-                        sc = soft_abs_grad_ac(msc.xfm_sto_plus_x[tii][xx], qG)
-                        grd.zs_xfm.xfm_pto[tii][xx] = sc*(dtgw*stt.xfm_pto[tii][xx]/msc.xfm_sto_x[tii][xx])
-                        grd.zs_xfm.xfm_qto[tii][xx] = sc*(dtgw*stt.xfm_qto[tii][xx]/msc.xfm_sto_x[tii][xx])
+                # softabs
+                for xfm in 1:sys.nx
+                    if (msc.xfm_sfr_plus_x[tii][xfm] > 0.0) && (msc.xfm_sfr_plus_x[tii][xfm] > msc.xfm_sto_plus_x[tii][xfm])
+                        scale_fr                     = dt*qG.acflow_grad_weight*quasiGrad.soft_abs_acflow_grad(msc.xfm_sfr_plus_x[tii][xfm], qG)
+                        grd.zs_xfm.xfm_pfr[tii][xfm] = scale_fr*stt.xfm_pfr[tii][xfm]./msc.xfm_sfr_x[tii][xfm]
+                        grd.zs_xfm.xfm_qfr[tii][xfm] = scale_fr*stt.xfm_qfr[tii][xfm]./msc.xfm_sfr_x[tii][xfm]
+                        grd.zs_xfm.xfm_pto[tii][xfm] = 0.0
+                        grd.zs_xfm.xfm_qto[tii][xfm] = 0.0
+                    elseif (msc.xfm_sto_plus_x[tii][xfm] > 0.0) && (msc.xfm_sto_plus_x[tii][xfm] > msc.xfm_sfr_plus_x[tii][xfm])
+                        grd.zs_xfm.xfm_pfr[tii][xfm] = 0.0
+                        grd.zs_xfm.xfm_qfr[tii][xfm] = 0.0
+                        scale_to                     = dt*qG.acflow_grad_weight*quasiGrad.soft_abs_acflow_grad(msc.xfm_sto_plus_x[tii][xfm], qG)
+                        grd.zs_xfm.xfm_pto[tii][xfm] = scale_to*stt.xfm_pto[tii][xfm]./msc.xfm_sto_x[tii][xfm]
+                        grd.zs_xfm.xfm_qto[tii][xfm] = scale_to*stt.xfm_qto[tii][xfm]./msc.xfm_sto_x[tii][xfm]
                     else
-                        grd.zs_xfm.xfm_pfr[tii][xx] = 0.0
-                        grd.zs_xfm.xfm_qfr[tii][xx] = 0.0
-                        grd.zs_xfm.xfm_pto[tii][xx] = 0.0
-                        grd.zs_xfm.xfm_qto[tii][xx] = 0.0  
+                        grd.zs_xfm.xfm_pfr[tii][xfm] = 0.0
+                        grd.zs_xfm.xfm_qfr[tii][xfm] = 0.0
+                        grd.zs_xfm.xfm_pto[tii][xfm] = 0.0
+                        grd.zs_xfm.xfm_qto[tii][xfm] = 0.0
                     end
                 end
-            # no softabs -- use standard
             else
-                dtcs = dt*cs
-                for xx in 1:sys.nx
-                    if (msc.xfm_sfr_plus_x[tii][xx] >= msc.xfm_sto_plus_x[tii][xx]) && (msc.xfm_sfr_plus_x[tii][xx] > 0.0)
-                        grd.zs_xfm.xfm_pfr[tii][xx] = dtcs*stt.xfm_pfr[tii][xx]/msc.xfm_sfr_x[tii][xx]
-                        grd.zs_xfm.xfm_qfr[tii][xx] = dtcs*stt.xfm_qfr[tii][xx]/msc.xfm_sfr_x[tii][xx]
-                    elseif (msc.xfm_sto_plus_x[tii][xx] > 0.0)
-                        grd.zs_xfm.xfm_pto[tii][xx] = dtcs*stt.xfm_pto[tii][xx]/msc.xfm_sto_x[tii][ind_to]
-                        grd.zs_xfm.xfm_qto[tii][xx] = dtcs*stt.xfm_qto[tii][xx]/msc.xfm_sto_x[tii][ind_to]
+                # standard
+                for xfm in 1:sys.nx
+                    if (msc.xfm_sfr_plus_x[tii][xfm] > 0.0) && (msc.xfm_sfr_plus_x[tii][xfm] > msc.xfm_sto_plus_x[tii][xfm])
+                        grd.zs_xfm.xfm_pfr[tii][xfm] = dt*cs*stt.xfm_pfr[tii][xfm]/msc.xfm_sfr_x[tii][xfm]
+                        grd.zs_xfm.xfm_qfr[tii][xfm] = dt*cs*stt.xfm_qfr[tii][xfm]/msc.xfm_sfr_x[tii][xfm]
+                        grd.zs_xfm.xfm_pto[tii][xfm] = 0.0
+                        grd.zs_xfm.xfm_qto[tii][xfm] = 0.0
+                    elseif (msc.xfm_sto_plus_x[tii][xfm] > 0.0) && (msc.xfm_sto_plus_x[tii][xfm] > msc.xfm_sfr_plus_x[tii][xfm])
+                        grd.zs_xfm.xfm_pfr[tii][xfm] = 0.0
+                        grd.zs_xfm.xfm_qfr[tii][xfm] = 0.0
+                        grd.zs_xfm.xfm_pto[tii][xfm] = dt*cs*stt.xfm_pto[tii][xfm]./msc.xfm_sto_x[tii][xfm]
+                        grd.zs_xfm.xfm_qto[tii][xfm] = dt*cs*stt.xfm_qto[tii][xfm]./msc.xfm_sto_x[tii][xfm]
                     else
-                        grd.zs_xfm.xfm_pfr[tii][xx] = 0.0
-                        grd.zs_xfm.xfm_qfr[tii][xx] = 0.0
-                        grd.zs_xfm.xfm_pto[tii][xx] = 0.0
-                        grd.zs_xfm.xfm_qto[tii][xx] = 0.0  
+                        grd.zs_xfm.xfm_pfr[tii][xfm] = 0.0
+                        grd.zs_xfm.xfm_qfr[tii][xfm] = 0.0
+                        grd.zs_xfm.xfm_pto[tii][xfm] = 0.0
+                        grd.zs_xfm.xfm_qto[tii][xfm] = 0.0
                     end
                 end
             end
-            =#
-
-            # ====================================================== #
-            # Gradients: apparent power flow -- to -> from
-            #
-            # penalty function derivatives
-            #=
-            grd[:msc.xfm_sfr_plus_x[tii]][:xfm_pfr][tii] = stt.xfm_pfr[tii]./msc.xfm_sfr_x[tii]
-            grd[:msc.xfm_sfr_plus_x[tii]][:xfm_qfr][tii] = stt.xfm_qfr[tii]./msc.xfm_sfr_x[tii]
-            grd[:msc.xfm_sto_plus_x[tii]][:xfm_pto][tii] = stt.xfm_pto[tii]./msc.xfm_sto_x[tii]
-            grd[:msc.xfm_sto_plus_x[tii]][:xfm_qto][tii] = stt.xfm_qto[tii]./msc.xfm_sto_x[tii]
-    
-            max_sfst0  = [argmax([spfr,spto,0]) for (spfr,spto) in zip(msc.xfm_sfr_plus_x[tii],msc.xfm_sto_plus_x[tii])]
-            grd[:zs_xfm][:msc.xfm_sfr_plus_x[tii]][tii] = zeros(length(max_sfst0))
-            grd[:zs_xfm][:msc.xfm_sfr_plus_x[tii]][tii][max_sfst0 .== 1] .= dt*cs
-            grd[:zs_xfm][:msc.xfm_sto_plus_x[tii]][tii] = zeros(length(max_sfst0))
-            grd[:zs_xfm][:msc.xfm_sto_plus_x[tii]][tii][max_sfst0 .== 2] .= dt*cs
-            =#
         end
     end
+
+    # sleep tasks
+    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end   

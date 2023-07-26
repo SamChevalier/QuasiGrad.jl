@@ -10,10 +10,16 @@ function adam!(adm::quasiGrad.Adam, beta1::Float64, beta2::Float64, beta1_decay:
         # so, only progress if, either, this is standard adam (not in the pf stepper),
         # or the variable is a power flow variable!
         if (var_key in qG.adam_pf_variables) || standard_adam
-            # states to update      
-            adam_states = getfield(adm,var_key)     
-            state       = getfield(stt,var_key)
-            grad        = getfield(mgd,var_key)
+            # call states and gradients
+            adam_states = getfield(adm, var_key)     
+            state       = getfield(stt, var_key)
+            grad        = getfield(mgd, var_key)
+
+            # slower alternatives:
+                # => adam_states = getproperty(adm, var_key)     
+                # => state       = getproperty(stt, var_key)
+                # => grad        = getproperty(mgd, var_key)
+                # => adam_states, grad, state = quasiGrad.call_adam_states(adm, mgd, stt, var_key)
             
             # loop over all time
             for tii in prm.ts.time_keys
@@ -24,7 +30,7 @@ function adam!(adm::quasiGrad.Adam, beta1::Float64, beta2::Float64, beta1_decay:
                     for updates in upd[var_key][tii]
                         @inbounds adam_states.m[tii][updates] = beta1*adam_states.m[tii][updates] + (1.0-beta1)*grad[tii][updates]
                         @inbounds adam_states.v[tii][updates] = beta2*adam_states.v[tii][updates] + (1.0-beta2)*(grad[tii][updates]^2.0)
-                        @inbounds state[tii][updates]         = state[tii][updates]  - qG.alpha_0[var_key]*(adam_states.m[tii][updates]/(1.0-beta1_decay))/(sqrt.(adam_states.v[tii][updates]/(1.0-beta2_decay)) + qG.eps)
+                        @inbounds state[tii][updates]         = state[tii][updates]  - qG.alpha_0[var_key]*(adam_states.m[tii][updates]/(1.0-beta1_decay))/(sqrt(adam_states.v[tii][updates]/(1.0-beta2_decay)) + qG.eps)
                     end
 
                     # vectorized version => 
@@ -188,10 +194,10 @@ function update_states_and_grads!(
         # => println("bin_clip is true!")
     qG.clip_pq_based_on_bins = false
     quasiGrad.clip_all!(prm, qG, stt)
-    
+
     # compute network flows and injections
-    quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
-    quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
     quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
 
     # device powers
@@ -200,8 +206,8 @@ function update_states_and_grads!(
     quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
     quasiGrad.device_reactive_powers!(idx, prm, qG, stt)
     quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
-    quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
-    quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
+    quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
+    quasiGrad.penalized_device_constraints!(grd, idx, mgd, msc, prm, qG, scr, stt, sys)
     quasiGrad.device_reserve_costs!(prm, qG, stt)
 
     # now, we can compute the power balances
@@ -212,7 +218,7 @@ function update_states_and_grads!(
 
     # score the contingencies and take the gradients
     if qG.skip_ctg_eval
-        println("Skipping ctg evaluation!")
+        # println("Skipping ctg evaluation!")
     else
         quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
     end
@@ -222,10 +228,9 @@ function update_states_and_grads!(
     quasiGrad.score_zms!(scr)
 
     # print the market surplus function value
-    quasiGrad.print_zms(qG, scr)
+    # quasiGrad.print_zms(qG, scr)
 
     # compute the master grad
-    GC.safepoint()
     quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
 end
 
@@ -239,8 +244,8 @@ function update_states_and_grads_for_adam_pf!(bit::quasiGrad.Bit, grd::quasiGrad
     quasiGrad.clip_for_adam_pf!(prm, qG, stt)
     
     # compute network flows and injections
-    quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
-    quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
     quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
 
     # now, we can compute the power balances
@@ -273,8 +278,8 @@ function update_states_and_grads_for_solve_pf_lbfgs!(bit::quasiGrad.Bit, cgd::qu
     quasiGrad.clip_all!(prm, qG, stt)
     
     # compute network flows and injections
-    quasiGrad.acline_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
-    quasiGrad.xfm_flows!(bit, grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
     quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
 
     # device powers
@@ -525,7 +530,8 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Int8, Vector{Float64}}}, pf
     else
         # we solve pf at each instant, so loop over all time!
             # => for tii in prm.ts.time_keys
-        @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+        @batch per=thread for tii in prm.ts.time_keys
+        # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
 
             # udpdate the state difference
             idx_km1 = pf_lbfgs_idx[1]
@@ -629,7 +635,8 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Int8, Vector{Float64}}}, pf
 end
 
 function quadratic_distance!(dpf0::Dict{Symbol, Dict{Int8, Vector{Float64}}}, mgd::quasiGrad.Mgd, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
-    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    @batch per=thread for tii in prm.ts.time_keys
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # grab the distance between p_on and its initial value -- this is something we 
         # minimize, so the regularization function is positive valued
         # => value not needed: zdist      =   qG.cdist_psolve*(stt.p_on[tii] - dpf0[:p_on][tii]).^2
@@ -1352,4 +1359,108 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::quasiGra
             end
         end
     end
+end
+
+# call states
+function call_adam_states(adm::quasiGrad.Adam, mgd::quasiGrad.Mgd, stt::quasiGrad.State, var_key::Symbol)
+    # we need this function because calling struct field programatically
+    # isn't straightforward, and getfield() tends to allocate
+    if var_key == :vm
+        adam_states = adm.vm   
+        state       = stt.vm
+        grad        = mgd.vm
+    elseif var_key == :va
+        adam_states = adm.va
+        state       = stt.va
+        grad        = mgd.va
+    elseif var_key == :tau
+        adam_states = adm.tau
+        state       = stt.tau
+        grad        = mgd.tau
+    elseif var_key == :phi
+        adam_states = adm.phi
+        state       = stt.phi
+        grad        = mgd.phi
+    elseif var_key == :dc_pfr
+        adam_states = adm.dc_pfr
+        state       = stt.dc_pfr
+        grad        = mgd.dc_pfr
+    elseif var_key == :dc_qfr
+        adam_states = adm.dc_qfr
+        state       = stt.dc_qfr
+        grad        = mgd.dc_qfr
+    elseif var_key == :dc_qto
+        adam_states = adm.dc_qto
+        state       = stt.dc_qto
+        grad        = mgd.dc_qto
+    elseif var_key == :u_on_acline
+        adam_states = adm.u_on_acline
+        state       = stt.u_on_acline
+        grad        = mgd.u_on_acline
+    elseif var_key == :u_on_xfm
+        adam_states = adm.u_on_xfm
+        state       = stt.u_on_xfm
+        grad        = mgd.u_on_xfm
+    elseif var_key == :u_step_shunt
+        adam_states = adm.u_step_shunt
+        state       = stt.u_step_shunt
+        grad        = mgd.u_step_shunt
+    elseif var_key == :u_on_dev
+        adam_states = adm.u_on_dev
+        state       = stt.u_on_dev
+        grad        = mgd.u_on_dev
+    elseif var_key == :p_on
+        adam_states = adm.p_on
+        state       = stt.p_on
+        grad        = mgd.p_on
+    elseif var_key == :dev_q
+        adam_states = adm.dev_q
+        state       = stt.dev_q
+        grad        = mgd.dev_q
+    elseif var_key == :p_rgu
+        adam_states = adm.p_rgu
+        state       = stt.p_rgu
+        grad        = mgd.p_rgu
+    elseif var_key == :p_rgd
+        adam_states = adm.p_rgd
+        state       = stt.p_rgd
+        grad        = mgd.p_rgd
+    elseif var_key == :p_scr
+        adam_states = adm.p_scr
+        state       = stt.p_scr
+        grad        = mgd.p_scr
+    elseif var_key == :p_nsc
+        adam_states = adm.p_nsc
+        state       = stt.p_nsc
+        grad        = mgd.p_nsc
+    elseif var_key == :p_rru_on
+        adam_states = adm.p_rru_on
+        state       = stt.p_rru_on
+        grad        = mgd.p_rru_on
+    elseif var_key == :p_rrd_on
+        adam_states = adm.p_rrd_on
+        state       = stt.p_rrd_on
+        grad        = mgd.p_rrd_on
+    elseif var_key == :p_rru_off
+        adam_states = adm.p_rru_off
+        state       = stt.p_rru_off
+        grad        = mgd.p_rru_off
+    elseif var_key == :p_rrd_off
+        adam_states = adm.p_rrd_off
+        state       = stt.p_rrd_off
+        grad        = mgd.p_rrd_off
+    elseif var_key == :q_qru
+        adam_states = adm.q_qru
+        state       = stt.q_qru
+        grad        = mgd.q_qru
+    elseif var_key == :q_qrd
+        adam_states = adm.q_qrd
+        state       = stt.q_qrd
+        grad        = mgd.q_qrd
+    else
+        println("Field not recognized.")
+    end
+
+    # output
+    return adam_states, grad, state
 end
