@@ -1,5 +1,5 @@
 # adam solver -- take steps for every element in the master_grad list
-function full_adam!(adm::quasiGrad.Adam, alpha::Float64, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::quasiGrad.Mgd, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function full_adam!(adm::quasiGrad.Adam, alpha::Float64, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}})
     
     # loop over the keys in mgd
     for var_key in keys(mgd)
@@ -37,7 +37,7 @@ function full_adam!(adm::quasiGrad.Adam, alpha::Float64, beta1::Float64, beta2::
     end
 end
 
-function adam_with_ls!(adm::quasiGrad.Adam, alpha::Float64, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::quasiGrad.Mgd, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}}, cgd::quasiGrad.Cgd, ctb::Vector{Vector{Float64}}, ctd::Vector{Vector{Float64}}, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, ntk::quasiGrad.Ntk, scr::Dict{Symbol, Float64}, sys::quasiGrad.System, wct::Vector{Vector{Int64}})
+function adam_with_ls!(adm::quasiGrad.Adam, alpha::Float64, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}}, cgd::quasiGrad.ConstantGrad, ctb::Vector{Vector{Float64}}, ctd::Vector{Vector{Float64}}, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, ntk::quasiGrad.Network, scr::Dict{Symbol, Float64}, sys::quasiGrad.System, wct::Vector{Vector{Int64}})
     
     z0 = copy(scr[:zms_penalized])
 
@@ -88,7 +88,7 @@ function adam_with_ls!(adm::quasiGrad.Adam, alpha::Float64, beta1::Float64, beta
     while run_ls
         z_0 = copy(scr[:zms_penalized])
         qG.eval_grad = false
-        quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
         qG.eval_grad = true
         z_new = copy(scr[:zms_penalized])
         if z_new > z0
@@ -114,7 +114,7 @@ function adam_with_ls!(adm::quasiGrad.Adam, alpha::Float64, beta1::Float64, beta
 end
 
 # adam solver -- take steps for every element in the master_grad list
-function adaGrad!(adm::quasiGrad.Adam, alpha::Float64, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::quasiGrad.Mgd, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function adaGrad!(adm::quasiGrad.Adam, alpha::Float64, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}})
     
     # loop over the keys in mgd
     for var_key in keys(mgd)
@@ -150,7 +150,7 @@ function adaGrad!(adm::quasiGrad.Adam, alpha::Float64, beta1::Float64, beta2::Fl
 end
 
 # adam solver -- take steps for every element in the master_grad list
-function the_quasiGrad!(adm::quasiGrad.Adam, mgd::quasiGrad.Mgd, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function the_quasiGrad!(adm::quasiGrad.Adam, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # is this our first step?
     if qG.first_qG_step == true
         init_step = true

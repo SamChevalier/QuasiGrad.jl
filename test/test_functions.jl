@@ -1,5 +1,5 @@
 # Test #1 -- test if the power flow equations and gradients were coded up correctly :)
-function test1_acline_flows_and_grads(prm::quasiGrad.Param, idx::quasiGrad.Idx, state::Dict{Symbol,Vector{Float64}}, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol,quasiGrad.SparseMatrixCSC{Float64, Int64}})
+function test1_acline_flows_and_grads(prm::quasiGrad.Param, idx::quasiGrad.Index, state::Dict{Symbol,Vector{Float64}}, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol,quasiGrad.SparseMatrixCSC{Float64, Int64}})
     vm          = [1.01; 0.95; 0.99];
     va          = [0.24; -0.2; 0.1];
     tau         = [1.01; 0.97]
@@ -149,7 +149,7 @@ function test1_acline_flows_and_grads(prm::quasiGrad.Param, idx::quasiGrad.Idx, 
 end
 
 # Test #2 -- xfm
-function test2_xfm_flows_and_grads(prm::quasiGrad.Param, idx::quasiGrad.Idx, state::Dict{Symbol,Vector{Float64}}, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol,quasiGrad.SparseMatrixCSC{Float64, Int64}})
+function test2_xfm_flows_and_grads(prm::quasiGrad.Param, idx::quasiGrad.Index, state::Dict{Symbol,Vector{Float64}}, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol,quasiGrad.SparseMatrixCSC{Float64, Int64}})
     vm          = [1.01; 0.95; 0.99];
     va          = [0.24; -0.2; 0.1];
     tau         = [1.01; 0.97]
@@ -317,7 +317,7 @@ function test2_xfm_flows_and_grads(prm::quasiGrad.Param, idx::quasiGrad.Idx, sta
 end
 
 # Test #3 -- adam test: solve for power flows (lines + xfms)
-function test3_adam_solve_pf(prm::quasiGrad.Param, idx::quasiGrad.Idx, state::Dict{Symbol,Vector{Float64}}, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol,quasiGrad.SparseMatrixCSC{Float64, Int64}}, N_steps::Int64, dt::Float64, adam_prm::Dict{Symbol, Float64})
+function test3_adam_solve_pf(prm::quasiGrad.Param, idx::quasiGrad.Index, state::Dict{Symbol,Vector{Float64}}, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol,quasiGrad.SparseMatrixCSC{Float64, Int64}}, N_steps::Int64, dt::Float64, adam_prm::Dict{Symbol, Float64})
     vm          = [1.0; 1.01; 0.97];
     va          = [0.0; -0.025; 0.02];
     tau         = [1.025; 1.0]
@@ -462,7 +462,7 @@ function test3_subtest_loss_grad(state, grad, jac, prm, idx, func_0)
 end
 
 # ac line flows
-function acline_flows_test!(eval_grad::Bool, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol, quasiGrad.SparseMatrixCSC{Float64, Int64}}, prm::quasiGrad.Param, state::Dict{Symbol,Vector{Float64}}, idx::quasiGrad.Idx)
+function acline_flows_test!(eval_grad::Bool, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol, quasiGrad.SparseMatrixCSC{Float64, Int64}}, prm::quasiGrad.Param, state::Dict{Symbol,Vector{Float64}}, idx::quasiGrad.Index)
     # line parameters
     g_sr = prm.acline.g_sr
     b_sr = prm.acline.b_sr
@@ -632,7 +632,7 @@ end
 function calc_nzms_qG(grd, idx, mgd, prm, qG, stt, sys)
 
         # compute states and grads
-        quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
     
         # output
         return scr[:nzms]
@@ -671,7 +671,7 @@ function calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
     # score the contingencies and take the gradients
     @info "ctg solve on"
-    quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     # @info "ctg solve off"
     
     # score the market surplus function
@@ -751,20 +751,20 @@ function load_and_project(path::String, solution_file::String)
     jsn = quasiGrad.load_json(InFile1)
 
     # initialize
-    adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn)
+    adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
 
     # solve
     fix       = true
     pct_round = 100.0
-    quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
-    quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
-    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
     
     quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
     quasiGrad.write_solution(solution_file, prm, qG, stt, sys)
-    quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 end
 
 ## %% ============

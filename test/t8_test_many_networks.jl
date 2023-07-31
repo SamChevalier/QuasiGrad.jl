@@ -64,17 +64,16 @@ path = "../GO3_testcases/"*set*dvn*case*nro
 jsn = quasiGrad.load_json(path)
 
 # %% init
-adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
-stt, sys, upd, wct = quasiGrad.base_initialization(jsn, false, 1.0);
+adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # %% solve
-quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 
 # grb
 quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
 quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
 quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
-quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 
 # soln
 soln_dict = quasiGrad.prepare_solution(prm, stt, sys)
@@ -100,10 +99,10 @@ if action == "just write"
     # qG.pcg_tol = 1e-5
 
     # solve
-    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
     quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
     quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
-    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 
     # write
     soln_dict = quasiGrad.prepare_solution(prm, stt, sys)

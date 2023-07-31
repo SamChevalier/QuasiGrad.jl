@@ -96,29 +96,26 @@ end
 # post process
 function post_process_stats(
     run::Bool,  
-    bit::quasiGrad.Bit,  
-    cgd::quasiGrad.Cgd, 
-    ctb::Vector{Vector{Float64}},
-    ctd::Vector{Vector{Float64}}, 
+    cgd::quasiGrad.ConstantGrad, 
+    ctg::quasiGrad.Contingency,
     flw::quasiGrad.Flow, 
     grd::quasiGrad.Grad, 
-    idx::quasiGrad.Idx, 
-    mgd::quasiGrad.Mgd, 
+    idx::quasiGrad.Index, 
+    mgd::quasiGrad.MasterGrad, 
     msc::quasiGrad.Msc, 
-    ntk::quasiGrad.Ntk, 
+    ntk::quasiGrad.Network, 
     prm::quasiGrad.Param, 
     qG::quasiGrad.QG, 
     scr::Dict{Symbol, Float64}, 
     stt::quasiGrad.State, 
-    sys::quasiGrad.System, 
-    wct::Vector{Vector{Int64}})
+    sys::quasiGrad.System)
 
     # shall we actually post-process?
     if run == true
         # update the state vector
         qG.eval_grad      = false
         qG.score_all_ctgs = true
-        quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
         
         # flop, just in case
         qG.eval_grad         = true

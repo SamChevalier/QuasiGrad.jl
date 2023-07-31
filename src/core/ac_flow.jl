@@ -1,5 +1,5 @@
 # ac line flows
-function acline_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function acline_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # line parameters
     g_sr = prm.acline.g_sr
     b_sr = prm.acline.b_sr
@@ -177,7 +177,7 @@ function acline_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc::quasiGrad.M
 end
 
 # xfm line flows
-function xfm_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function xfm_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     g_sr = prm.xfm.g_sr
     b_sr = prm.xfm.b_sr
     b_ch = prm.xfm.b_ch

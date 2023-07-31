@@ -1,25 +1,22 @@
 function run_adam_with_plotting!(
     adm::quasiGrad.Adam,
     ax::quasiGrad.Makie.Axis,
-    bit::quasiGrad.Bit,
-    cgd::quasiGrad.Cgd,
-    ctb::Vector{Vector{Float64}},
-    ctd::Vector{Vector{Float64}},
+    cgd::quasiGrad.ConstantGrad,
+    ctg::quasiGrad.Contingency,
     fig::quasiGrad.Makie.Figure,
     flw::quasiGrad.Flow,
     grd::quasiGrad.Grad, 
-    idx::quasiGrad.Idx,
-    mgd::quasiGrad.Mgd,
+    idx::quasiGrad.Index,
+    mgd::quasiGrad.MasterGrad,
     msc::quasiGrad.Msc,
-    ntk::quasiGrad.Ntk,
+    ntk::quasiGrad.Network,
     plt::Dict{Symbol, Integer},
     prm::quasiGrad.Param,
     qG::quasiGrad.QG, 
     scr::Dict{Symbol, Float64},
     stt::quasiGrad.State, 
     sys::quasiGrad.System,
-    upd::Dict{Symbol, Vector{Vector{Int64}}}, 
-    wct::Vector{Vector{Int64}},
+    upd::Dict{Symbol, Vector{Vector{Int64}}},
     z_plt::Dict{Symbol, Dict{Symbol, Float64}})
 
     # initialize
@@ -64,7 +61,7 @@ function run_adam_with_plotting!(
         end
 
         # compute all states and grads
-        quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 
         # println(stt.vm[1][1])
 
@@ -80,7 +77,7 @@ function run_adam_with_plotting!(
         if qG.take_adam_pf_steps == true
             for _ in 1:qG.num_adam_pf_step
                 # update the power injection-associated gradients
-                quasiGrad.update_states_and_grads_for_adam_pf!(bit, grd, idx, mgd, msc, prm, qG, stt, sys)
+                quasiGrad.update_states_and_grads_for_adam_pf!(grd, idx, mgd, msc, prm, qG, stt, sys)
 
                 # take an adam pf step (standard_adam=false)
                 quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd, standard_adam = false)
@@ -96,23 +93,23 @@ function run_adam_with_plotting!(
 
     # one last clip + state computation -- no grad needed!
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
     qG.eval_grad = true
 end
 
 #function run_adam_with_plotting!(
 #        adm::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}},
 #        ax::quasiGrad.Makie.Axis,
-#        cgd::quasiGrad.Cgd,
+#        cgd::quasiGrad.ConstantGrad,
 #        ctb::Vector{Vector{Float64}},
 #        ctd::Vector{Vector{Float64}},
 #        fig::quasiGrad.Makie.Figure,
 #        flw::Dict{Symbol, Vector{Float64}},
 #        grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, 
-#        idx::quasiGrad.Idx,
+#        idx::quasiGrad.Index,
 #        mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
 #        msc::Dict{Symbol, Vector{Float64}},
-#        ntk::quasiGrad.Ntk,
+#        ntk::quasiGrad.Network,
 #        plt::Dict{Symbol, Integer},
 #        prm::quasiGrad.Param,
 #        qG::quasiGrad.QG,
@@ -166,7 +163,7 @@ end
 #        beta2_decay = beta2_decay*beta2
 #
 #        # compute all states and grads
-#        quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+#        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 #
 #        # take an adam step
 #        quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
@@ -191,7 +188,7 @@ end
 #
 #    # one last clip + state computation -- no grad needed!
 #    qG.eval_grad = false
-#    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+#    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 #
 #    # turn it back on
 #    qG.eval_grad = true
@@ -199,27 +196,24 @@ end
 
 # initialize the plot
 function initialize_plot(
-    bit::quasiGrad.Bit,
-    cgd::quasiGrad.Cgd, 
-    ctb::Vector{Vector{Float64}},
-    ctd::Vector{Vector{Float64}}, 
+    cgd::quasiGrad.ConstantGrad, 
+    ctg::quasiGrad.Contingency,
     flw::quasiGrad.Flow, 
     grd::quasiGrad.Grad, 
-    idx::quasiGrad.Idx, 
-    mgd::quasiGrad.Mgd, 
+    idx::quasiGrad.Index, 
+    mgd::quasiGrad.MasterGrad, 
     msc::quasiGrad.Msc, 
-    ntk::quasiGrad.Ntk,
+    ntk::quasiGrad.Network,
     plt::Dict{Symbol, Integer}, 
     prm::quasiGrad.Param, 
     qG::quasiGrad.QG, 
     scr::Dict{Symbol, Float64}, 
     stt::quasiGrad.State, 
-    sys::quasiGrad.System, 
-    wct::Vector{Vector{Int64}})
+    sys::quasiGrad.System)
     
     # first, make sure scores are updated!
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
     qG.eval_grad = true
 
     # now, initialize

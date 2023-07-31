@@ -1,4 +1,4 @@
-function power_balance!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function power_balance!(grd::quasiGrad.Grad, idx::quasiGrad.Index, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # call penalty cost
     cp = prm.vio.p_bus * qG.scale_c_pbus_testing
     cq = prm.vio.q_bus * qG.scale_c_qbus_testing
@@ -40,7 +40,7 @@ function power_balance!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc::quasiGrad.
 end
 
 # fast sum
-function pq_sums!(bus::Int64, idx::quasiGrad.Idx, msc::quasiGrad.Msc, stt::quasiGrad.State, tii::Int8)
+function pq_sums!(bus::Int64, idx::quasiGrad.Index, msc::quasiGrad.Msc, stt::quasiGrad.State, tii::Int8)
     # loop over devices
     #
     msc.pb_slack[tii][bus] = 0.0

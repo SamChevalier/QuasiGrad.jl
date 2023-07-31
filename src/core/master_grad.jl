@@ -1,4 +1,4 @@
-function master_grad!(cgd::quasiGrad.Cgd, grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quasiGrad.Mgd, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function master_grad!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # ...follow each z...
     #
     # NOTE: mgd should have been flushed prior to evaluating all gradients,
@@ -319,7 +319,7 @@ function master_grad!(cgd::quasiGrad.Cgd, grd::quasiGrad.Grad, idx::quasiGrad.Id
     end
 end
 
-function master_grad_solve_pf!(cgd::quasiGrad.Cgd, grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quasiGrad.Mgd, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function master_grad_solve_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # this function takes the gradient of zms with respect to the
     # variables which will help to resolve power flow.
     # Notably, even though we solve time-independent power flow
@@ -356,7 +356,7 @@ function master_grad_solve_pf!(cgd::quasiGrad.Cgd, grd::quasiGrad.Grad, idx::qua
     end
 end
 
-function master_grad_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quasiGrad.Mgd, prm::quasiGrad.Param, sys::quasiGrad.System)
+function master_grad_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, sys::quasiGrad.System)
     # this function takes the gradient of zms with respect to the
     # variables which will help to resolve power flow.
     # Notably, even though we solve time-independent power flow
@@ -377,7 +377,7 @@ function master_grad_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quas
     end
 end
 
-function master_grad_zs_acline!(tii::Int8, idx::quasiGrad.Idx, grd::quasiGrad.Grad, mgd::quasiGrad.Mgd, msc::quasiGrad.Msc, qG::quasiGrad.QG, sys::quasiGrad.System)
+function master_grad_zs_acline!(tii::Int8, idx::quasiGrad.Index, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, msc::quasiGrad.Msc, qG::quasiGrad.QG, sys::quasiGrad.System)
     # =========== =========== =========== #
                 # zs (acline flows)
     # =========== =========== =========== #
@@ -467,7 +467,7 @@ function master_grad_zs_acline!(tii::Int8, idx::quasiGrad.Idx, grd::quasiGrad.Gr
     end
 end
 
-function master_grad_zs_acline_test!(tii::Int8, idx::quasiGrad.Idx, grd::quasiGrad.Grad, mgd::quasiGrad.Mgd, qG::quasiGrad.QG, sys::quasiGrad.System)
+function master_grad_zs_acline_test!(tii::Int8, idx::quasiGrad.Index, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, qG::quasiGrad.QG, sys::quasiGrad.System)
     # =========== =========== =========== #
                 # zs (acline flows)
     # =========== =========== =========== #
@@ -511,7 +511,7 @@ function master_grad_zs_acline_test!(tii::Int8, idx::quasiGrad.Idx, grd::quasiGr
 
 end
 
-function master_grad_zs_xfm!(tii::Int8, idx::quasiGrad.Idx, grd::quasiGrad.Grad, mgd::quasiGrad.Mgd, msc::quasiGrad.Msc, qG::quasiGrad.QG, sys::quasiGrad.System)
+function master_grad_zs_xfm!(tii::Int8, idx::quasiGrad.Index, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, msc::quasiGrad.Msc, qG::quasiGrad.QG, sys::quasiGrad.System)
     # =========== =========== =========== #
                 # zs (xfm)
     # =========== =========== =========== #
@@ -617,7 +617,7 @@ function master_grad_zs_xfm!(tii::Int8, idx::quasiGrad.Idx, grd::quasiGrad.Grad,
     end
 end
 
-function master_grad_zp!(tii::Int8, prm::quasiGrad.Param, idx::quasiGrad.Idx, grd::quasiGrad.Grad, mgd::quasiGrad.Mgd, sys::quasiGrad.System; run_devs = true)
+function master_grad_zp!(tii::Int8, prm::quasiGrad.Param, idx::quasiGrad.Index, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, sys::quasiGrad.System; run_devs = true)
     # gradient chain: nzms => zbase => zt => zp => (all p injection variables)
     #
     # note: grd[:pb_slack][...] is negelected here, and all terms are trivially
@@ -787,7 +787,7 @@ function master_grad_zp!(tii::Int8, prm::quasiGrad.Param, idx::quasiGrad.Idx, gr
     end
 end
 
-function master_grad_zq!(tii::Int8, prm::quasiGrad.Param, idx::quasiGrad.Idx, grd::quasiGrad.Grad, mgd::quasiGrad.Mgd, sys::quasiGrad.System; run_devs = true)
+function master_grad_zq!(tii::Int8, prm::quasiGrad.Param, idx::quasiGrad.Index, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, sys::quasiGrad.System; run_devs = true)
     # gradient chain: nzms => zbase => zt => zq => (all q injection variables)
     #
     # note: grd[:qb_slack][...] is negelected here, and all terms are trivially
@@ -914,7 +914,7 @@ function master_grad_zq!(tii::Int8, prm::quasiGrad.Param, idx::quasiGrad.Idx, gr
     end
 end
 
-function apply_dev_p_grads!(tii::Int8, prm::quasiGrad.Param, qG::quasiGrad.QG, idx::quasiGrad.Idx, stt::quasiGrad.State, grd::quasiGrad.Grad, mgd::quasiGrad.Mgd, dev::Union{Int32,Int64}, alpha::Float64)
+function apply_dev_p_grads!(tii::Int8, prm::quasiGrad.Param, qG::quasiGrad.QG, idx::quasiGrad.Index, stt::quasiGrad.State, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, dev::Union{Int32,Int64}, alpha::Float64)
     # this function computes the partial derivative of dev_p:
     # stt.dev_p[tii] = stt.p_on[tii] + stt.p_su[tii] + stt.p_sd[tii]
     #
@@ -956,7 +956,7 @@ function apply_dev_p_grads!(tii::Int8, prm::quasiGrad.Param, qG::quasiGrad.QG, i
     end
 end
 
-function apply_dev_q_grads!(tii::Int8, prm::quasiGrad.Param, qG::quasiGrad.QG, idx::quasiGrad.Idx, stt::quasiGrad.State, grd::quasiGrad.Grad, mgd::quasiGrad.Mgd, dev::Union{Int32,Int64}, alpha::Float64)
+function apply_dev_q_grads!(tii::Int8, prm::quasiGrad.Param, qG::quasiGrad.QG, idx::quasiGrad.Index, stt::quasiGrad.State, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, dev::Union{Int32,Int64}, alpha::Float64)
     # if the device is not in idx.J_pqe, then "dev_q" is just a state variable!
     if dev in idx.J_pqe
         # in this case, we take the derivatives of "dev_q" wrt
@@ -979,7 +979,7 @@ function apply_dev_q_grads!(tii::Int8, prm::quasiGrad.Param, qG::quasiGrad.QG, i
     end
 end
 
-function du_sum!(tii::Int8, prm::quasiGrad.Param, stt::quasiGrad.State, mgd::quasiGrad.Mgd, dev::Union{Int32,Int64}, alpha::Float64, T_supc::Vector{Int8}, T_sdpc::Vector{Int8})
+function du_sum!(tii::Int8, prm::quasiGrad.Param, stt::quasiGrad.State, mgd::quasiGrad.MasterGrad, dev::Union{Int32,Int64}, alpha::Float64, T_supc::Vector{Int8}, T_sdpc::Vector{Int8})
     # this function takes the derivative of the commonly used "u_sum"
     # term, and it applies the derivatives across mgd
     #
@@ -1013,7 +1013,7 @@ function du_sum!(tii::Int8, prm::quasiGrad.Param, stt::quasiGrad.State, mgd::qua
 end
 
 # flush the master grad and other key gradients terms :)
-function flush_gradients!(grd::quasiGrad.Grad, mgd::quasiGrad.Mgd, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System)
+function flush_gradients!(grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System)
     @batch per=thread for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # set all to 0

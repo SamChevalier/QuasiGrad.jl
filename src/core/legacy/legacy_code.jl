@@ -1,5 +1,5 @@
 # ac line flows
-function acline_flows_and_grads!(eval_grad::Bool, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol, SparseMatrixCSC{Float64, Int64}}, prm::quasiGrad.Param, state::Dict{Symbol,Vector{Float64}}, idx::quasiGrad.Idx{Symbol, Any})
+function acline_flows_and_grads!(eval_grad::Bool, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol, SparseMatrixCSC{Float64, Int64}}, prm::quasiGrad.Param, state::Dict{Symbol,Vector{Float64}}, idx::quasiGrad.Index{Symbol, Any})
     # line parameters
     g_sr = prm.acline.g_sr
     b_sr = prm.acline.b_sr
@@ -142,7 +142,7 @@ function acline_flows_and_grads!(eval_grad::Bool, grad::Dict{Symbol,Vector{Float
 end
 
 # ac line flows
-function xfm_flows_and_grads!(eval_grad::Bool, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol, SparseMatrixCSC{Float64, Int64}}, prm::quasiGrad.Param, state::Dict{Symbol,Vector{Float64}}, idx::quasiGrad.Idx{Symbol, Any})
+function xfm_flows_and_grads!(eval_grad::Bool, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol, SparseMatrixCSC{Float64, Int64}}, prm::quasiGrad.Param, state::Dict{Symbol,Vector{Float64}}, idx::quasiGrad.Index{Symbol, Any})
     g_sr = prm.xfm.g_sr
     b_sr = prm.xfm.b_sr
     b_ch = prm.xfm.b_ch
@@ -307,7 +307,7 @@ function xfm_flows_and_grads!(eval_grad::Bool, grad::Dict{Symbol,Vector{Float64}
 end
     
 # ac line flows
-function acline_flows!(eval_grad::Bool, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol, SparseMatrixCSC{Float64, Int64}}, prm::quasiGrad.Param, state::Dict{Symbol,Vector{Float64}}, idx::quasiGrad.Idx{Symbol, Any})
+function acline_flows!(eval_grad::Bool, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol, SparseMatrixCSC{Float64, Int64}}, prm::quasiGrad.Param, state::Dict{Symbol,Vector{Float64}}, idx::quasiGrad.Index{Symbol, Any})
         # line parameters
         g_sr = prm.acline.g_sr
         b_sr = prm.acline.b_sr
@@ -473,7 +473,7 @@ function acline_flows!(eval_grad::Bool, grad::Dict{Symbol,Vector{Float64}}, jac:
     end
     
     # ac line flows
-    function xfm_flows!(eval_grad::Bool, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol, SparseMatrixCSC{Float64, Int64}}, prm::quasiGrad.Param, state::Dict{Symbol,Vector{Float64}}, idx::quasiGrad.Idx{Symbol, Any})
+    function xfm_flows!(eval_grad::Bool, grad::Dict{Symbol,Vector{Float64}}, jac::Dict{Symbol, SparseMatrixCSC{Float64, Int64}}, prm::quasiGrad.Param, state::Dict{Symbol,Vector{Float64}}, idx::quasiGrad.Index{Symbol, Any})
         g_sr = prm.xfm.g_sr
         b_sr = prm.xfm.b_sr
         b_ch = prm.xfm.b_ch
@@ -668,7 +668,7 @@ function acline_flows!(eval_grad::Bool, grad::Dict{Symbol,Vector{Float64}}, jac:
             end
 
 # update the flow vectors
-function update_all_flows!(prm::quasiGrad.Param, idx::quasiGrad.Idx, state::Dict, grad::Dict, eval_grad::Bool)
+function update_all_flows!(prm::quasiGrad.Param, idx::quasiGrad.Index, state::Dict, grad::Dict, eval_grad::Bool)
         # loop over time
         for tii in prm.ts.time_keys
             # from
@@ -827,7 +827,7 @@ function initialize_states_grad_jac(sys)
     # in this file, we prepare the hard device constraints, which we pass to Gurobi
 #
 # note -- this is always run after clipping
-function solve_Gurobi_IBR!(prm::quasiGrad.Param, idx::quasiGrad.Idx, stt::quasiGrad.State, grd::quasiGrad.Grad, qG::quasiGrad.QG, sys::quasiGrad.System)
+function solve_Gurobi_IBR!(prm::quasiGrad.Param, idx::quasiGrad.Index, stt::quasiGrad.State, grd::quasiGrad.Grad, qG::quasiGrad.QG, sys::quasiGrad.System)
         # loop over each device and solve individually -- not clear if this is faster
         # than solving one big optimization problem all at once. see legacy code for
         # a (n unfinished) version where all devices are solved at once!
@@ -1822,7 +1822,7 @@ end
             #stt[:sp_ctg][tii][end]  = max(stt[:sfr_ctg][tii][end], stt[:sto_ctg][tii][end], 0.0)
             #stt[:zctg_s][tii][end]  = dt*prm.vio.s_flow*stt[:sp_ctg][tii][end]
 
-            function score_zctg!(prm::quasiGrad.Param, idx::quasiGrad.Idx, stt::quasiGrad.State, grd::quasiGrad.Grad, qG::quasiGrad.QG, sys::quasiGrad.System)
+            function score_zctg!(prm::quasiGrad.Param, idx::quasiGrad.Index, stt::quasiGrad.State, grd::quasiGrad.Grad, qG::quasiGrad.QG, sys::quasiGrad.System)
                 # loop over time
                 for tii in prm.ts.time_keys
                     # loop over the contingencies
@@ -2177,7 +2177,7 @@ end
         #:zw_enmax   => Dict(ii => zeros(prm.dev.num_W_enmax[ii]) for ii in 1:(sys.ndev)),
         #:zw_enmin   => Dict(ii => zeros(prm.dev.num_W_enmax[ii]) for ii in 1:(sys.ndev)),
 
-        function score_z_enmin_enmax!(prm::quasiGrad.Param, idx::quasiGrad.Idx, stt::quasiGrad.State, grd::quasiGrad.Grad, qG::quasiGrad.QG, sys::quasiGrad.System)
+        function score_z_enmin_enmax!(prm::quasiGrad.Param, idx::quasiGrad.Index, stt::quasiGrad.State, grd::quasiGrad.Grad, qG::quasiGrad.QG, sys::quasiGrad.System)
             # loop over the device indices and call the device id
             for dev in 1:sys.ndev
                 scr[:z_enmax][dev] = -sum(stt[:zw_enmax][dev]; init=0.0)
@@ -2357,7 +2357,7 @@ end
     end
 
 # deprecated
-function adam_legacy(adam_prm::Dict{Symbol,Float64}, adam_states::Dict{Symbol,Vector{Float64}}, loss_grad::Vector{Float64}, idx::quasiGrad.Idx)
+function adam_legacy(adam_prm::Dict{Symbol,Float64}, adam_states::Dict{Symbol,Vector{Float64}}, loss_grad::Vector{Float64}, idx::quasiGrad.Index)
     adam_states[:adam_step][1]                  += 1.0
     adam_states[:alpha_decay]                    = [adam_prm[:alpha]*(adam_prm[:step_decay]^adam_states[:adam_step][1])]
     adam_states[:m][idx[:adam][:update]]         = adam_prm[:beta1].*adam_states[:m][idx[:adam][:update]] + (1-adam_prm[:beta1]).*loss_grad[idx[:adam][:update]]
@@ -2419,7 +2419,7 @@ for ii = 1:5
 
     for ii in 1:N_its
         # compute all states and grads
-        quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 
         # take an adam step
         quasiGrad.adam!(adm_step, prm, stt, upd, adm, mgd, qG)
@@ -3344,7 +3344,7 @@ end
                     end  
                 end
 # cleanup reserve variables, mostly
-function centralized_reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function centralized_reserve_cleanup!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # this is, necessarily, a centralized (across devices) optimziation problem.
     #
     @warn "The centralized solver is 40% slower than the time-distributed solver (reserve_cleanup!)."
@@ -3690,7 +3690,7 @@ function centralized_reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, 
 end
 
 # cleanup reserve variables, mostly
-function centralized_soft_reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function centralized_soft_reserve_cleanup!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # this is, necessarily, a centralized optimziation problem.
     #
     @warn "The centralized solver is 40% slower than the time-distributed solver (soft_reserve_cleanup!)."
@@ -4183,7 +4183,7 @@ end
         end
 
 
-        function power_balance_old!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+        function power_balance_old!(grd::quasiGrad.Grad, idx::quasiGrad.Index, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
             # call penalty cost
             cp = prm.vio.p_bus * qG.scale_c_pbus_testing
             cq = prm.vio.q_bus * qG.scale_c_qbus_testing
@@ -4284,7 +4284,7 @@ end
 
 
 
-        function reserve_balance_experimental!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System)
+        function reserve_balance_experimental!(idx::quasiGrad.Index, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System)
             # we need access to the time index itself
             for tii in prm.ts.time_keys
                 # duration
@@ -4394,7 +4394,7 @@ end
         end
         
         # reserve sum
-        function reserve_sum!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, reserve_type::Symbol, stt::quasiGrad.State, tii::Int8, zone::Int64, zone_type::Symbol)
+        function reserve_sum!(idx::quasiGrad.Index, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, reserve_type::Symbol, stt::quasiGrad.State, tii::Int8, zone::Int64, zone_type::Symbol)
             if zone_type == :Pz
                 msc[reserve_type][zone] = 0.0
                 for dev in idx.dev_pzone[zone]
@@ -4411,7 +4411,7 @@ end
         end
         
         # reserve power sum
-        function reserve_p_sum!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, stt::quasiGrad.State, tii::Int8, zone::Int64)
+        function reserve_p_sum!(idx::quasiGrad.Index, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, stt::quasiGrad.State, tii::Int8, zone::Int64)
             msc[:pz_sum][zone] = 0.0
             for dev in idx.cs_pzone[zone]
                 msc[:pz_sum][zone] += stt.dev_p[tii][dev]
@@ -4419,7 +4419,7 @@ end
         end
         
         # reserve power max
-        function reserve_p_max!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, stt::quasiGrad.State, tii::Int8, zone::Int64)
+        function reserve_p_max!(idx::quasiGrad.Index, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, stt::quasiGrad.State, tii::Int8, zone::Int64)
             msc[:pz_max][zone] = 0.0
             for dev in idx.cs_pzone[zone]
                 if stt.dev_p[tii][dev] > msc[:pz_max][zone]
@@ -4443,7 +4443,7 @@ end
 
 
 
-        function adam_pf!(adm::quasiGrad.Adam, alpha::Float64, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::quasiGrad.Mgd, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}})
+        function adam_pf!(adm::quasiGrad.Adam, alpha::Float64, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}})
             # loop over the keys in mgd
             for var_key in keys(mgd)
                 # loop over all time
@@ -4471,7 +4471,7 @@ end
             end
         end
 
-        function master_grad_zs_xfm_fastesttt!(tii::Int8, idx::quasiGrad.Idx, stt::quasiGrad.State, grd::quasiGrad.Grad, mgd::quasiGrad.Mgd, sys::quasiGrad.System)
+        function master_grad_zs_xfm_fastesttt!(tii::Int8, idx::quasiGrad.Index, stt::quasiGrad.State, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, sys::quasiGrad.System)
             # =========== =========== =========== #
                         # zs (xfm)
             # =========== =========== =========== #
@@ -4570,7 +4570,7 @@ end
         end
 
 
-        function master_grad_zs_acline_fastesttt!(tii::Int8, idx::quasiGrad.Idx, stt::quasiGrad.State, grd::quasiGrad.Grad, mgd::quasiGrad.Mgd, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
+        function master_grad_zs_acline_fastesttt!(tii::Int8, idx::quasiGrad.Index, stt::quasiGrad.State, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, sys::quasiGrad.System)
             # =========== =========== =========== #
                         # zs (acline flows)
             # =========== =========== =========== #
@@ -4653,7 +4653,7 @@ end
         end
 
 # cleanup power flow (to some degree of accuracy)
-function cleanup_pf_with_Gurobi!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System)
+function cleanup_pf_with_Gurobi!(idx::quasiGrad.Index, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System)
     # device p/q stay fixed -- just tune v, theta, and dc
     # here is power balance:
     #
@@ -4921,7 +4921,7 @@ function soft_abs_grad_vec!(bit::quasiGrad.Bit, Dict{Symbol, Dict{Symbol, Vector
 end
 
 # correct the reactive power injections into the network
-function correct_reactive_injections!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function correct_reactive_injections!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
 
     # warning
     @info "note: the reactive power correction function does NOT take J pqe into account yet"
@@ -5095,7 +5095,7 @@ msc = Dict(
 # in this file, we design the function which solves economic dispatch
 #
 # note -- this is ALWAYS run after clipping and fixing various states
-function solve_economic_dispatch_with_sus!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function solve_economic_dispatch_with_sus!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # note: all binaries are LP relaxed (so there is not BaB-ing): 0 < b < 1
     #
     # NOTE -- we are not including start-up-state discounts -- not worth it :)
@@ -5679,7 +5679,7 @@ function solve_economic_dispatch_with_sus!(idx::quasiGrad.Idx, prm::quasiGrad.Pa
 end
 
 
-function dcvm_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Idx, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function dcvm_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # apply vm-dcpf to the economic dispatch solution -- again, doesn't really work :)
     #
     qinj = zeros(sys.nb)   # this will be overwritten
@@ -5994,7 +5994,7 @@ println(ch)
 
 @btime lldl(Ybr_neg, memory = qG.cutoff_level)
 
-function zctgs_grad_q_xfm!(tii::Int8, idx::quasiGrad.Idx, grd::quasiGrad.Grad, mgd::quasiGrad.Mgd, xfr_inds::Vector{Int64}, xto_inds::Vector{Int64}, xfr_alpha::Vector{Float64}, xto_alpha::Vector{Float64})
+function zctgs_grad_q_xfm!(tii::Int8, idx::quasiGrad.Index, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, xfr_inds::Vector{Int64}, xto_inds::Vector{Int64}, xfr_alpha::Vector{Float64}, xto_alpha::Vector{Float64})
     # so, this function takes and applies the gradient of
     # zctgs (at transformers) with repsect to reactive power
     # variables (i.e., all variables on a line which affect
@@ -6053,7 +6053,7 @@ function zctgs_grad_q_xfm!(tii::Int8, idx::quasiGrad.Idx, grd::quasiGrad.Grad, m
     end
 end
 
-function zctgs_grad_q_acline!(tii::Int8, idx::quasiGrad.Idx, grd::quasiGrad.Grad, mgd::quasiGrad.Mgd, aclfr_inds::Vector{Int64}, aclto_inds::Vector{Int64}, aclfr_alpha::Vector{Float64}, aclto_alpha::Vector{Float64})
+function zctgs_grad_q_acline!(tii::Int8, idx::quasiGrad.Index, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, aclfr_inds::Vector{Int64}, aclto_inds::Vector{Int64}, aclfr_alpha::Vector{Float64}, aclto_alpha::Vector{Float64})
     # so, this function takes and applies the gradient of
     # zctgs (at acline) with repsect to reactive power
     # variables (i.e., all variables on a line which affect
@@ -6100,7 +6100,7 @@ end
 
 
 
-function clip_for_feasibility!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function clip_for_feasibility!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # sequentially clip -- order does not matter
     #
     @warn "this isn't totally validated.. or used."
@@ -6113,7 +6113,7 @@ function clip_for_feasibility!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::qua
     clip_17c!(idx, prm, qG, stt, sys)
 end
 
-function clip_17c!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function clip_17c!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # loop over time/devices and look for violations
     for tii in prm.ts.time_keys
         for dev in 1:sys.ndev
@@ -6152,7 +6152,7 @@ function get_largest_indices(Dict{Symbol, Dict{Symbol, Vector{Float64}}}, bit::q
 end
 
 # final, manual projection
-function final_projection___BROKEN!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; final_projection::Bool=false)
+function final_projection___BROKEN!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; final_projection::Bool=false)
     
     for tii in prm.ts.time_keys
         # duration
@@ -6331,7 +6331,7 @@ function build_DCY(prm::quasiGrad.Param, sys::quasiGrad.System)
     # get the incomplete cholesky factorization
 end
 
-function solve_linear_pf_with_Gurobi_NOT_parallel!(idx::quasiGrad.Idx, msc::quasiGrad.Msc, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System)
+function solve_linear_pf_with_Gurobi_NOT_parallel!(idx::quasiGrad.Index, msc::quasiGrad.Msc, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System)
     # Solve linearized power flow with Gurobi -- use margin tinkering to guarentee convergence. Only consinder upper 
     # and lower bounds on the p/q production (no other limits).
     #
@@ -6683,7 +6683,7 @@ function solve_linear_pf_with_Gurobi_NOT_parallel!(idx::quasiGrad.Idx, msc::quas
 end
 
 # cleanup reserve variables, mostly
-function reserve_cleanup_not_parallel!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function reserve_cleanup_not_parallel!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # time limit: not needed -- this is an LP
     # integer tolerance: not needed -- this is an LP
     # FeasibilityTol -- qG.FeasibilityTol
@@ -7013,7 +7013,7 @@ function reserve_cleanup_not_parallel!(idx::quasiGrad.Idx, prm::quasiGrad.Param,
 end
 
 # cleanup reserve variables, mostly
-function soft_reserve_cleanup_not_parallel!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function soft_reserve_cleanup_not_parallel!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # this is, necessarily, a centralized optimziation problem (over decives)
     #
     # build the model! default tolerances are fine, because this
@@ -7650,7 +7650,7 @@ function perturb_states!(stt::quasiGrad.State, prm::quasiGrad.Param, sys::quasiG
     end
 end
 
-function build_constant_gradient(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiGrad.System)
+function build_constant_gradient(idx::quasiGrad.Index, prm::quasiGrad.Param, sys::quasiGrad.System)
     # build a structure which hold constant gradient information
     #
     tkeys = prm.ts.time_keys
@@ -7690,7 +7690,7 @@ function build_constant_gradient(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::
     dzqrd_zonal_dq_qrd_zonal_penalty = Dict(tkeys[ii] => prm.ts.duration[tkeys[ii]]*prm.vio.qrd_zonal for ii in 1:(sys.nT))
     
     # build the cgd
-    cgd = Cgd(
+    cgd = ConstantGrad(
         ctg_avg,
         ctg_min,
         dzon_dev_du_on_dev,
@@ -7793,7 +7793,7 @@ adm = Dict( :vm            => Dict( :m  => Dict(tkeys[ii] => zeros(sys.nb)   for
 
 # %%
 # ac line flows
-function acline_flows_st!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc_im::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt_im::quasiGrad.State, sys::quasiGrad.System)
+function acline_flows_st!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.Index, msc_im::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt_im::quasiGrad.State, sys::quasiGrad.System)
     # line parameters
     g_sr = prm.acline.g_sr
     b_sr = prm.acline.b_sr
@@ -8013,7 +8013,7 @@ function acline_flows_st!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGra
 end
 
 # note -- this is ALWAYS run after clipping
-function solve_Gurobi_projection_not_parallel!(final_projection::Bool, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function solve_Gurobi_projection_not_parallel!(final_projection::Bool, idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # loop over each device and solve individually -- not clear if this is faster
     # than solving one big optimization problem all at once. see legacy code for
     # a(n unfinished) version where all devices are solved at once!
@@ -8675,7 +8675,7 @@ end
             =#
 
 
-            function device_startup_states_safe!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quasiGrad.Mgd, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+            function device_startup_states_safe!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
                 # NOTE:   - msc.zsus_dev[tii][dev][sus]
                 #         - msc.u_sus_bnd[tii][dev][sus]
                 #
@@ -8785,101 +8785,134 @@ end
                 end
             end
 
-            function reserve_balance!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
-                # for the "endogenous" reserve requirements
-                rgu_sigma = prm.reserve.rgu_sigma
-                rgd_sigma = prm.reserve.rgd_sigma 
-                scr_sigma = prm.reserve.scr_sigma 
-                nsc_sigma = prm.reserve.nsc_sigma  
+#function reserve_balance!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+    # for the "endogenous" reserve requirements
+    rgu_sigma = prm.reserve.rgu_sigma
+    rgd_sigma = prm.reserve.rgd_sigma 
+    scr_sigma = prm.reserve.scr_sigma 
+    nsc_sigma = prm.reserve.nsc_sigma  
+
+    # finally, call the penalty costt
+    crgu = prm.vio.rgu_zonal
+    crgd = prm.vio.rgd_zonal
+    cscr = prm.vio.scr_zonal
+    cnsc = prm.vio.nsc_zonal
+    crru = prm.vio.rru_zonal
+    crrd = prm.vio.rrd_zonal
+    cqru = prm.vio.qru_zonal
+    cqrd = prm.vio.qrd_zonal
+    
+    # we need access to the time index itself
+    #@batch per=thread for tii in prm.ts.time_keys
+    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+        # duration
+        dt = prm.ts.duration[tii]
+
+        # loop over the zones (active power)
+        for zone in 1:sys.nzP
+            # endogenous sum
+            if isempty(idx.cs_pzone[zone])
+                # in the case there are NO consumers in a zone
+                stt.p_rgu_zonal_REQ[tii][zone] = 0.0
+                stt.p_rgd_zonal_REQ[tii][zone] = 0.0
+            else
+                psum = quasiGrad.sum_power(idx, stt, tii, zone) 
+                stt.p_rgu_zonal_REQ[tii][zone] = rgu_sigma[zone]*psum
+                stt.p_rgd_zonal_REQ[tii][zone] = rgd_sigma[zone]*psum
+                    # => sum(stt.dev_p[tii][dev] for dev in idx.cs_pzone[zone]; init=0.0)
+            end
+
+            # endogenous max
+            if isempty(idx.pr_pzone[zone])
+                # in the case there are NO producers in a zone
+                stt.p_scr_zonal_REQ[tii][zone] = 0.0
+                stt.p_nsc_zonal_REQ[tii][zone] = 0.0
+            else
+                pmax = quasiGrad.max_power(idx, stt, tii, zone) 
+                stt.p_scr_zonal_REQ[tii][zone] = scr_sigma[zone]*pmax
+                stt.p_nsc_zonal_REQ[tii][zone] = nsc_sigma[zone]*pmax
+                    # => maximum(stt.dev_p[tii][dev] for dev in idx.pr_pzone[zone])
+            end
+
+            # balance equations -- compute the shortfall values
+            stt.p_rgu_zonal_penalty[tii][zone] = max(stt.p_rgu_zonal_REQ[tii][zone] - 
+                        sum(stt.p_rgu[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
             
-                # finally, call the penalty costt
-                crgu = prm.vio.rgu_zonal
-                crgd = prm.vio.rgd_zonal
-                cscr = prm.vio.scr_zonal
-                cnsc = prm.vio.nsc_zonal
-                crru = prm.vio.rru_zonal
-                crrd = prm.vio.rrd_zonal
-                cqru = prm.vio.qru_zonal
-                cqrd = prm.vio.qrd_zonal
-                
-                # we need access to the time index itself
-                #@batch per=thread for tii in prm.ts.time_keys
-                @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
-                    # duration
-                    dt = prm.ts.duration[tii]
-            
-                    # loop over the zones (active power)
-                    for zone in 1:sys.nzP
-                        # endogenous sum
-                        if isempty(idx.cs_pzone[zone])
-                            # in the case there are NO consumers in a zone
-                            stt.p_rgu_zonal_REQ[tii][zone] = 0.0
-                            stt.p_rgd_zonal_REQ[tii][zone] = 0.0
-                        else
-                            psum = quasiGrad.sum_power(idx, stt, tii, zone) 
-                            stt.p_rgu_zonal_REQ[tii][zone] = rgu_sigma[zone]*psum
-                            stt.p_rgd_zonal_REQ[tii][zone] = rgd_sigma[zone]*psum
-                                # => sum(stt.dev_p[tii][dev] for dev in idx.cs_pzone[zone]; init=0.0)
-                        end
-            
-                        # endogenous max
-                        if isempty(idx.pr_pzone[zone])
-                            # in the case there are NO producers in a zone
-                            stt.p_scr_zonal_REQ[tii][zone] = 0.0
-                            stt.p_nsc_zonal_REQ[tii][zone] = 0.0
-                        else
-                            pmax = quasiGrad.max_power(idx, stt, tii, zone) 
-                            stt.p_scr_zonal_REQ[tii][zone] = scr_sigma[zone]*pmax
-                            stt.p_nsc_zonal_REQ[tii][zone] = nsc_sigma[zone]*pmax
-                                # => maximum(stt.dev_p[tii][dev] for dev in idx.pr_pzone[zone])
-                        end
-            
-                        # balance equations -- compute the shortfall values
-                        stt.p_rgu_zonal_penalty[tii][zone] = max(stt.p_rgu_zonal_REQ[tii][zone] - 
-                                    sum(stt.p_rgu[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
-                        
-                        stt.p_rgd_zonal_penalty[tii][zone] = max(stt.p_rgd_zonal_REQ[tii][zone] - 
-                                    sum(stt.p_rgd[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
-            
-                        stt.p_scr_zonal_penalty[tii][zone] = max(stt.p_rgu_zonal_REQ[tii][zone] + 
-                                    stt.p_scr_zonal_REQ[tii][zone] -
-                                    sum(stt.p_rgu[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) -
-                                    sum(stt.p_scr[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
-            
-                        stt.p_nsc_zonal_penalty[tii][zone] = max(stt.p_rgu_zonal_REQ[tii][zone] + 
-                                    stt.p_scr_zonal_REQ[tii][zone] +
-                                    stt.p_nsc_zonal_REQ[tii][zone] -
-                                    sum(stt.p_rgu[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) -
-                                    sum(stt.p_scr[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) - 
-                                    sum(stt.p_nsc[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
-            
-                        stt.p_rru_zonal_penalty[tii][zone] = max(prm.reserve.rru_min[zone][tii] -
-                                    sum(stt.p_rru_on[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) - 
-                                    sum(stt.p_rru_off[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
-            
-                        stt.p_rrd_zonal_penalty[tii][zone] = max(prm.reserve.rrd_min[zone][tii] -
-                                    sum(stt.p_rrd_on[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) - 
-                                    sum(stt.p_rrd_off[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
-                    end
-            
-                    # loop over the zones (reactive power) -- gradients are computed in the master grad
-                    for zone in 1:sys.nzQ
-                        stt.q_qru_zonal_penalty[tii][zone] = max(prm.reserve.qru_min[zone][tii] -
-                                    sum(stt.q_qru[tii][dev] for dev in idx.dev_qzone[zone]; init=0.0),0.0)
-            
-                        stt.q_qrd_zonal_penalty[tii][zone] = max(prm.reserve.qrd_min[zone][tii] -
-                                    sum(stt.q_qrd[tii][dev] for dev in idx.dev_qzone[zone]; init=0.0),0.0)
-                    end
-            
-                    # shortfall penalties -- gradients are static and taken when initialized
-                    stt.zrgu_zonal[tii] .= (dt.*crgu).*stt.p_rgu_zonal_penalty[tii]
-                    stt.zrgd_zonal[tii] .= (dt.*crgd).*stt.p_rgd_zonal_penalty[tii]
-                    stt.zscr_zonal[tii] .= (dt.*cscr).*stt.p_scr_zonal_penalty[tii]
-                    stt.znsc_zonal[tii] .= (dt.*cnsc).*stt.p_nsc_zonal_penalty[tii]
-                    stt.zrru_zonal[tii] .= (dt.*crru).*stt.p_rru_zonal_penalty[tii]
-                    stt.zrrd_zonal[tii] .= (dt.*crrd).*stt.p_rrd_zonal_penalty[tii]
-                    stt.zqru_zonal[tii] .= (dt.*cqru).*stt.q_qru_zonal_penalty[tii]
-                    stt.zqrd_zonal[tii] .= (dt.*cqrd).*stt.q_qrd_zonal_penalty[tii]
+            stt.p_rgd_zonal_penalty[tii][zone] = max(stt.p_rgd_zonal_REQ[tii][zone] - 
+                        sum(stt.p_rgd[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
+
+            stt.p_scr_zonal_penalty[tii][zone] = max(stt.p_rgu_zonal_REQ[tii][zone] + 
+                        stt.p_scr_zonal_REQ[tii][zone] -
+                        sum(stt.p_rgu[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) -
+                        sum(stt.p_scr[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
+
+            stt.p_nsc_zonal_penalty[tii][zone] = max(stt.p_rgu_zonal_REQ[tii][zone] + 
+                        stt.p_scr_zonal_REQ[tii][zone] +
+                        stt.p_nsc_zonal_REQ[tii][zone] -
+                        sum(stt.p_rgu[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) -
+                        sum(stt.p_scr[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) - 
+                        sum(stt.p_nsc[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
+
+            stt.p_rru_zonal_penalty[tii][zone] = max(prm.reserve.rru_min[zone][tii] -
+                        sum(stt.p_rru_on[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) - 
+                        sum(stt.p_rru_off[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
+
+            stt.p_rrd_zonal_penalty[tii][zone] = max(prm.reserve.rrd_min[zone][tii] -
+                        sum(stt.p_rrd_on[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0) - 
+                        sum(stt.p_rrd_off[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0),0.0)
+        end
+
+        # loop over the zones (reactive power) -- gradients are computed in the master grad
+        for zone in 1:sys.nzQ
+            stt.q_qru_zonal_penalty[tii][zone] = max(prm.reserve.qru_min[zone][tii] -
+                        sum(stt.q_qru[tii][dev] for dev in idx.dev_qzone[zone]; init=0.0),0.0)
+
+            stt.q_qrd_zonal_penalty[tii][zone] = max(prm.reserve.qrd_min[zone][tii] -
+                        sum(stt.q_qrd[tii][dev] for dev in idx.dev_qzone[zone]; init=0.0),0.0)
+        end
+
+        # shortfall penalties -- gradients are static and taken when initialized
+        stt.zrgu_zonal[tii] .= (dt.*crgu).*stt.p_rgu_zonal_penalty[tii]
+        stt.zrgd_zonal[tii] .= (dt.*crgd).*stt.p_rgd_zonal_penalty[tii]
+        stt.zscr_zonal[tii] .= (dt.*cscr).*stt.p_scr_zonal_penalty[tii]
+        stt.znsc_zonal[tii] .= (dt.*cnsc).*stt.p_nsc_zonal_penalty[tii]
+        stt.zrru_zonal[tii] .= (dt.*crru).*stt.p_rru_zonal_penalty[tii]
+        stt.zrrd_zonal[tii] .= (dt.*crrd).*stt.p_rrd_zonal_penalty[tii]
+        stt.zqru_zonal[tii] .= (dt.*cqru).*stt.q_qru_zonal_penalty[tii]
+        stt.zqrd_zonal[tii] .= (dt.*cqrd).*stt.q_qrd_zonal_penalty[tii]
+    end
+end
+
+            # loop over lines and xfms
+            for ac_dev in 1:sys.nac
+                if (ctg.sfr_vio[thrID][ac_dev] > qG.grad_ctg_tol) && (ctg.sfr_vio[thrID][ac_dev] > ctg.sto_vio[thrID][ac_dev])
+                    flw.dsmax_dp_flow[tii][ac_dev]   += gc*ctg.pflow_k[thrID][ac_dev]/ctg.sfr[thrID][ac_dev]
+                    flw.dsmax_dqfr_flow[tii][ac_dev] += gc*flw.ac_qfr[tii][ac_dev]/ctg.sfr[thrID][ac_dev]
+                    # => flw.dsmax_dqto_flow[tii][ac_dev] = 0.0
+                elseif (ctg.sto_vio[thrID][ac_dev] > qG.grad_ctg_tol) && (ctg.sto_vio[thrID][ac_dev] > ctg.sfr_vio[thrID][ac_dev])
+                    flw.dsmax_dp_flow[thrID][ac_dev]   += gc*ctg.pflow_k[thrID][ac_dev]/ctg.sfr[thrID][ac_dev]
+                    # => flw.dsmax_dqfr_flow[thrID][ac_dev] = 0.0
+                    flw.dsmax_dqto_flow[thrID][ac_dev] += gc*flw.ac_qto[tii][ac_dev]/ctg.sto[thrID][ac_dev]
+                end
+                if t == 5 # in this case, there are no violations on the line
+                    flw.dsmax_dp_flow[thrID][ac_dev]   = 0.0
+                    flw.dsmax_dqfr_flow[thrID][ac_dev] = 0.0
+                    flw.dsmax_dqto_flow[thrID][ac_dev] = 0.0
                 end
             end
-            
+
+                        
+function get_largest_ctg_indices(bit::quasiGrad.Bit, flw::quasiGrad.Flow, qG::quasiGrad.QG, s1::Symbol, s2::Symbol)
+    for ii in 1:length(flw[s1])
+        if (flw[s1][ii] >= flw[s2][ii]) && (flw[s1][ii] > qG.grad_ctg_tol)
+            bit[s1][ii] = 1
+            bit[s2][ii] = 0
+        elseif flw[s2][ii] > qG.grad_ctg_tol # no need to check v2[ii] > v1[ii]
+            bit[s2][ii] = 1
+            bit[s1][ii] = 0
+        else
+            bit[s1][ii] = 0  
+            bit[s2][ii] = 0
+        end
+    end
+end

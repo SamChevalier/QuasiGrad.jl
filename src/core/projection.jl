@@ -1,7 +1,7 @@
 # in this file, we prepare the hard device constraints, which we pass to Gurobi
 #
 # note -- this is ALWAYS run after solve_Gurobi_projection!()
-function apply_Gurobi_projection_and_states!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function apply_Gurobi_projection_and_states!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # we only need to apply the updated binary variables (all of them)
     # after running the batch_fix function
     for tii in prm.ts.time_keys
@@ -16,7 +16,7 @@ function apply_Gurobi_projection_and_states!(idx::quasiGrad.Idx, prm::quasiGrad.
     # reactive powers are all set
 end
 
-function project!(pct_round::Float64, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; final_projection::Bool=false)
+function project!(pct_round::Float64, idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; final_projection::Bool=false)
     # this function 1) projects, 2) batch fixes, and 3) applies the projection
     #
     # 1. solve the projection -- don't treat the final projection as special
@@ -32,7 +32,7 @@ function project!(pct_round::Float64, idx::quasiGrad.Idx, prm::quasiGrad.Param, 
     quasiGrad.apply_Gurobi_projection_and_states!(idx, prm, qG, stt, sys)
 end
 
-function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # loop over each device and solve individually -- not clear if this is faster
     # than solving one big optimization problem all at once. see legacy code for
     # a(n unfinished) version where all devices are solved at once!

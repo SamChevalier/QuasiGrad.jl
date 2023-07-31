@@ -142,7 +142,7 @@ struct Dc
     init_qdc_to::Vector{Float64}
 end
 
-struct Ctg
+struct Ctg_Prm
     alpha::Float64      
     ctg_inds::LinearIndices{1, Tuple{Base.OneTo{Int64}}}  
     id::Vector{String}         
@@ -329,7 +329,7 @@ end
 struct Param
     ts::Timeseries     
     dc::Dc     
-    ctg::Ctg    
+    ctg::Ctg_Prm    
     bus::Bus    
     xfm::Xfm    
     vio::Violation 
@@ -339,7 +339,7 @@ struct Param
     reserve::Reserve
 end
 
-struct Idx
+struct Index
     acline_fr_bus::Vector{Int64}
     acline_to_bus::Vector{Int64}
     xfm_fr_bus::Vector{Int64}
@@ -395,7 +395,7 @@ struct Idx
 end
 
 # constant gradient terms -- precomputed for speed
-struct Cgd
+struct ConstantGrad
     ctg_avg::Vector{Float64}
     ctg_min::Vector{Float64}
     dzon_dev_du_on_dev::Vector{Vector{Float64}}
@@ -420,7 +420,7 @@ struct Cgd
     dzqrd_zonal_dq_qrd_zonal_penalty::Vector{Vector{Float64}}
 end
 
-struct Ntk
+struct Network
     s_max::Vector{Float64}
     E::SparseMatrixCSC{Int64, Int64}
     Er::SparseMatrixCSC{Int64, Int64}
@@ -441,33 +441,46 @@ struct Ntk
     ctg_inds::LinearIndices{1, Tuple{Base.OneTo{Int64}}}    
     Ybr_Ch::Any # quasiGrad.SuiteSparse.CHOLMOD.Factor{Float64} #::Any   # quasiGrad.LinearAlgebra.Cholesky{Float64, Matrix{Float64}}   
     Ybr_ChPr::quasiGrad.Preconditioners.LimitedLDLFactorization{Float64, Int64, Vector{Int64}, Vector{Int64}}# Preconditioners.CholeskyPreconditioner{quasiGrad.Preconditioners.LimitedLDLFactorizations.LimitedLDLFactorization{Float64, Int64, Vector{Int64}, Vector{Int64}}} # Any # quasiGrad.Preconditioners.CholeskyPreconditioner{quasiGrad.Preconditioners.LimitedLDLFactorizations.LimitedLDLFactorization{Float64, Int64}}        
-    u_k::Dict{Int64, Vector{Float64}} # Dict{Int64, SparseArrays.SparseVector{Float64, Int64}} # Dict{Int64, Vector{Float64}}             
-    g_k::Dict{Int64, Float64}
+    u_k::Vector{Vector{Float64}} # Dict{Int64, SparseArrays.SparseVector{Float64, Int64}} # Dict{Int64, Vector{Float64}}             
+    g_k::Vector{Float64}
     Ybus_acline_real::SparseArrays.SparseMatrixCSC{Float64, Int64}
     Ybus_acline_imag::SparseArrays.SparseMatrixCSC{Float64, Int64}
 end
 
+# base-case flow data
 struct Flow
     ac_phi::Vector{Vector{Float64}}
     ac_qfr::Vector{Vector{Float64}}         
     ac_qto::Vector{Vector{Float64}}         
     qfr2::Vector{Vector{Float64}}           
     qto2::Vector{Vector{Float64}}           
-    bt::Vector{Vector{Float64}}             
-    dsmax_dp_flow::Vector{Vector{Float64}} 
-    dsmax_dqfr_flow::Vector{Vector{Float64}}
-    dsmax_dqto_flow::Vector{Vector{Float64}}
-    pflow_k::Vector{Vector{Float64}}        
-    sfr::Vector{Vector{Float64}}            
-    sto::Vector{Vector{Float64}}            
-    sfr_vio::Vector{Vector{Float64}}        
-    sto_vio::Vector{Vector{Float64}}        
-    p_inj::Vector{Vector{Float64}}          
-    theta_k::Vector{Vector{Float64}}        
-    rhs::Vector{Vector{Float64}}            
-    dz_dpinj::Vector{Vector{Float64}}       
-    dz_dpinj_all::Vector{Vector{Float64}}   
+    bt::Vector{Vector{Float64}} 
+    dsmax_dqfr_flow_all::Vector{Vector{Float64}}
+    dsmax_dqto_flow_all::Vector{Vector{Float64}}    
+    p_inj::Vector{Vector{Float64}}
+    dz_dpinj_all::Vector{Vector{Float64}}                              
     c::Vector{Vector{Float64}}
+    theta::Vector{Vector{Float64}}
+    worst_ctg_ids::Vector{Vector{Int64}}
+    pf_cg_statevars::Vector{IterativeSolvers.CGStateVariables{Float64, Vector{Float64}}}
+end
+
+# contingency data -- indexed by "thrID"
+struct Contingency
+    theta_k::Vector{Vector{Float64}}  
+    pflow_k::Vector{Vector{Float64}}  
+    sfr::Vector{Vector{Float64}}  
+    sto::Vector{Vector{Float64}}  
+    sfr_vio::Vector{Vector{Float64}}  
+    sto_vio::Vector{Vector{Float64}}  
+    dz_dpinj::Vector{Vector{Float64}} 
+    rhs::Vector{Vector{Float64}} 
+    dsmax_dp_flow::Vector{Vector{Float64}} 
+    dz_dpinj_all_threadsum::Vector{Vector{Float64}}
+    dsmax_dqfr_flow_threadsum::Vector{Vector{Float64}}
+    dsmax_dqto_flow_threadsum::Vector{Vector{Float64}}
+    ready_to_use::Vector{Bool}
+    grad_cg_statevars::Vector{IterativeSolvers.CGStateVariables{Float64, Vector{Float64}}}
 end
 
 struct State
@@ -859,12 +872,7 @@ struct Grad
     dx::Dx
 end
 
-struct Bit
-    sfr_vio::Vector{BitVector}        
-    sto_vio::Vector{BitVector}        
-end
-
-struct Mgd
+struct MasterGrad
     vm::Vector{Vector{Float64}}          
     va::Vector{Vector{Float64}}          
     tau::Vector{Vector{Float64}}         

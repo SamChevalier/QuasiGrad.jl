@@ -9,6 +9,7 @@ using JuMP
 using FLoops
 using Gurobi
 using Random
+using ThreadsX
 using Polyester
 using Statistics
 using SparseArrays

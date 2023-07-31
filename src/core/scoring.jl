@@ -29,7 +29,7 @@ function score_zbase!(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
     scr[:zbase_penalized] = scr[:zbase]       + scr[:zt_penalty] - qG.constraint_grad_weight*scr[:zhat_mxst]
 end
 
-function score_zt!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State)
+function score_zt!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State)
     # update the base case variable zt
     #
     # note: zt = zt_original + zt_original -- otherwise, we make no distinction,

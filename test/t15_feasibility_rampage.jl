@@ -63,7 +63,7 @@ path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases
 
 InFile1 = path
 jsn = quasiGrad.load_json(InFile1)
-adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn)
+adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
 
 # %% ======= Fix zsus
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S3.1_20230606/C3S3N01576D1/scenario_007.json"
@@ -71,15 +71,15 @@ InFile1 = path
 jsn = quasiGrad.load_json(InFile1)
 
 # initialize
-adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn)
+adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
 
 # %% solve
 fix       = true
 pct_round = 100.0
-quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
-quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
-quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 
 # %% =============
 adm_step    = 0
@@ -101,7 +101,7 @@ beta1_decay = beta1_decay*beta1
 beta2_decay = beta2_decay*beta2
 
 # compute all states and grads
-quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 
 # take an adam step
 
@@ -109,7 +109,7 @@ quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, 
 # %% ==============
 
 qG.adam_max_time = 10.0
-@time quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+@time quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
 
 # %% ==============
 
@@ -119,7 +119,7 @@ quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 # %%
 
-quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 
 
 # %% == 
@@ -263,12 +263,12 @@ InFile1 = path
 jsn     = quasiGrad.load_json(InFile1)
 
 # initialize
-adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn, perturb_states=true, pert_size=1.0)
+adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=true, pert_size=1.0)
 
 # %% solve
 fix       = true
 pct_round = 100.0
-quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
 quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
 
@@ -280,14 +280,14 @@ quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 # %%
 quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
-quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 
 # %% ======================= 
 quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
 quasiGrad.acline_flows_parallel!(bit, grd, idx, msc, prm, qG, stt, sys)
 
 # %% ===
-@time quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+@time quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 @time quasiGrad.solve_ctgs_parallel!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 

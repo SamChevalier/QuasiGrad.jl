@@ -352,7 +352,7 @@ function parse_json_ctg(json_data::Dict)
     alpha         = 1/length(json_data["network"]["bus"])
     
     # setup outputs
-    ctg_param = Ctg(
+    ctg_param = Ctg_Prm(
         alpha,     
         ctg_inds,  
         ctg_id,        

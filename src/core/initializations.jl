@@ -23,12 +23,9 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
         print_reserve_cleanup_success = true
     end
 
-    @warn "fix master grad -- features turned off!"
-
     # how many threads?
-    num_threads = Sys.CPU_THREADS - 2
-    num_threads = 1 #Threads.nthreads()  
-    @warn "using nthreads"
+    # => num_threads = Sys.CPU_THREADS - 2
+    num_threads = Threads.nthreads()  
     nT          = length(prm.ts.time_keys)
 
     # should we run (or skip) line and ac binary updates?
@@ -439,7 +436,7 @@ function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::B
     qG = initialize_qG(prm, Div=Div, hpc_params=hpc_params)
 
     # intialize (empty) states
-    bit, cgd, grd, mgd, scr, stt, msc = initialize_states(idx, prm, sys, qG)
+    cgd, grd, mgd, scr, stt, msc = initialize_states(idx, prm, sys, qG)
 
     # initialize the states which adam will update -- the rest are fixed
     adm = initialize_adam_states(qG, sys)
@@ -448,7 +445,7 @@ function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::B
     upd = identify_update_states(prm, idx, stt, sys)
 
     # initialize the contingency network structure and reusable vectors in dicts
-    ntk, flw = initialize_ctg(stt, sys, prm, qG, idx)
+    ctg, ntk, flw = initialize_ctg(stt, sys, prm, qG, idx)
 
     # shall we randomly perutb the states?
     if perturb_states == true
@@ -460,25 +457,8 @@ function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::B
         upd = identify_update_states(prm, idx, stt, sys)
     end
 
-    # contingency structure: ctb and ctd
-    ctb = [zeros(sys.nb-1) for _ in 1:sys.nT]     # ctb
-
-    # this was *such* a good idea, but we need to parallelize, so 
-    # we have store time-based solutions in "ctd"
-        # => ctd = [zeros(sys.nb-1) for _ in 1:sys.nctg]   # ctd
-    ctd = [zeros(sys.nb-1) for _ in 1:sys.nT]   # ctd
-
-    # build the full set of vectors, but only use the top fraction (for testing ease, mostly)
-    wct = [collect(1:sys.nctg) for _ in 1:sys.nT] # wct
-
-    # I don't want to put these into dicts, because I want them
-    # to be as fasttt as possible, and we read/write into them a lot!
-        # alt: => ctb  = [zeros(sys.nb-1) for _ in 1:sys.nT]
-        # alt: => ctd  = [zeros(sys.nb-1) for _ in 1:sys.nctg]
-        # alt: => wct  = [collect(1:sys.nctg) for _ in 1:sys.nT]
-
     # output
-    return adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct
+    return adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd
 end
 
 function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
@@ -610,7 +590,7 @@ function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
     Ts_en_min, Ts_su_max = build_time_sets(prm, sys)
 
     # combine
-    idx = Idx(
+    idx = Index(
         acline_fr_bus,
         acline_to_bus,
         xfm_fr_bus,
@@ -668,7 +648,7 @@ function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
     return  idx
 end
 
-function initialize_states(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.QG)
+function initialize_states(idx::quasiGrad.Index, prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.QG)
     
     # build stt
     stt = build_state(prm, sys, qG)
@@ -686,9 +666,6 @@ function initialize_states(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiG
     #   with all "basis" variables -- i.e., the variables for which all others are computed.
     #   These are *exactly* (I think..) the variables which are reported in the solution file
     mgd = build_master_grad(sys)
-
-    # build the bit vector, for storing indices
-    bit = build_bit(sys)
 
     # build scr -- this is the only dictionary we use
     scr = Dict(
@@ -720,10 +697,10 @@ function initialize_states(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiG
         :ed_obj          => 0.0) # hold the ed solution
 
     # output
-    return bit, cgd, grd, mgd, scr, stt, msc
+    return cgd, grd, mgd, scr, stt, msc
 end
 
-function identify_update_states(prm::quasiGrad.Param, idx::quasiGrad.Idx, stt::quasiGrad.State, sys::quasiGrad.System)
+function identify_update_states(prm::quasiGrad.Param, idx::quasiGrad.Index, stt::quasiGrad.State, sys::quasiGrad.System)
     # in this function, we will handle five types of fixed variables:
     #   1. must run binaries
     #   2. planned outage binaries and their powers
@@ -734,19 +711,19 @@ function identify_update_states(prm::quasiGrad.Param, idx::quasiGrad.Idx, stt::q
         #       via Gurobi will handled later
     #
     # all other, non-fixed states are "variable" states
-    upd   = Dict(:u_on_dev     => [collect(1:sys.ndev) for ii in 1:(sys.nT)],
-                 :p_rrd_off    => [collect(1:sys.ndev) for ii in 1:(sys.nT)],
-                 :p_nsc        => [collect(1:sys.ndev) for ii in 1:(sys.nT)],
-                 :p_rru_off    => [collect(1:sys.ndev) for ii in 1:(sys.nT)],
-                 :q_qru        => [collect(1:sys.ndev) for ii in 1:(sys.nT)],
-                 :q_qrd        => [collect(1:sys.ndev) for ii in 1:(sys.nT)],
-                 :phi          => [collect(1:sys.nx)   for ii in 1:(sys.nT)],
-                 :tau          => [collect(1:sys.nx)   for ii in 1:(sys.nT)],
-                 :dc_pto       => [collect(1:sys.nldc) for ii in 1:(sys.nT)],
-                 :va           => [collect(1:sys.nb)   for ii in 1:(sys.nT)],
-                 :u_on_acline  => [collect(1:sys.nl)   for ii in 1:(sys.nT)],
-                 :u_on_xfm     => [collect(1:sys.nx)   for ii in 1:(sys.nT)],
-                 :u_step_shunt => [collect(1:sys.nsh)  for ii in 1:(sys.nT)])
+    upd   = Dict(:u_on_dev     => [collect(1:sys.ndev) for ii in 1:sys.nT],
+                 :p_rrd_off    => [collect(1:sys.ndev) for ii in 1:sys.nT],
+                 :p_nsc        => [collect(1:sys.ndev) for ii in 1:sys.nT],
+                 :p_rru_off    => [collect(1:sys.ndev) for ii in 1:sys.nT],
+                 :q_qru        => [collect(1:sys.ndev) for ii in 1:sys.nT],
+                 :q_qrd        => [collect(1:sys.ndev) for ii in 1:sys.nT],
+                 :phi          => [collect(1:sys.nx)   for ii in 1:sys.nT],
+                 :tau          => [collect(1:sys.nx)   for ii in 1:sys.nT],
+                 :dc_pto       => [collect(1:sys.nldc) for ii in 1:sys.nT],
+                 :va           => [collect(1:sys.nb)   for ii in 1:sys.nT],
+                 :u_on_acline  => [collect(1:sys.nl)   for ii in 1:sys.nT],
+                 :u_on_xfm     => [collect(1:sys.nx)   for ii in 1:sys.nT],
+                 :u_step_shunt => [collect(1:sys.nsh)  for ii in 1:sys.nT])
 
     # 1. must run sets =======================================
     for dev in reverse(1:sys.ndev)
@@ -873,7 +850,7 @@ function join_params(ts_prm::Dict, dc_prm::Dict, ctg_prm::Dict, bus_prm::Dict, x
 end
 
 # build everything that will be needed to solve ctgs
-function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGrad.QG, idx::quasiGrad.Idx)
+function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGrad.QG, idx::quasiGrad.Index)
     # note, the reference bus is always bus #1
     #
     # first, get the ctg limits
@@ -976,8 +953,8 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     if qG.build_ctg_lowrank == true
         # no need => v_k = Dict(ctg_ii => quasiGrad.spzeros(nac) for ctg_ii in 1:sys.nctg)
         # no need => b_k = Dict(ctg_ii => 0.0 for ctg_ii in 1:sys.nctg)
-        u_k = Dict(ctg_ii => zeros(sys.nb-1) for ctg_ii in 1:sys.nctg) # Dict(ctg_ii => quasiGrad.spzeros(sys.nb-1) for ctg_ii in 1:sys.nctg)
-        g_k = Dict(ctg_ii => 0.0             for ctg_ii in 1:sys.nctg)
+        u_k = [zeros(sys.nb-1) for ctg_ii in 1:sys.nctg] # Dict(ctg_ii => zeros(sys.nb-1) for ctg_ii in 1:sys.nctg) # Dict(ctg_ii => quasiGrad.spzeros(sys.nb-1) for ctg_ii in 1:sys.nctg)
+        g_k = zeros(sys.nctg) # => Dict(ctg_ii => 0.0 for ctg_ii in 1:sys.nctg)
         # if the "w_k" formulation is wanted => w_k = Dict(ctg_ii => quasiGrad.spzeros(sys.nb-1) for ctg_ii in 1:sys.nctg)
     else
         v_k = 0
@@ -995,14 +972,14 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     end
 
     # => @info "Solving $(sys.nctg) wmi factors..."
-    # => FLoops.assistant(false)
-    @batch per=thread for ctg_ii in 1:sys.nctg
-    # @floop ThreadedEx(basesize = sys.nctg ÷ qG.num_threads) for ctg_ii in 1:sys.nctg
+    FLoops.assistant(false)
+    # => @batch per=thread for ctg_ii in 1:sys.nctg (slightly slower)
+    @floop ThreadedEx(basesize = sys.nctg ÷ qG.num_threads) for ctg_ii in 1:sys.nctg
         # this code is optimized -- see above for comments!!!
         u_k[ctg_ii] .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
         g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
     end
-    # => FLoops.assistant(true)
+    FLoops.assistant(true)
     # => @info "Done."
 
     # original code:
@@ -1093,22 +1070,19 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
         #    end
         #end
 
-    # initialize ctg state
-    tkeys = [Symbol("t"*string(ii)) for ii in 1:(sys.nT)]
-
     # build the phase angle solution dict -- this will have "sys.nb-1" angles for each solution,
     # since theta1 = 0, and it will have n_ctg+1 solutions, because the base case solution will be
     # optionally saved at the end.. similar for pflow_k
-    # theta_k       = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1)) for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT))
-    # pflow_k       = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nac))  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT))
-    # theta_k       = Dict(tkeys[ii] => [zeros(sys.nb-1) for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT))
-    # pflow_k       = Dict(tkeys[ii] => [zeros(sys.nac)  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT))
+    # theta_k       = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1)) for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT)
+    # pflow_k       = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nac))  for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT)
+    # theta_k       = Dict(tkeys[ii] => [zeros(sys.nb-1) for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT)
+    # pflow_k       = Dict(tkeys[ii] => [zeros(sys.nac)  for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT)
     # this is the gradient solution assuming a base case admittance (it is then rank 1 corrected to dz_dpinj)
-    # ctd = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT)) 
-    # ctd = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT))   
+    # ctd = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT) 
+    # ctd = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT)   
     # this is the gradient solution, corrected from ctd
-    # dz_dpinj      = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT)) 
-    # dz_dpinj      = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for ii in 1:(sys.nT)) 
+    # dz_dpinj      = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT) 
+    # dz_dpinj      = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT) 
 
     # "local" storage for apparent power flows (not needed across time)
     # sfr     = Dict(ctg_ii => zeros(sys.nac) for ctg_ii in 1:sys.nctg)
@@ -1127,8 +1101,14 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     # compute the constant acline Ybus matrix
     Ybus_acline_real, Ybus_acline_imag = quasiGrad.initialize_acline_Ybus(idx, prm, stt, sys)
 
+    # initialize state vectors for holding cg! results. first, standard base-case power flow solver:
+    x                 = randn(sys.nb-1) # using this format just to match "cg.jl"
+    # note -- the first array does NOT need to be zero'd out at each iteration, it seems
+    pf_cg_statevars   = [quasiGrad.IterativeSolvers.CGStateVariables(zero(x), similar(x), similar(x)) for ii in 1:sys.nT]
+    grad_cg_statevars = [quasiGrad.IterativeSolvers.CGStateVariables(zero(x), similar(x), similar(x)) for ii in 1:(qG.num_threads+2)]
+
     # network parameters
-    ntk = quasiGrad.Ntk(
+    ntk = quasiGrad.Network(
             s_max_ctg,     # max contingency flows
             E,             # full incidence matrix
             Er,            # reduced incidence matrix
@@ -1155,31 +1135,41 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
             Ybus_acline_imag) # constant acline Ybus 
     
     # flow data
-    flw = quasiGrad.Flow([zeros(sys.nac) for ii in 1:(sys.nT)],
-                         [zeros(sys.nac) for ii in 1:(sys.nT)],
-                         [zeros(sys.nac) for ii in 1:(sys.nT)],
-                         [zeros(sys.nac) for ii in 1:(sys.nT)],
-                         [zeros(sys.nac) for ii in 1:(sys.nT)],
-                         [zeros(sys.nac) for ii in 1:(sys.nT)],
-                         [zeros(sys.nac) for ii in 1:(sys.nT)],
-                         [zeros(sys.nac) for ii in 1:(sys.nT)],
-                         [zeros(sys.nac) for ii in 1:(sys.nT)],
-                         [zeros(sys.nac) for ii in 1:(sys.nT)],
-                         [zeros(sys.nac) for ii in 1:(sys.nT)],
-                         [zeros(sys.nac) for ii in 1:(sys.nT)],
-                         [zeros(sys.nac) for ii in 1:(sys.nT)],
-                         [zeros(sys.nac) for ii in 1:(sys.nT)],
-                         [zeros(sys.nb) for ii in 1:(sys.nT)],
-                         [zeros(sys.nb-1) for ii in 1:(sys.nT)],
-                         [zeros(sys.nb-1) for ii in 1:(sys.nT)],
-                         [zeros(sys.nb-1) for ii in 1:(sys.nT)],
-                         [zeros(sys.nb-1) for ii in 1:(sys.nT)],
-                         [zeros(sys.nb-1) for ii in 1:(sys.nT)])
+    flw = quasiGrad.Flow([zeros(sys.nac)      for ii in 1:sys.nT],
+                         [zeros(sys.nac)      for ii in 1:sys.nT],
+                         [zeros(sys.nac)      for ii in 1:sys.nT],
+                         [zeros(sys.nac)      for ii in 1:sys.nT],
+                         [zeros(sys.nac)      for ii in 1:sys.nT],
+                         [zeros(sys.nac)      for ii in 1:sys.nT],
+                         [zeros(sys.nac)      for ii in 1:sys.nT],
+                         [zeros(sys.nac)      for ii in 1:sys.nT],
+                         [zeros(sys.nb)       for ii in 1:sys.nT],
+                         [zeros(sys.nb-1)     for ii in 1:sys.nT],
+                         [zeros(sys.nb-1)     for ii in 1:sys.nT],
+                         [zeros(sys.nb-1)     for ii in 1:sys.nT],
+                         [collect(1:sys.nctg) for ii in 1:sys.nT],
+                         pf_cg_statevars)
 
-    return ntk, flw
+    # contingency variables
+    ctg = quasiGrad.Contingency([zeros(sys.nb-1) for ii in 1:qG.num_threads],
+                                [zeros(sys.nac)  for ii in 1:qG.num_threads],
+                                [zeros(sys.nac)  for ii in 1:qG.num_threads],
+                                [zeros(sys.nac)  for ii in 1:qG.num_threads],
+                                [zeros(sys.nac)  for ii in 1:qG.num_threads],
+                                [zeros(sys.nac)  for ii in 1:qG.num_threads],
+                                [zeros(sys.nb-1) for ii in 1:qG.num_threads],
+                                [zeros(sys.nb-1) for ii in 1:qG.num_threads],
+                                [zeros(sys.nac)  for ii in 1:qG.num_threads],
+                                [zeros(sys.nb-1) for ii in 1:qG.num_threads],
+                                [zeros(sys.nac)  for ii in 1:qG.num_threads],
+                                [zeros(sys.nac)  for ii in 1:qG.num_threads],
+                                ones(Bool, qG.num_threads+2), # add two, for safety!
+                                grad_cg_statevars)
+
+    return ctg, ntk, flw
 end
 
-function build_incidence(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System)
+function build_incidence(idx::quasiGrad.Index, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System)
     # loop over all ac devices and construct incidence matrix
     m = sys.nac
     n = sys.nb
@@ -1219,7 +1209,7 @@ function build_incidence(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::quasiGra
     return E
 end
 
-function initialize_acline_Ybus(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System)
+function initialize_acline_Ybus(idx::quasiGrad.Index, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System)
     # loop over all ac devices and construct incidence matrix
     #
     # note: this assumes all lines are on!
@@ -1281,7 +1271,7 @@ function initialize_acline_Ybus(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::q
     return Ybus_acline_real, Ybus_acline_imag
 end
 
-function update_Ybus(idx::quasiGrad.Idx, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function update_Ybus(idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
     # this function updates the Ybus matrix using the time-varying shunt and xfm values
     #
     # NOTE: this assumes all xfms are on
@@ -1370,7 +1360,7 @@ function get_tout(dev::Int64, prm::quasiGrad.Param)
 end
 
 # depricated!! left here for historical purposes :)
-function initialize_static_grads!(idx::quasiGrad.Idx, grd::quasiGrad.Grad, sys::quasiGrad.System, qG::quasiGrad.QG)
+function initialize_static_grads!(idx::quasiGrad.Index, grd::quasiGrad.Grad, sys::quasiGrad.System, qG::quasiGrad.QG)
     # there is a subset of gradients whose values are static:
     # set those static gradients here!
     #
@@ -1462,52 +1452,52 @@ function initialize_adam_states(qG::quasiGrad.QG, sys::quasiGrad.System)
     keys = [:vm, :va, :tau, :phi, :dc_pfr, :dc_qfr, :dc_qto, :u_on_acline, :u_on_xfm,
             :u_step_shunt, :u_on_dev, :p_on, :dev_q, :p_rgu, :p_rgd, :p_scr, :p_nsc,
             :p_rru_on, :p_rrd_on, :p_rru_off, :p_rrd_off, :q_qru, :q_qrd]
-    vm = quasiGrad.MV([zeros(sys.nb) for ii in 1:(sys.nT)],
-                      [zeros(sys.nb) for ii in 1:(sys.nT)])
-    va = quasiGrad.MV([zeros(sys.nb) for ii in 1:(sys.nT)],
-                      [zeros(sys.nb) for ii in 1:(sys.nT)])
-    tau = quasiGrad.MV([zeros(sys.nx) for ii in 1:(sys.nT)],
-                       [zeros(sys.nx) for ii in 1:(sys.nT)])
-    phi = quasiGrad.MV([zeros(sys.nx) for ii in 1:(sys.nT)],
-                       [zeros(sys.nx) for ii in 1:(sys.nT)])
-    dc_pfr = quasiGrad.MV([zeros(sys.nldc) for ii in 1:(sys.nT)],
-                          [zeros(sys.nldc) for ii in 1:(sys.nT)])
-    dc_qfr = quasiGrad.MV([zeros(sys.nldc) for ii in 1:(sys.nT)],
-                          [zeros(sys.nldc) for ii in 1:(sys.nT)])
-    dc_qto = quasiGrad.MV([zeros(sys.nldc) for ii in 1:(sys.nT)],
-                          [zeros(sys.nldc) for ii in 1:(sys.nT)])
-    u_on_acline = quasiGrad.MV([zeros(sys.nl) for ii in 1:(sys.nT)],
-                               [zeros(sys.nl) for ii in 1:(sys.nT)])
-    u_on_xfm = quasiGrad.MV([zeros(sys.nx) for ii in 1:(sys.nT)],
-                            [zeros(sys.nx) for ii in 1:(sys.nT)])
-    u_step_shunt = quasiGrad.MV([zeros(sys.nsh) for ii in 1:(sys.nT)],
-                                [zeros(sys.nsh) for ii in 1:(sys.nT)])
-    u_on_dev = quasiGrad.MV([zeros(sys.ndev) for ii in 1:(sys.nT)],
-                            [zeros(sys.ndev) for ii in 1:(sys.nT)])
-    p_on = quasiGrad.MV([zeros(sys.ndev) for ii in 1:(sys.nT)],
-                        [zeros(sys.ndev) for ii in 1:(sys.nT)])
-    dev_q = quasiGrad.MV([zeros(sys.ndev) for ii in 1:(sys.nT)],
-                         [zeros(sys.ndev) for ii in 1:(sys.nT)])
-    p_rgu = quasiGrad.MV([zeros(sys.ndev) for ii in 1:(sys.nT)],
-                         [zeros(sys.ndev) for ii in 1:(sys.nT)])
-    p_rgd = quasiGrad.MV([zeros(sys.ndev) for ii in 1:(sys.nT)],
-                         [zeros(sys.ndev) for ii in 1:(sys.nT)])
-    p_scr = quasiGrad.MV([zeros(sys.ndev) for ii in 1:(sys.nT)],
-                         [zeros(sys.ndev) for ii in 1:(sys.nT)])
-    p_nsc = quasiGrad.MV([zeros(sys.ndev) for ii in 1:(sys.nT)],
-                         [zeros(sys.ndev) for ii in 1:(sys.nT)])
-    p_rru_on = quasiGrad.MV([zeros(sys.ndev) for ii in 1:(sys.nT)],
-                            [zeros(sys.ndev) for ii in 1:(sys.nT)])
-    p_rrd_on = quasiGrad.MV([zeros(sys.ndev) for ii in 1:(sys.nT)],
-                            [zeros(sys.ndev) for ii in 1:(sys.nT)])
-    p_rru_off = quasiGrad.MV([zeros(sys.ndev) for ii in 1:(sys.nT)],
-                             [zeros(sys.ndev) for ii in 1:(sys.nT)]) 
-    p_rrd_off = quasiGrad.MV([zeros(sys.ndev) for ii in 1:(sys.nT)],
-                             [zeros(sys.ndev) for ii in 1:(sys.nT)])
-    q_qru = quasiGrad.MV([zeros(sys.ndev) for ii in 1:(sys.nT)],
-                         [zeros(sys.ndev) for ii in 1:(sys.nT)])
-    q_qrd = quasiGrad.MV([zeros(sys.ndev) for ii in 1:(sys.nT)],
-                         [zeros(sys.ndev) for ii in 1:(sys.nT)])
+    vm = quasiGrad.MV([zeros(sys.nb) for ii in 1:sys.nT],
+                      [zeros(sys.nb) for ii in 1:sys.nT])
+    va = quasiGrad.MV([zeros(sys.nb) for ii in 1:sys.nT],
+                      [zeros(sys.nb) for ii in 1:sys.nT])
+    tau = quasiGrad.MV([zeros(sys.nx) for ii in 1:sys.nT],
+                       [zeros(sys.nx) for ii in 1:sys.nT])
+    phi = quasiGrad.MV([zeros(sys.nx) for ii in 1:sys.nT],
+                       [zeros(sys.nx) for ii in 1:sys.nT])
+    dc_pfr = quasiGrad.MV([zeros(sys.nldc) for ii in 1:sys.nT],
+                          [zeros(sys.nldc) for ii in 1:sys.nT])
+    dc_qfr = quasiGrad.MV([zeros(sys.nldc) for ii in 1:sys.nT],
+                          [zeros(sys.nldc) for ii in 1:sys.nT])
+    dc_qto = quasiGrad.MV([zeros(sys.nldc) for ii in 1:sys.nT],
+                          [zeros(sys.nldc) for ii in 1:sys.nT])
+    u_on_acline = quasiGrad.MV([zeros(sys.nl) for ii in 1:sys.nT],
+                               [zeros(sys.nl) for ii in 1:sys.nT])
+    u_on_xfm = quasiGrad.MV([zeros(sys.nx) for ii in 1:sys.nT],
+                            [zeros(sys.nx) for ii in 1:sys.nT])
+    u_step_shunt = quasiGrad.MV([zeros(sys.nsh) for ii in 1:sys.nT],
+                                [zeros(sys.nsh) for ii in 1:sys.nT])
+    u_on_dev = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
+                            [zeros(sys.ndev) for ii in 1:sys.nT])
+    p_on = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
+                        [zeros(sys.ndev) for ii in 1:sys.nT])
+    dev_q = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
+                         [zeros(sys.ndev) for ii in 1:sys.nT])
+    p_rgu = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
+                         [zeros(sys.ndev) for ii in 1:sys.nT])
+    p_rgd = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
+                         [zeros(sys.ndev) for ii in 1:sys.nT])
+    p_scr = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
+                         [zeros(sys.ndev) for ii in 1:sys.nT])
+    p_nsc = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
+                         [zeros(sys.ndev) for ii in 1:sys.nT])
+    p_rru_on = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
+                            [zeros(sys.ndev) for ii in 1:sys.nT])
+    p_rrd_on = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
+                            [zeros(sys.ndev) for ii in 1:sys.nT])
+    p_rru_off = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
+                             [zeros(sys.ndev) for ii in 1:sys.nT]) 
+    p_rrd_off = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
+                             [zeros(sys.ndev) for ii in 1:sys.nT])
+    q_qru = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
+                         [zeros(sys.ndev) for ii in 1:sys.nT])
+    q_qrd = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
+                         [zeros(sys.ndev) for ii in 1:sys.nT])
 
     # build the adam struct
     adm = quasiGrad.Adam(keys, vm, va, tau, phi, dc_pfr, dc_qfr, dc_qto, u_on_acline,
@@ -1521,181 +1511,172 @@ end
 function initialize_exhastive_adam_states(qG::quasiGrad.QG, sys::quasiGrad.System)
     # build the adm dictionary, which has the same set of
     # entries (keys) as the mgd dictionary -- extra states for adagrad, the_quasiGrad, etc..
-    tkeys = [Symbol("t"*string(ii)) for ii in 1:(sys.nT)]
+    tkeys = [Symbol("t"*string(ii)) for ii in 1:sys.nT]
 
     # build the dict
-    adm = Dict( :vm            => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nb)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:(sys.nT))),
-                :va            => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nb)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:(sys.nT))),
-                :tau            => Dict(:m         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nx)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT))),
-                :phi           => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nx)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT))),
-                :dc_pfr        => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT))),
-                :dc_qfr        => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT))),
-                :dc_qto        => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:(sys.nT))),
-                :u_on_acline   => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nl)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:(sys.nT))),
-                :u_on_xfm      => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nx)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:(sys.nT))),
-                :u_step_shunt  => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nsh)  for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:(sys.nT))),
+    adm = Dict( :vm            => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nb)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT)),
+                :va            => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nb)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT)),
+                :tau            => Dict(:m         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nx)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT)),
+                :phi           => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nx)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT)),
+                :dc_pfr        => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nldc)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT)),
+                :dc_qfr        => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nldc)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT)),
+                :dc_qto        => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nldc)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT)),
+                :u_on_acline   => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nl)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:sys.nT)),
+                :u_on_xfm      => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nx)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT)),
+                :u_step_shunt  => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nsh)  for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:sys.nT)),
                 # device variables
-                :u_on_dev      => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT))),
-                :p_on          => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT))),
-                :dev_q         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT))),
-                :p_rgu         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT))),
-                :p_rgd         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT))),
-                :p_scr         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT))),
-                :p_nsc         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT))),
-                :p_rru_on      => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT))),
-                :p_rrd_on      => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT))),
-                :p_rru_off     => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT))),
-                :p_rrd_off     => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT))),
-                :q_qru         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT))),
-                :q_qrd         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT)),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:(sys.nT))))
+                :u_on_dev      => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
+                :p_on          => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
+                :dev_q         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
+                :p_rgu         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
+                :p_rgd         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
+                :p_scr         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
+                :p_nsc         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
+                :p_rru_on      => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
+                :p_rrd_on      => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
+                :p_rru_off     => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
+                :p_rrd_off     => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
+                :q_qru         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
+                :q_qrd         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
+                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)))
     return adm
-end
-
-function build_bit(sys::quasiGrad.System)
-    bit = quasiGrad.Bit(
-        [BitArray(zeros(Int, sys.nac)) for ii in 1:(sys.nT)], # indices assocaited with ctg flows: sfr_vio
-        [BitArray(zeros(Int, sys.nac)) for ii in 1:(sys.nT)]) # indices assocaited with ctg flows: sto_vio
-
-    # output
-    return bit
 end
 
 function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.QG)
@@ -1833,103 +1814,103 @@ end
 
 function build_miscellaneous(prm::quasiGrad.Param, sys::quasiGrad.System)
     msc = quasiGrad.Msc(
-        [zeros(sys.nb) for tii in 1:(sys.nT)],
-        [zeros(sys.nb) for tii in 1:(sys.nT)],
-        [zeros(sys.nb) for tii in 1:(sys.nT)],
-        [zeros(sys.nb) for tii in 1:(sys.nT)],
-        [zeros(sys.nb) for tii in 1:(sys.nT)],
-        [zeros(sys.nb) for tii in 1:(sys.nT)],
-        [zeros(sys.nb) for tii in 1:(sys.nT)],
-        [zeros(sys.nb) for tii in 1:(sys.nT)],
-        [zeros(sys.nb) for tii in 1:(sys.nT)],
-        [zeros(sys.nb) for tii in 1:(sys.nT)],
-        [zeros(sys.nb) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)], 
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nl) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nx) for tii in 1:(sys.nT)],
-        [zeros(sys.nsh) for tii in 1:(sys.nT)],
-        [zeros(sys.nsh) for tii in 1:(sys.nT)],
-        [zeros(sys.nsh) for tii in 1:(sys.nT)],
-        [[zeros(prm.dev.num_sus[dev]) for dev in 1:(sys.ndev)] for tii in 1:(sys.nT)],
-        [[zeros(prm.dev.num_sus[dev]) for dev in 1:(sys.ndev)] for tii in 1:(sys.nT)],
+        [zeros(sys.nb) for tii in 1:sys.nT],
+        [zeros(sys.nb) for tii in 1:sys.nT],
+        [zeros(sys.nb) for tii in 1:sys.nT],
+        [zeros(sys.nb) for tii in 1:sys.nT],
+        [zeros(sys.nb) for tii in 1:sys.nT],
+        [zeros(sys.nb) for tii in 1:sys.nT],
+        [zeros(sys.nb) for tii in 1:sys.nT],
+        [zeros(sys.nb) for tii in 1:sys.nT],
+        [zeros(sys.nb) for tii in 1:sys.nT],
+        [zeros(sys.nb) for tii in 1:sys.nT],
+        [zeros(sys.nb) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT], 
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nl) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nx) for tii in 1:sys.nT],
+        [zeros(sys.nsh) for tii in 1:sys.nT],
+        [zeros(sys.nsh) for tii in 1:sys.nT],
+        [zeros(sys.nsh) for tii in 1:sys.nT],
+        [[zeros(prm.dev.num_sus[dev]) for dev in 1:(sys.ndev)] for tii in 1:sys.nT],
+        [[zeros(prm.dev.num_sus[dev]) for dev in 1:(sys.ndev)] for tii in 1:sys.nT],
         zeros(sys.ndev),
         zeros(sys.ndev),
         zeros(sys.ndev))
@@ -1942,30 +1923,30 @@ function build_master_grad(sys::quasiGrad.System)
     # mgd = master grad -- this is the gradient which relates the negative market surplus function 
     # with all "basis" variables -- i.e., the variables for which all others are computed.
     # These are *exactly* (I think..) the variables which are reported in the solution file
-    mgd = quasiGrad.Mgd(
-        [zeros(sys.nb)   for ii in 1:(sys.nT)],       
-        [zeros(sys.nb)   for ii in 1:(sys.nT)],         
-        [zeros(sys.nx)   for ii in 1:(sys.nT)],         
-        [zeros(sys.nx)   for ii in 1:(sys.nT)], 
-        [zeros(sys.nldc) for ii in 1:(sys.nT)], 
-        [zeros(sys.nldc) for ii in 1:(sys.nT)], 
-        [zeros(sys.nldc) for ii in 1:(sys.nT)], 
-        [zeros(sys.nl)   for ii in 1:(sys.nT)],  
-        [zeros(sys.nx)   for ii in 1:(sys.nT)],  
-        [zeros(sys.nsh)  for ii in 1:(sys.nT)],
-        [zeros(sys.ndev) for ii in 1:(sys.nT)], 
-        [zeros(sys.ndev) for ii in 1:(sys.nT)], 
-        [zeros(sys.ndev) for ii in 1:(sys.nT)], 
-        [zeros(sys.ndev) for ii in 1:(sys.nT)], 
-        [zeros(sys.ndev) for ii in 1:(sys.nT)], 
-        [zeros(sys.ndev) for ii in 1:(sys.nT)], 
-        [zeros(sys.ndev) for ii in 1:(sys.nT)], 
-        [zeros(sys.ndev) for ii in 1:(sys.nT)], 
-        [zeros(sys.ndev) for ii in 1:(sys.nT)], 
-        [zeros(sys.ndev) for ii in 1:(sys.nT)], 
-        [zeros(sys.ndev) for ii in 1:(sys.nT)], 
-        [zeros(sys.ndev) for ii in 1:(sys.nT)], 
-        [zeros(sys.ndev) for ii in 1:(sys.nT)])
+    mgd = quasiGrad.MasterGrad(
+        [zeros(sys.nb)   for ii in 1:sys.nT],       
+        [zeros(sys.nb)   for ii in 1:sys.nT],         
+        [zeros(sys.nx)   for ii in 1:sys.nT],         
+        [zeros(sys.nx)   for ii in 1:sys.nT], 
+        [zeros(sys.nldc) for ii in 1:sys.nT], 
+        [zeros(sys.nldc) for ii in 1:sys.nT], 
+        [zeros(sys.nldc) for ii in 1:sys.nT], 
+        [zeros(sys.nl)   for ii in 1:sys.nT],  
+        [zeros(sys.nx)   for ii in 1:sys.nT],  
+        [zeros(sys.nsh)  for ii in 1:sys.nT],
+        [zeros(sys.ndev) for ii in 1:sys.nT], 
+        [zeros(sys.ndev) for ii in 1:sys.nT], 
+        [zeros(sys.ndev) for ii in 1:sys.nT], 
+        [zeros(sys.ndev) for ii in 1:sys.nT], 
+        [zeros(sys.ndev) for ii in 1:sys.nT], 
+        [zeros(sys.ndev) for ii in 1:sys.nT], 
+        [zeros(sys.ndev) for ii in 1:sys.nT], 
+        [zeros(sys.ndev) for ii in 1:sys.nT], 
+        [zeros(sys.ndev) for ii in 1:sys.nT], 
+        [zeros(sys.ndev) for ii in 1:sys.nT], 
+        [zeros(sys.ndev) for ii in 1:sys.nT], 
+        [zeros(sys.ndev) for ii in 1:sys.nT], 
+        [zeros(sys.ndev) for ii in 1:sys.nT])
     
     # output
     return mgd
@@ -2157,17 +2138,17 @@ function perturb_states!(pert_size::Float64, prm::quasiGrad.Param, stt::quasiGra
     end
 end
 
-function build_constant_gradient(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::quasiGrad.System)
+function build_constant_gradient(idx::quasiGrad.Index, prm::quasiGrad.Param, sys::quasiGrad.System)
     # build a structure which hold constant gradient information
     #
     tkeys = prm.ts.time_keys
 
     # contingency costs
-    ctg_avg = [prm.ts.duration[ii]*prm.vio.s_flow/sys.nctg for ii in 1:(sys.nT)]
-    ctg_min = [prm.ts.duration[ii]*prm.vio.s_flow          for ii in 1:(sys.nT)]
+    ctg_avg = [prm.ts.duration[ii]*prm.vio.s_flow/sys.nctg for ii in 1:sys.nT]
+    ctg_min = [prm.ts.duration[ii]*prm.vio.s_flow          for ii in 1:sys.nT]
 
     # device on costs
-    dzon_dev_du_on_dev = [prm.ts.duration[ii]*prm.dev.on_cost for ii in 1:(sys.nT)]
+    dzon_dev_du_on_dev = [prm.ts.duration[ii]*prm.dev.on_cost for ii in 1:sys.nT]
 
     # device energy costs
     dzt_dzen              = zeros(sys.ndev)
@@ -2175,29 +2156,29 @@ function build_constant_gradient(idx::quasiGrad.Idx, prm::quasiGrad.Param, sys::
     dzt_dzen[idx.pr_devs] = -ones(sys.npr)
 
     # device reserve gradients
-    dzrgu_dp_rgu     = [prm.ts.duration[ii]*getindex.(prm.dev.p_reg_res_up_cost,ii)            for ii in 1:(sys.nT)]
-    dzrgd_dp_rgd     = [prm.ts.duration[ii]*getindex.(prm.dev.p_reg_res_down_cost,ii)          for ii in 1:(sys.nT)]
-    dzscr_dp_scr     = [prm.ts.duration[ii]*getindex.(prm.dev.p_syn_res_cost,ii)               for ii in 1:(sys.nT)]
-    dznsc_dp_nsc     = [prm.ts.duration[ii]*getindex.(prm.dev.p_nsyn_res_cost,ii)              for ii in 1:(sys.nT)]
-    dzrru_dp_rru_on  = [prm.ts.duration[ii]*getindex.(prm.dev.p_ramp_res_up_online_cost,ii)    for ii in 1:(sys.nT)]
-    dzrru_dp_rru_off = [prm.ts.duration[ii]*getindex.(prm.dev.p_ramp_res_up_offline_cost,ii)   for ii in 1:(sys.nT)]
-    dzrrd_dp_rrd_on  = [prm.ts.duration[ii]*getindex.(prm.dev.p_ramp_res_down_online_cost,ii)  for ii in 1:(sys.nT)]
-    dzrrd_dp_rrd_off = [prm.ts.duration[ii]*getindex.(prm.dev.p_ramp_res_down_offline_cost,ii) for ii in 1:(sys.nT)]
-    dzqru_dq_qru     = [prm.ts.duration[ii]*getindex.(prm.dev.q_res_up_cost,ii)                for ii in 1:(sys.nT)]
-    dzqrd_dq_qrd     = [prm.ts.duration[ii]*getindex.(prm.dev.q_res_down_cost,ii)              for ii in 1:(sys.nT)]
+    dzrgu_dp_rgu     = [prm.ts.duration[ii]*getindex.(prm.dev.p_reg_res_up_cost,ii)            for ii in 1:sys.nT]
+    dzrgd_dp_rgd     = [prm.ts.duration[ii]*getindex.(prm.dev.p_reg_res_down_cost,ii)          for ii in 1:sys.nT]
+    dzscr_dp_scr     = [prm.ts.duration[ii]*getindex.(prm.dev.p_syn_res_cost,ii)               for ii in 1:sys.nT]
+    dznsc_dp_nsc     = [prm.ts.duration[ii]*getindex.(prm.dev.p_nsyn_res_cost,ii)              for ii in 1:sys.nT]
+    dzrru_dp_rru_on  = [prm.ts.duration[ii]*getindex.(prm.dev.p_ramp_res_up_online_cost,ii)    for ii in 1:sys.nT]
+    dzrru_dp_rru_off = [prm.ts.duration[ii]*getindex.(prm.dev.p_ramp_res_up_offline_cost,ii)   for ii in 1:sys.nT]
+    dzrrd_dp_rrd_on  = [prm.ts.duration[ii]*getindex.(prm.dev.p_ramp_res_down_online_cost,ii)  for ii in 1:sys.nT]
+    dzrrd_dp_rrd_off = [prm.ts.duration[ii]*getindex.(prm.dev.p_ramp_res_down_offline_cost,ii) for ii in 1:sys.nT]
+    dzqru_dq_qru     = [prm.ts.duration[ii]*getindex.(prm.dev.q_res_up_cost,ii)                for ii in 1:sys.nT]
+    dzqrd_dq_qrd     = [prm.ts.duration[ii]*getindex.(prm.dev.q_res_down_cost,ii)              for ii in 1:sys.nT]
     
     # zonal gradients
-    dzrgu_zonal_dp_rgu_zonal_penalty = [prm.ts.duration[ii]*prm.vio.rgu_zonal for ii in 1:(sys.nT)]
-    dzrgd_zonal_dp_rgd_zonal_penalty = [prm.ts.duration[ii]*prm.vio.rgd_zonal for ii in 1:(sys.nT)]
-    dzscr_zonal_dp_scr_zonal_penalty = [prm.ts.duration[ii]*prm.vio.scr_zonal for ii in 1:(sys.nT)]
-    dznsc_zonal_dp_nsc_zonal_penalty = [prm.ts.duration[ii]*prm.vio.nsc_zonal for ii in 1:(sys.nT)]
-    dzrru_zonal_dp_rru_zonal_penalty = [prm.ts.duration[ii]*prm.vio.rru_zonal for ii in 1:(sys.nT)]
-    dzrrd_zonal_dp_rrd_zonal_penalty = [prm.ts.duration[ii]*prm.vio.rrd_zonal for ii in 1:(sys.nT)]
-    dzqru_zonal_dq_qru_zonal_penalty = [prm.ts.duration[ii]*prm.vio.qru_zonal for ii in 1:(sys.nT)]
-    dzqrd_zonal_dq_qrd_zonal_penalty = [prm.ts.duration[ii]*prm.vio.qrd_zonal for ii in 1:(sys.nT)]
+    dzrgu_zonal_dp_rgu_zonal_penalty = [prm.ts.duration[ii]*prm.vio.rgu_zonal for ii in 1:sys.nT]
+    dzrgd_zonal_dp_rgd_zonal_penalty = [prm.ts.duration[ii]*prm.vio.rgd_zonal for ii in 1:sys.nT]
+    dzscr_zonal_dp_scr_zonal_penalty = [prm.ts.duration[ii]*prm.vio.scr_zonal for ii in 1:sys.nT]
+    dznsc_zonal_dp_nsc_zonal_penalty = [prm.ts.duration[ii]*prm.vio.nsc_zonal for ii in 1:sys.nT]
+    dzrru_zonal_dp_rru_zonal_penalty = [prm.ts.duration[ii]*prm.vio.rru_zonal for ii in 1:sys.nT]
+    dzrrd_zonal_dp_rrd_zonal_penalty = [prm.ts.duration[ii]*prm.vio.rrd_zonal for ii in 1:sys.nT]
+    dzqru_zonal_dq_qru_zonal_penalty = [prm.ts.duration[ii]*prm.vio.qru_zonal for ii in 1:sys.nT]
+    dzqrd_zonal_dq_qrd_zonal_penalty = [prm.ts.duration[ii]*prm.vio.qrd_zonal for ii in 1:sys.nT]
     
     # build the cgd
-    cgd = Cgd(
+    cgd = ConstantGrad(
         ctg_avg,
         ctg_min,
         dzon_dev_du_on_dev,
@@ -2298,7 +2279,7 @@ function build_time_sets(prm::quasiGrad.Param, sys::quasiGrad.System)
            Ts_sus_jft, Ts_sus_jf, Ts_en_max, Ts_en_min, Ts_su_max
 end
 
-function initialize_lbfgs(mgd::quasiGrad.Mgd, prm::quasiGrad.Param, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function initialize_lbfgs(mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # first, how many historical gradients do we keep? 
     # 2 < n < 21 according to Wright
 
@@ -2311,29 +2292,29 @@ function initialize_lbfgs(mgd::quasiGrad.Mgd, prm::quasiGrad.Param, sys::quasiGr
     tkeys = prm.ts.time_keys
 
     lbfgs_map = Dict(
-        :vm            => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),       
-        :va            => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),           
-        :tau           => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),            
-        :phi           => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :dc_pfr        => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :dc_qfr        => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :dc_qto        => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :u_on_acline   => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),  
-        :u_on_xfm      => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),  
-        :u_step_shunt  => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)),
-        :u_on_dev      => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :p_on          => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :dev_q         => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :p_rgu         => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :p_rgd         => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :p_scr         => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :p_nsc         => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :p_rru_on      => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :p_rrd_on      => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :p_rru_off     => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :p_rrd_off     => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :q_qru         => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)), 
-        :q_qrd         => Dict(tkeys[ii] => Int64[] for ii in 1:(sys.nT)))
+        :vm            => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT),       
+        :va            => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT),           
+        :tau           => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT),            
+        :phi           => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :dc_pfr        => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :dc_qfr        => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :dc_qto        => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :u_on_acline   => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT),  
+        :u_on_xfm      => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT),  
+        :u_step_shunt  => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT),
+        :u_on_dev      => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :p_on          => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :dev_q         => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :p_rgu         => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :p_rgd         => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :p_scr         => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :p_nsc         => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :p_rru_on      => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :p_rrd_on      => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :p_rru_off     => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :p_rrd_off     => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :q_qru         => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT), 
+        :q_qrd         => Dict(tkeys[ii] => Int64[] for ii in 1:sys.nT))
 
     # next, how many lbfgs states are there? let's base this on "upd"
     n_lbfgs = 0
@@ -2395,7 +2376,7 @@ function initialize_lbfgs(mgd::quasiGrad.Mgd, prm::quasiGrad.Param, sys::quasiGr
     return lbfgs, lbfgs_diff, lbfgs_idx, lbfgs_map, lbfgs_step
 end
 
-function initialize_pf_lbfgs(mgd::quasiGrad.Mgd, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function initialize_pf_lbfgs(mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # first, how many historical gradients do we keep? 
     # 2 < n < 21 according to Wright
     num_lbfgs_to_keep = 10

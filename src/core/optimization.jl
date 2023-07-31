@@ -1,7 +1,7 @@
 # adam solver -- take steps for every element in the master_grad list
 #
 # only two states are tracked here (m and v)
-function adam!(adm::quasiGrad.Adam, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::quasiGrad.Mgd, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}}; standard_adam = true)
+function adam!(adm::quasiGrad.Adam, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}}; standard_adam = true)
     #
     # note: for "adam_pf", just set standard_adam = false
     #
@@ -78,23 +78,20 @@ end
 
 function run_adam!(
         adm::quasiGrad.Adam,
-        bit::quasiGrad.Bit,
-        cgd::quasiGrad.Cgd,
-        ctb::Vector{Vector{Float64}},
-        ctd::Vector{Vector{Float64}},
+        cgd::quasiGrad.ConstantGrad,
+        ctg::quasiGrad.Contingency,
         flw::quasiGrad.Flow,
         grd::quasiGrad.Grad, 
-        idx::quasiGrad.Idx,
-        mgd::quasiGrad.Mgd,
+        idx::quasiGrad.Index,
+        mgd::quasiGrad.MasterGrad,
         msc::quasiGrad.Msc,
-        ntk::quasiGrad.Ntk,
+        ntk::quasiGrad.Network,
         prm::quasiGrad.Param,
         qG::quasiGrad.QG, 
         scr::Dict{Symbol, Float64},
         stt::quasiGrad.State, 
         sys::quasiGrad.System,
-        upd::Dict{Symbol, Vector{Vector{Int64}}}, 
-        wct::Vector{Vector{Int64}})
+        upd::Dict{Symbol, Vector{Vector{Int64}}})
 
     # initialize
     adm_step    = 0
@@ -131,7 +128,7 @@ function run_adam!(
         end
 
         # compute all states and grads
-        quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 
         # take an adam step
         quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
@@ -145,7 +142,7 @@ function run_adam!(
         if qG.take_adam_pf_steps == true
             for _ in 1:qG.num_adam_pf_step
                 # update the power injection-associated gradients
-                quasiGrad.update_states_and_grads_for_adam_pf!(bit, grd, idx, mgd, msc, prm, qG, stt, sys)
+                quasiGrad.update_states_and_grads_for_adam_pf!(grd, idx, mgd, msc, prm, qG, stt, sys)
 
                 # take an adam pf step (standard_adam=false)
                 quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd, standard_adam = false)
@@ -158,27 +155,24 @@ function run_adam!(
 
     # one last clip + state computation -- no grad needed!
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
     qG.eval_grad = true
 end
 
 function update_states_and_grads!(
-    bit::quasiGrad.Bit,
-    cgd::quasiGrad.Cgd, 
-    ctb::Vector{Vector{Float64}},
-    ctd::Vector{Vector{Float64}}, 
+    cgd::quasiGrad.ConstantGrad, 
+    ctg::quasiGrad.Contingency,
     flw::quasiGrad.Flow, 
     grd::quasiGrad.Grad, 
-    idx::quasiGrad.Idx, 
-    mgd::quasiGrad.Mgd, 
+    idx::quasiGrad.Index, 
+    mgd::quasiGrad.MasterGrad,
     msc::quasiGrad.Msc, 
-    ntk::quasiGrad.Ntk, 
+    ntk::quasiGrad.Network, 
     prm::quasiGrad.Param, 
     qG::quasiGrad.QG, 
     scr::Dict{Symbol, Float64}, 
-    stt::quasiGrad.State, 
-    sys::quasiGrad.System, 
-    wct::Vector{Vector{Int64}})
+    stt::quasiGrad.State,
+    sys::quasiGrad.System)
 
     # safepoint
     GC.safepoint()
@@ -218,9 +212,9 @@ function update_states_and_grads!(
 
     # score the contingencies and take the gradients
     if qG.skip_ctg_eval
-        # println("Skipping ctg evaluation!")
+        println("Skipping ctg evaluation!")
     else
-        quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+        quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     end
     # score the market surplus function
     quasiGrad.score_zt!(idx, prm, qG, scr, stt) 
@@ -234,7 +228,7 @@ function update_states_and_grads!(
     quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
 end
 
-function update_states_and_grads_for_adam_pf!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quasiGrad.Mgd, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function update_states_and_grads_for_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # update the non-device states which affect power balance
     #
     # flush the gradient -- both master grad and some of the gradient terms
@@ -255,7 +249,7 @@ function update_states_and_grads_for_adam_pf!(bit::quasiGrad.Bit, grd::quasiGrad
     quasiGrad.master_grad_adam_pf!(grd, idx, mgd, prm, sys)
 end
 
-function update_states_and_grads_for_solve_pf_lbfgs!(bit::quasiGrad.Bit, cgd::quasiGrad.Cgd, dpf0::Dict{Symbol, Dict{Int8, Vector{Float64}}}, grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quasiGrad.Mgd, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, zpf::Dict{Symbol, Dict{Int8, Float64}})
+function update_states_and_grads_for_solve_pf_lbfgs!(cgd::quasiGrad.ConstantGrad, dpf0::Dict{Symbol, Dict{Int8, Vector{Float64}}}, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, zpf::Dict{Symbol, Dict{Int8, Float64}})
     # in this function, we only update the states and gradients needed
     # to solve a single-time-period ACOPF with lbfgs:
     # 1) flush
@@ -340,7 +334,7 @@ function batch_fix!(pct_round::Float64, prm::quasiGrad.Param, stt::quasiGrad.Sta
 end
 
 # lbfgs
-function lbfgs!(lbfgs::Dict{Symbol, Vector{Float64}}, lbfgs_diff::Dict{Symbol, Vector{Vector{Float64}}}, lbfgs_idx::Vector{Int64}, lbfgs_map::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, lbfgs_step::Dict{Symbol, Float64}, mgd::quasiGrad.Mgd, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function lbfgs!(lbfgs::Dict{Symbol, Vector{Float64}}, lbfgs_diff::Dict{Symbol, Vector{Vector{Float64}}}, lbfgs_idx::Vector{Int64}, lbfgs_map::Dict{Symbol, Dict{Symbol, Vector{Int64}}}, lbfgs_step::Dict{Symbol, Float64}, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # NOTE: based on testing on May 10 or so, lbfgs does NOT outperform adam,
     #       More fundamentally, it has a problem: the states "lbfgs[:x_now]",
     #       etc. need to modified after binaries are fixed. Right now, they
@@ -476,7 +470,7 @@ function lbfgs!(lbfgs::Dict{Symbol, Vector{Float64}}, lbfgs_diff::Dict{Symbol, V
 end
 
 # lbfgs
-function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Int8, Vector{Float64}}}, pf_lbfgs_diff::Dict{Symbol, Dict{Int8, Vector{Vector{Float64}}}}, pf_lbfgs_idx::Vector{Int64}, pf_lbfgs_map::Dict{Symbol, Vector{Int64}}, pf_lbfgs_step::Dict{Symbol, Dict{Int8, Float64}}, mgd::quasiGrad.Mgd, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}}, zpf::Dict{Symbol})
+function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Int8, Vector{Float64}}}, pf_lbfgs_diff::Dict{Symbol, Dict{Int8, Vector{Vector{Float64}}}}, pf_lbfgs_idx::Vector{Int64}, pf_lbfgs_map::Dict{Symbol, Vector{Int64}}, pf_lbfgs_step::Dict{Symbol, Dict{Int8, Float64}}, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}}, zpf::Dict{Symbol})
     # note: pf_lbfgs_idx is a set of ordered indices, where the first is the most
     #       recent step information, and the last is the oldest step information
     #       in the following order: (k-1), (k-2)
@@ -634,7 +628,7 @@ function solve_pf_lbfgs!(pf_lbfgs::Dict{Symbol, Dict{Int8, Vector{Float64}}}, pf
     return emergency_stop
 end
 
-function quadratic_distance!(dpf0::Dict{Symbol, Dict{Int8, Vector{Float64}}}, mgd::quasiGrad.Mgd, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
+function quadratic_distance!(dpf0::Dict{Symbol, Dict{Int8, Vector{Float64}}}, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     @batch per=thread for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # grab the distance between p_on and its initial value -- this is something we 
@@ -703,7 +697,7 @@ function build_acpf_Jac_and_pq0(msc::quasiGrad.Msc, qG::quasiGrad.QG, stt::quasi
 end
 
 # solve power flow
-function newton_power_flow(grd::quasiGrad.Grad, idx::quasiGrad.Idx, KP::Float64, pi_p::Vector{Float64}, prm::quasiGrad.Param, PQidx::Vector{Int64}, qG::quasiGrad.QG, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8, Ybus_real::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, Ybus_imag::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64})
+function newton_power_flow(grd::quasiGrad.Grad, idx::quasiGrad.Index, KP::Float64, pi_p::Vector{Float64}, prm::quasiGrad.Param, PQidx::Vector{Int64}, qG::quasiGrad.QG, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8, Ybus_real::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, Ybus_imag::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64})
     # initialize
     run_pf = true
 
@@ -752,7 +746,7 @@ function newton_power_flow(grd::quasiGrad.Grad, idx::quasiGrad.Idx, KP::Float64,
     end
 end
 
-function power_flow_residual!(idx::quasiGrad.Idx, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function power_flow_residual!(idx::quasiGrad.Index, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
     # loop over each bus and compute the residual
     for bus in 1:sys.nb
         # active power balance: stt[:pb][:slack][tii][bus] to record with time
@@ -793,7 +787,7 @@ function power_flow_residual!(idx::quasiGrad.Idx, residual::Vector{Float64}, stt
     end
 end
 
-function solve_power_flow!(bit::quasiGrad.Bit, cgd::quasiGrad.Cgd, grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quasiGrad.Mgd, msc::quasiGrad.Msc, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function solve_power_flow!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, msc::quasiGrad.Msc, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # 1. fire up lbfgs, as controlled by adam, WITH regularization + OPF
     # 2. after a short period, use Gurobi to solve successive power flows
     # 3. pass solution back to lbfgs to clean up, WITHOUT regularization + OPF -- not needed yet
@@ -815,7 +809,7 @@ function solve_power_flow!(bit::quasiGrad.Bit, cgd::quasiGrad.Cgd, grd::quasiGra
     zt0       = 0.0
 
     # initialize: compute all states and grads
-    quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+    quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 
     # loop -- lbfgs
     while run_lbfgs == true
@@ -828,7 +822,7 @@ function solve_power_flow!(bit::quasiGrad.Bit, cgd::quasiGrad.Cgd, grd::quasiGra
         end
 
         # compute all states and grads
-        quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(bit, cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+        quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
 
         # store the first value
         zp = sum(sum([zpf[:zp][tii] for tii in prm.ts.time_keys]))
@@ -864,7 +858,7 @@ function solve_power_flow!(bit::quasiGrad.Bit, cgd::quasiGrad.Cgd, grd::quasiGra
     qG.pqbal_grad_type = "soft_abs"
 end
 
-function ideal_dispatch!(idx::quasiGrad.Idx, msc::quasiGrad.Msc, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function ideal_dispatch!(idx::quasiGrad.Index, msc::quasiGrad.Msc, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
     # here, we compute the "ideal" dipatch point (after a few steps of LBFGS)
     #
     # pinj = p_pr - p_cs - p_dc
@@ -971,7 +965,7 @@ function adam_termination(adam_start::Float64, adm_step::Int64, qG::quasiGrad.QG
     return run_adam
 end
 
-function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::quasiGrad.Msc, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System)
+function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, msc::quasiGrad.Msc, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System)
     # Solve linearized power flow with Gurobi -- use margin tinkering to guarentee convergence. Only consinder upper 
     # and lower bounds on the p/q production (no other limits).
     #
@@ -1362,7 +1356,7 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::quasiGra
 end
 
 # call states
-function call_adam_states(adm::quasiGrad.Adam, mgd::quasiGrad.Mgd, stt::quasiGrad.State, var_key::Symbol)
+function call_adam_states(adm::quasiGrad.Adam, mgd::quasiGrad.MasterGrad, stt::quasiGrad.State, var_key::Symbol)
     # we need this function because calling struct field programatically
     # isn't straightforward, and getfield() tends to allocate
     if var_key == :vm

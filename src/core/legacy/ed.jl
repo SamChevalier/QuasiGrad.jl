@@ -1,5 +1,5 @@
 # in this file, we design the function which solves economic dispatch
-function solve_economic_dispatch!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # note: all binaries are LP relaxed (so there is not BaB-ing): 0 < b < 1
     #
     # NOTE -- we are not including start-up-state discounts -- not worth it :)
@@ -573,7 +573,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::
     end
 end
 
-function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Idx, msc::quasiGrad.Msc, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, msc::quasiGrad.Msc, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # apply dcpf to the economic dispatch solution
     #
     # NOTE -- I have commented out the linearized voltage solver -- it doesn't really work.
@@ -649,7 +649,7 @@ function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Idx, msc::quas
     end
 end
 
-function economic_dispatch_initialization!(bit::quasiGrad.Bit, cgd::quasiGrad.Cgd, ctb::Vector{Vector{Float64}}, ctd::Vector{Vector{Float64}}, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quasiGrad.Mgd, msc::quasiGrad.Msc, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}, wct::Vector{Vector{Int64}})
+function economic_dispatch_initialization!(bit::quasiGrad.Bit, cgd::quasiGrad.ConstantGrad, ctb::Vector{Vector{Float64}}, ctd::Vector{Vector{Float64}}, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, msc::quasiGrad.Msc, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}, wct::Vector{Vector{Int64}})
     # 1. run ED (global upper bound)
     quasiGrad.solve_economic_dispatch!(idx, prm, qG, scr, stt, sys, upd)
 
@@ -658,6 +658,6 @@ function economic_dispatch_initialization!(bit::quasiGrad.Bit, cgd::quasiGrad.Cg
 
     # 3. update the states -- this is needed for power flow to converge
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
     qG.eval_grad = true
 end

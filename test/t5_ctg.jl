@@ -46,7 +46,7 @@ adm = quasiGrad.initialize_adam_states(sys)
 upd = quasiGrad.identify_update_states(prm, idx, stt, sys)
 ntk = quasiGrad.initialize_ctg(sys, prm, qG, idx)
 
-quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 
 # call the ctg solver
 #include("../src/core/initializations.jl")
@@ -63,7 +63,7 @@ include("../src/core/contingencies.jl")
 
 # solve ctg (with gradients)
 qG.eval_grad = true
-quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %%
 # duration
@@ -207,7 +207,7 @@ epsilon = 1e-5
 tii     = :t1 #Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 tii   = 1
 ind     = 101   #Int64(round(rand(1)[1]*sys.nb)); (ind == 0 ? ind = 1 : ind = ind)
-quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 for tii in prm.ts.time_keys
     for dev in 1:sys.ndev
         quasiGrad.apply_dev_q_grads!(tii, prm, qG, idx, stt, grd, mgd, dev, grd.dx.dq[tii][dev])
@@ -221,7 +221,7 @@ dzdx    = copy(mgd.p_on[tii][ind])
 stt.p_on[tii][ind] += epsilon
 stt.dev_p[tii] = stt.p_on[tii] + stt.p_su[tii] + stt.p_sd[tii]
 quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
-quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 zp      = copy(-(scr[:zbase] + scr[:zctg_min] + scr[:zctg_avg]))
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -235,7 +235,7 @@ epsilon = 1e-4
 tii     = :t1 #Symbol("t"*string(Int64(round(rand(1)[1]*sys.nT)))); (tii == :t0 ? tii = :t1 : tii = tii)
 tii   = 1
 ind     = 2   #Int64(round(rand(1)[1]*sys.nb)); (ind == 0 ? ind = 1 : ind = ind)
-quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 for tii in prm.ts.time_keys
     for dev in 1:sys.ndev
         quasiGrad.apply_dev_q_grads!(tii, prm, qG, idx, stt, grd, mgd, dev, grd.dx.dq[tii][dev])
@@ -249,7 +249,7 @@ dzdx    = copy(mgd.vm[tii][ind])
 # update device power
 stt.vm[tii][ind] += epsilon
 quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
-quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 zp      = copy(-(scr[:zbase] + scr[:zctg_min] + scr[:zctg_avg]))
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)
@@ -261,7 +261,7 @@ println(dzdx_num)
 # solve a ctg
 qG.pcg_tol = 1e-9
 
-quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 # grab a flow
 tii    = :t1
 ctg_ii = 1
@@ -275,7 +275,7 @@ pf  = copy(ctg[:pflow_k][tii][end][line])
 
 stt.p_on[tii][dev] += epsilon
 stt.dev_p[tii] = stt.p_on[tii] + stt.p_su[tii] + stt.p_sd[tii]
-quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 pf_new = copy(ctg[:pflow_k][tii][end][line])
 
 # how much did the power flow change? can the ptdf matrix explain it?
@@ -294,7 +294,7 @@ println(ptdf[line,bus-1])
 
 
 # %% compute the states (without gradients)
-quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 
 # solve and apply a Gurobi projection!
 quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
@@ -305,7 +305,7 @@ quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
 #qG.pcg_tol = 0.01
 #qG.pcg_tol = 0.001
 #qG.pcg_tol = 0.000001
-quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 
 # %% write a solution :)
 soln_dict = quasiGrad.prepare_solution(prm, stt, sys)
@@ -494,7 +494,7 @@ ctb        = [zeros(sys.nb-1) for _ in 1:sys.nT]
 wct = [collect(1:sys.nctg) for _ in 1:sys.nT]
 
 # %%
-quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 # %%
 include("../src/core/contingencies.jl")
 

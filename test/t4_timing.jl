@@ -19,10 +19,9 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 jsn = quasiGrad.load_json(path)
 
 # initialize
-adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
-stt, sys, upd, wct = quasiGrad.base_initialization(jsn, perturb_states=false);
+adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=false);
 
-quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
 
 # %% Timing tests
 #qG.skip_ctg_eval = true
@@ -37,13 +36,13 @@ quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, m
 #
 ## %% ====
 #adm_step += 1
-#quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+#quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 #quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
 ## %% Timing tests
 #
 qG.skip_ctg_eval = true
 qG.num_threads = 8
-@btime quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+@btime quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 
 # %% choose step sizes
 vmva_scale    = 1e-5
@@ -96,7 +95,7 @@ qG.beta2                       = 0.99
 qG.pqbal_grad_eps2             = 1e-8
 
 qG.adam_max_time = 250.0
-quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
 
 # %%
 
@@ -149,7 +148,7 @@ print("t14: ")
 @btime quasiGrad.reserve_balance!(idx, prm, qG, stt, sys)
 
 print("t15: ")
-    # @time quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+    # @time quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 print("t16: ")
 @btime quasiGrad.score_zt!(idx, prm, qG, scr, stt)
@@ -170,7 +169,7 @@ println("")
 
 # %% ===========================
 print("t20: ")
-@btime quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct);
+@btime quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys);
 
 
 # %%
@@ -196,7 +195,7 @@ ProfileView.@profview quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_deca
 # %%
 qG.adam_max_time = 2.0
 
-ProfileView.@profview quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+ProfileView.@profview quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
 
 # %% ------------------------------
 # @code_warntype quasiGrad.energy_penalties!(grd, prm, qG, scr, stt, sys)
@@ -204,10 +203,10 @@ ProfileView.@profview quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx
 
 
 # %% --- write
-quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
 quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
-quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 
 # %% write a solution :)
 soln_dict = quasiGrad.prepare_solution(prm, stt, sys)
@@ -216,14 +215,14 @@ quasiGrad.write_solution(data_dir*file_name, qG, soln_dict, scr)
 # %% ===================
 # using ProfileView
 # ProfileView.@profview quasiGrad.penalized_device_constraints!(grd, idx, mgd, msc, prm, qG, scr, stt, sys)
-ProfileView.@profview quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+ProfileView.@profview quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %%
 include("../src/core/contingencies.jl")
 using InvertedIndices
 #ProfileView.@profview @code_warntype
 # %%
-@benchmark quasiGrad.solve_ctgs!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
+@benchmark quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 # %% ====
 include("../src/core/contingencies.jl")
 
@@ -367,7 +366,7 @@ tii = :t1
 
 # %%
 
-function f(stt::quasiGrad.State, idx::quasiGrad.Idx, dev::Union{Int32,Int64}, tii::Int8, ii::Int64)
+function f(stt::quasiGrad.State, idx::quasiGrad.Index, dev::Union{Int32,Int64}, tii::Int8, ii::Int64)
     argmax(@view stt.u_on_dev[dev][idx.Ts_sus_jft[dev][tii][ii]])
 end
 

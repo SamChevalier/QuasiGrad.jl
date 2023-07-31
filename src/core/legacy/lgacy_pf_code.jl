@@ -1,5 +1,5 @@
 # get injection bounds
-function get_injection_bounds!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function get_injection_bounds!(idx::quasiGrad.Index, Dict{Symbol, Dict{Symbol, Vector{Float64}}}, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
     # note 1: this function DOES take reactive power equality constrained injections
     #         into account: i.e., dev_q ∈ Jpqe is fixed constant.
 
@@ -70,7 +70,7 @@ function get_injection_bounds!(idx::quasiGrad.Idx, Dict{Symbol, Dict{Symbol, Vec
     end
 end
 
-function power_flow_residual_KP!(idx::quasiGrad.Idx, KP::Float64, pi_p::Vector{Float64}, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function power_flow_residual_KP!(idx::quasiGrad.Index, KP::Float64, pi_p::Vector{Float64}, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
     # loop over each bus and compute the residual
     for bus in 1:sys.nb
         # active power balance: stt[:pb][:slack][tii][bus] to record with time
@@ -114,7 +114,7 @@ function power_flow_residual_KP!(idx::quasiGrad.Idx, KP::Float64, pi_p::Vector{F
 end
 
 
-function power_flow_residual_kpkq!(idx::quasiGrad.Idx, KP::Float64, KQ::Float64, pi_p::Vector{Float64}, pi_q::Vector{Float64}, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function power_flow_residual_kpkq!(idx::quasiGrad.Index, KP::Float64, KQ::Float64, pi_p::Vector{Float64}, pi_q::Vector{Float64}, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
     # loop over each bus and compute the residual
     for bus in 1:sys.nb
         # active power balance: stt[:pb][:slack][tii][bus] to record with time
@@ -160,7 +160,7 @@ function power_flow_residual_kpkq!(idx::quasiGrad.Idx, KP::Float64, KQ::Float64,
 end
 
 # correct the reactive power injections into the network
-function apply_pq_injections!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function apply_pq_injections!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
     # warning
     @info "note: the apply_pq_injections! function does NOT take J pqe into account yet"
 
@@ -361,7 +361,7 @@ function transform_acpf_Jac(Jac::quasiGrad.SparseArrays.SparseMatrixCSC{Float64,
 end
 
 # compute slack factors
-function slack_factors(idx::quasiGrad.Idx, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function slack_factors(idx::quasiGrad.Index, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
 
     # warning
     @info "note: the nodal_pq_bounds! function does NOT take J pqe into account yet"
@@ -505,7 +505,7 @@ end
 
 
 # solve power flow
-function solve_power_flow(grd::quasiGrad.Grad, idx::quasiGrad.Idx, KP::Float64, pi_p::Vector{Float64}, prm::quasiGrad.Param, PQidx::Vector{Int64}, qG::quasiGrad.QG, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8, Ybus_real::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, Ybus_imag::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64})
+function solve_power_flow(grd::quasiGrad.Grad, idx::quasiGrad.Index, KP::Float64, pi_p::Vector{Float64}, prm::quasiGrad.Param, PQidx::Vector{Int64}, qG::quasiGrad.QG, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8, Ybus_real::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, Ybus_imag::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64})
     # initialize
     run_pf = true
 
@@ -556,7 +556,7 @@ function solve_power_flow(grd::quasiGrad.Grad, idx::quasiGrad.Idx, KP::Float64, 
     return KP
 end
 
-function power_flow_residual!(idx::quasiGrad.Idx, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function power_flow_residual!(idx::quasiGrad.Index, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
     # loop over each bus and compute the residual
     for bus in 1:sys.nb
         # active power balance: stt[:pb][:slack][tii][bus] to record with time
@@ -597,7 +597,7 @@ function power_flow_residual!(idx::quasiGrad.Idx, residual::Vector{Float64}, stt
     end
 end
 
-function update_states_for_distributed_slack_pf!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
+function update_states_for_distributed_slack_pf!(bit::quasiGrad.Bit, grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # in this function, we only update the flow, xfm, and shunt states
     #
     # clip voltage

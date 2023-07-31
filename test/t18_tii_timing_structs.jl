@@ -8,7 +8,7 @@ InFile1 = path
 jsn     = quasiGrad.load_json(InFile1)
 
 # %%
-adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct = quasiGrad.base_initialization(jsn);
+adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
 
 # %%
 @time quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)

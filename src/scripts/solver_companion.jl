@@ -27,14 +27,13 @@ start_time = time()
 jsn = quasiGrad.load_json(InFile1)
 
 # I2. initialize the system
-adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr,
-stt, sys, upd, wct = quasiGrad.base_initialization(jsn, Div=Division);
+adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, Div=Division);
 
 @warn "homotopy ON"
 qG.apply_grad_weight_homotopy = true
 
 # I3. run an economic dispatch and update the states
-quasiGrad.economic_dispatch_initialization!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
 
 # TT: time
 time_spent_before_loop = time() - start_time
@@ -46,8 +45,8 @@ time_left = NewTimeLimitInSeconds - time_spent_before_loop
 quasiGrad.manage_time!(time_left, qG)
 
 # % ======================================
-quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
-quasiGrad.update_states_and_grads!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
 # %% =====================================
 
 # loop and solve: adam -> projection -> IBR
@@ -58,13 +57,13 @@ for (solver_itr, pct_round) in enumerate(qG.pcts_to_round)
     qG.adam_max_time = qG.adam_solve_times[solver_itr]
 
     # L1. run power flow
-    quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
 
     # L2. clean-up reserves by solving softly constrained LP
     quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 
     # L3. run adam
-    quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+    quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
 
     # L4. solve and apply projection
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
@@ -92,14 +91,14 @@ end
 quasiGrad.count_active_binaries!(prm, upd)
 
 # E1. run power flow, one more time
-quasiGrad.solve_power_flow!(bit, cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
 
 # E2. clean-up reserves by solving softly constrained LP
 quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 
 # E3. run adam
 qG.adam_max_time = qG.adam_solve_times[end]
-quasiGrad.run_adam!(adm, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd, wct)
+quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
 
 # E4. LP projection
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
@@ -114,4 +113,4 @@ quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
 # E8. post process
-quasiGrad.post_process_stats(true, bit, cgd, ctb, ctd, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, wct)
+quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)

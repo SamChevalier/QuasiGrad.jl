@@ -1,5 +1,5 @@
 # cleanup reserve variables, mostly
-function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function reserve_cleanup!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # time limit: not needed -- this is an LP
     # integer tolerance: not needed -- this is an LP
     # FeasibilityTol -- qG.FeasibilityTol
@@ -324,7 +324,7 @@ function reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGra
 end
 
 # cleanup reserve variables, mostly
-function soft_reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function soft_reserve_cleanup!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # this is, necessarily, a centralized optimziation problem (over decives)
     #
     # build the model! default tolerances are fine, because this
@@ -696,7 +696,7 @@ function soft_reserve_cleanup!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::qua
 end
 
 # cleanup power flow (to some degree of accuracy)
-function single_shot_pf_clearnup!(idx::quasiGrad.Idx, Jac::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function single_shot_pf_clearnup!(idx::quasiGrad.Index, Jac::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
     # device p/q stay fixed -- just tune v, theta, and dc
 
     # build and empty the model!
@@ -868,7 +868,7 @@ function single_shot_pf_clearnup!(idx::quasiGrad.Idx, Jac::quasiGrad.SparseArray
     end
 end
 
-function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Idx, msc::quasiGrad.Msc, ntk::quasiGrad.Ntk, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System)
+function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Index, msc::quasiGrad.Msc, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System)
     # ask Gurobi to solve a linearize power flow. two options here:
     #   1) define device variables which are bounded, and then insert them into the power balance expression
     #   2) just define power balance bounds based on device characteristics, and then, at the end, optimally

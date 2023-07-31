@@ -1,4 +1,4 @@
-function penalized_device_constraints!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quasiGrad.Mgd, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
+function penalized_device_constraints!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
     # loop over each time period
     #
     # Note -- delta penalty (qG.constraint_grad_weight) applied later in the scoring
@@ -648,7 +648,7 @@ function energy_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Param, qG::quasiGrad.
     quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
-function energy_penalties!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
+function energy_penalties!(grd::quasiGrad.Grad, idx::quasiGrad.Index, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
     # loop over devices, not time
     # => @batch per=thread for dev in prm.dev.dev_keys
     @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
@@ -812,7 +812,7 @@ function all_device_statuses_and_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Para
     quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
-function simple_device_statuses!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
+function simple_device_statuses!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # loop over each time period
     @batch per=thread for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
@@ -832,15 +832,16 @@ function simple_device_statuses!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::q
     @batch per=thread for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         for dev in prm.dev.dev_keys
-            T_supc = idx.Ts_supc[dev][tii] # => get_supc(tii, dev, prm)
-            T_sdpc = idx.Ts_sdpc[dev][tii] # => get_sdpc(tii, dev, prm)
-            stt.u_sum[tii][dev] = stt.u_on_dev[tii][dev] + sum(stt.u_su_dev_Trx[dev][tii_inst] for tii_inst in T_supc; init=0.0) + sum(stt.u_sd_dev_Trx[dev][tii_inst] for tii_inst in T_sdpc; init=0.0)
+            # => T_supc = idx.Ts_supc[dev][tii] # => get_supc(tii, dev, prm)
+            # => T_sdpc = idx.Ts_sdpc[dev][tii] # => get_sdpc(tii, dev, prm)
+            # => stt.u_sum[tii][dev] = stt.u_on_dev[tii][dev] + sum(stt.u_su_dev_Trx[dev][tii_inst] for tii_inst in T_supc; init=0.0) + sum(stt.u_sd_dev_Trx[dev][tii_inst] for tii_inst in T_sdpc; init=0.0)
+            stt.u_sum[tii][dev] = stt.u_on_dev[tii][dev] + quasiGrad.u_sum_supc(dev, idx, stt, tii) + quasiGrad.u_sum_sdpc(dev, idx, stt, tii)
         end
     end
 end
 
 # active power computation
-function device_active_powers!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function device_active_powers!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # loop over each time period
     for tii in prm.ts.time_keys
         # the following is expensive, so we skip it during power flow solves
@@ -879,7 +880,7 @@ function device_active_powers!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::qua
 end
 
 # reactive power computation
-function device_reactive_powers!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
+function device_reactive_powers!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # loop over each time period
     @batch per=thread for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
@@ -907,7 +908,7 @@ function device_reactive_powers!(idx::quasiGrad.Idx, prm::quasiGrad.Param, qG::q
     quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
-function device_startup_states!(grd::quasiGrad.Grad, idx::quasiGrad.Idx, mgd::quasiGrad.Mgd, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function device_startup_states!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # before looping over the startup states, flush msc
     @batch per=thread for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
@@ -1148,7 +1149,7 @@ function get_tsumax(w_params::Vector{Float64}, prm::quasiGrad.Param)
     return T_su_max
 end
 
-function apply_p_su_grad!(idx::quasiGrad.Idx, tii::Int8, dev::Union{Int32,Int64}, alpha::Float64, prm::quasiGrad.Param, grd::quasiGrad.Grad, mgd::quasiGrad.Mgd)
+function apply_p_su_grad!(idx::quasiGrad.Index, tii::Int8, dev::Union{Int32,Int64}, alpha::Float64, prm::quasiGrad.Param, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad)
     # for a given time and device, call the supc
     T_supc     = idx.Ts_supc[dev][tii]     # => T_supc, p_supc_set = get_supc(tii, dev, prm)
     p_supc_set = idx.ps_supc_set[dev][tii] # => T_supc, p_supc_set = get_supc(tii, dev, prm)
@@ -1163,7 +1164,7 @@ function apply_p_su_grad!(idx::quasiGrad.Idx, tii::Int8, dev::Union{Int32,Int64}
     end
 end
 
-function apply_p_sd_grad!(idx::quasiGrad.Idx, tii::Int8, dev::Union{Int32,Int64}, alpha::Float64, prm::quasiGrad.Param, grd::quasiGrad.Grad, mgd::quasiGrad.Mgd)
+function apply_p_sd_grad!(idx::quasiGrad.Index, tii::Int8, dev::Union{Int32,Int64}, alpha::Float64, prm::quasiGrad.Param, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad)
     # for a given time and device, call the supc
     T_sdpc     = idx.Ts_sdpc[dev][tii]     # => T_sdpc, p_sdpc_set = get_sdpc(tii, dev, prm)
     p_sdpc_set = idx.ps_sdpc_set[dev][tii] # => T_sdpc, p_sdpc_set = get_sdpc(tii, dev, prm)
@@ -1178,7 +1179,15 @@ function apply_p_sd_grad!(idx::quasiGrad.Idx, tii::Int8, dev::Union{Int32,Int64}
     end
 end
 
-function max_binary(dev::Int32, idx::quasiGrad.Idx, ii::Int64, stt::quasiGrad.State, tii::Int8) 
+function max_binary(dev::Int32, idx::quasiGrad.Index, ii::Int64, stt::quasiGrad.State, tii::Int8) 
     # this function is needed because polyester can't deal with internal for loops (of the following form)
     return maximum(stt.u_on_dev_Trx[dev][tij] for tij in idx.Ts_sus_jft[dev][tii][ii])
+end
+
+function u_sum_supc(dev::Int32, idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8)
+    return sum(stt.u_su_dev_Trx[dev][tii_inst] for tii_inst in idx.Ts_supc[dev][tii]; init=0.0)
+end
+
+function u_sum_sdpc(dev::Int32, idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8)
+    return sum(stt.u_sd_dev_Trx[dev][tii_inst] for tii_inst in idx.Ts_sdpc[dev][tii]; init=0.0)
 end
