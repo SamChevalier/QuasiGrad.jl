@@ -59,7 +59,7 @@ function acline_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, msc::quasiGrad
         # penalty functions and scores
         msc.acline_sfr_plus[tii] .= msc.acline_sfr[tii] .- prm.acline.mva_ub_nom
         msc.acline_sto_plus[tii] .= msc.acline_sto[tii] .- prm.acline.mva_ub_nom
-        stt.zs_acline[tii]  .= (dt*cs).*max.(msc.acline_sfr_plus[tii], msc.acline_sto_plus[tii], 0.0)
+        stt.zs_acline[tii]       .= (dt*cs).*max.(msc.acline_sfr_plus[tii], msc.acline_sto_plus[tii], 0.0)
         
         # ====================================================== #
         # ====================================================== #

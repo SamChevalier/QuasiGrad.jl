@@ -105,7 +105,9 @@ mutable struct QG
     include_lbfgs_p0_regularization::Bool
     print_lbfgs_iterations::Bool
     initial_pf_lbfgs_step::Float64
+    lbfgs_adam_alpha_0::Float64
     lbfgs_map_over_all_time::Bool
+    num_lbfgs_to_keep::Int64
     num_lbfgs_steps::Int64
     clip_pq_based_on_bins::Bool
     first_qG_step::Bool
@@ -533,7 +535,8 @@ struct State
     p_rrd_off::Vector{Vector{Float64}}   
     q_qru::Vector{Vector{Float64}}       
     q_qrd::Vector{Vector{Float64}}       
-    zctg::Vector{Vector{Float64}}        
+    zctg::Vector{Vector{Float64}}
+    zctg_scored::Vector{Vector{Float64}}        
     zen_dev::Vector{Vector{Float64}}     
     zsu_dev::Vector{Vector{Float64}}      
     zsu_acline::Vector{Vector{Float64}}   
@@ -701,6 +704,8 @@ struct Msc
     zhat_mxst_scr::Vector{Float64}
     z_enmax_scr::Vector{Float64}
     z_enmin_scr::Vector{Float64}
+    dev_qlb::Vector{Vector{Float64}} 
+    dev_qub::Vector{Vector{Float64}} 
 end
 
 # mini gradient structs
@@ -928,4 +933,14 @@ struct Adam
     p_rrd_off::MV
     q_qru::MV
     q_qrd::MV
+end
+
+struct LBFGS
+    p0::Dict{Symbol, Dict{Int8, Vector{Float64}}}
+    state::Dict{Symbol, Dict{Int8, Vector{Float64}}}
+    diff::Dict{Symbol, Dict{Int8, Vector{Vector{Float64}}}}
+    idx::Vector{Int64}
+    map::Dict{Symbol, Vector{Int64}}
+    step::Dict{Symbol, Dict{Int8, Float64}}
+    zpf::Dict{Symbol, Dict{Int8, Float64}}
 end

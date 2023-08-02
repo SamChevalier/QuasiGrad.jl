@@ -13,7 +13,7 @@ AllowSwitching        = 0
 jsn                   = quasiGrad.load_json(path)
     
 # I2. initialize the system
-adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states = true);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states = true);
 
 # %% solve the ctgs
 qG.num_threads = 6

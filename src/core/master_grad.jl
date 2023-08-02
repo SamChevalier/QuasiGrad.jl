@@ -319,7 +319,7 @@ function master_grad!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::qua
     end
 end
 
-function master_grad_solve_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function master_grad_solve_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, msc::quasiGrad.Msc, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # this function takes the gradient of zms with respect to the
     # variables which will help to resolve power flow.
     # Notably, even though we solve time-independent power flow
@@ -338,13 +338,15 @@ function master_grad_solve_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad,
             end
         end
 
+        # g6 (zs): nzms => zbase => zt => => zs => (all line and xfm variables)
+        quasiGrad.master_grad_zs_acline!(tii, idx, grd, mgd, msc, qG, sys)
+        quasiGrad.master_grad_zs_xfm!(tii, idx, grd, mgd, msc, qG, sys)
+
         # g15 (zp): nzms => zbase => zt => zp => (all p injection variables)
         master_grad_zp!(tii, prm, idx, grd, mgd, sys)
         # g16 (zq): nzms => zbase => zt => zq => (all q injection variables)
         master_grad_zq!(tii, prm, idx, grd, mgd, sys)
 
-        # => # loop over time -- compute the partial derivative contributions
-        # => for tii in prm.ts.time_keys
         # loop over devices
         for dev in prm.dev.dev_keys
             apply_dev_q_grads!(tii, prm, qG, idx, stt, grd, mgd, dev, grd.dx.dq[tii][dev])
@@ -354,6 +356,7 @@ function master_grad_solve_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad,
             apply_dev_p_grads!(tii, prm, qG, idx, stt, grd, mgd, dev, grd.dx.dp[tii][dev])
         end
     end
+    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 function master_grad_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, sys::quasiGrad.System)

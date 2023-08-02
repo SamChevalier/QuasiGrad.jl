@@ -202,13 +202,13 @@ function score_zt!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG,
     end
 end
 
-function score_solve_pf!(prm::quasiGrad.Param, stt::quasiGrad.State, zpf::Dict{Symbol, Dict{Int8, Float64}})
+function score_solve_pf!(lbf::quasiGrad.LBFGS, prm::quasiGrad.Param, stt::quasiGrad.State)
     # all we want to track here is the power flow score
     #
     # note: these scores are positive, since we try to minimize them!!
     for tii in prm.ts.time_keys
-        zpf[:zp][tii]   = sum(stt.zp[tii])
-        zpf[:zq][tii]   = sum(stt.zq[tii])
+        lbf.zpf[:zp][tii] = sum(stt.zp[tii])
+        lbf.zpf[:zq][tii] = sum(stt.zq[tii])
     end
 end
 

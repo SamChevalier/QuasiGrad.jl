@@ -10,7 +10,7 @@ file_name = "scenario_002.json"
 jsn = quasiGrad.load_json(data_dir*file_name)
 
 # %% initialize
-adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, false, 1.0);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # %% set adam parameters
 qG.alpha_0       = 0.05

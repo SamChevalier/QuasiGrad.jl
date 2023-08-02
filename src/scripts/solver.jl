@@ -11,7 +11,7 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
     
     # I2. initialize the system
     
-    adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true);
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true);
 
     # I3. run an economic dispatch and update the states
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
@@ -33,7 +33,7 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
         qG.adam_max_time = qG.adam_solve_times[solver_itr]
 
         # L1. run power flow
-        quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+        quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, msc, ntk, prm, qG, stt, sys, upd)
 
         # L2. clean-up reserves by solving softly constrained LP
         quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
@@ -67,7 +67,7 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
     quasiGrad.count_active_binaries!(prm, upd)
 
     # E1. run power flow, one more time
-    quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, msc, ntk, prm, qG, stt, sys, upd)
 
     # E2. clean-up reserves by solving softly constrained LP
     quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
@@ -101,11 +101,11 @@ function compute_triage_quasiGrad_solution(InFile1::String, NewTimeLimitInSecond
     t_buff     = 30.0
     start_time = time()
     jsn        = quasiGrad.load_json(InFile1)
-    adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true);
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true);
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
     
     t_before_pf = time()
-    quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, msc, ntk, prm, qG, stt, sys, upd)
     quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
     t_pf      = time() - t_before_pf
     time_left = NewTimeLimitInSeconds - (time() - start_time)
@@ -147,7 +147,7 @@ function compute_triage_quasiGrad_solution(InFile1::String, NewTimeLimitInSecond
         quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
         quasiGrad.count_active_binaries!(prm, upd)
         if run_pf2
-            quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+            quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, msc, ntk, prm, qG, stt, sys, upd)
             quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
         end
     end
@@ -167,14 +167,14 @@ function compute_quasiGrad_solution_feas(InFile1::String, NewTimeLimitInSeconds:
     jsn = quasiGrad.load_json(InFile1)
 
     # initialize
-    adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, hpc_params=false)
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, hpc_params=false)
 
     # solve
     fix       = true
     pct_round = 100.0
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
     sleep(5.0)
-    quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, msc, ntk, prm, qG, stt, sys, upd)
     sleep(5.0)
     quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
     sleep(5.0)
@@ -215,7 +215,7 @@ function compute_quasiGrad_solution_timed(InFile1::String, NewTimeLimitInSeconds
     println("I1: $(time_elapsed)")
 
     # I2. initialize the system
-    adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true);
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true);
 
     time_elapsed = time() - start_time
     println("I2: $(time_elapsed)")
@@ -243,7 +243,7 @@ function compute_quasiGrad_solution_timed(InFile1::String, NewTimeLimitInSeconds
         qG.adam_max_time = qG.adam_solve_times[solver_itr]
 
         # L1. run power flow
-        quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+        quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, msc, ntk, prm, qG, stt, sys, upd)
 
         time_elapsed = time() - start_time
         println("L1: $(time_elapsed)")
@@ -288,7 +288,7 @@ function compute_quasiGrad_solution_timed(InFile1::String, NewTimeLimitInSeconds
     quasiGrad.count_active_binaries!(prm, upd)
 
     # E1. run power flow, one more time
-    quasiGrad.solve_power_flow!(cgd, grd, idx, mgd, msc, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, msc, ntk, prm, qG, stt, sys, upd)
 
     time_elapsed = time() - start_time
     println("E1: $(time_elapsed)")

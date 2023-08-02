@@ -9,12 +9,167 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 jsn  = quasiGrad.load_json(path)
 
 # initialize
-adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=true);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
+
+# %% ================
+qG.skip_ctg_eval = true
+qG.num_threads   = 10
+@btime quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+
+# %% run copper plate ED
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+
+
+# %% ===
+
+model = quasiGrad.Model(quasiGrad.Gurobi.Optimizer)
+quasiGrad.set_optimizer_attribute(model, "Threads", 3)
+quasiGrad.@variable(model, 0 <= x <= 1)
+quasiGrad.@objective(model, Max, x)
+quasiGrad.optimize!(model)
 
 # %%
+
 qG.num_threads    = 10
-qG.score_all_ctgs = true
-@time ..
+qG.score_all_ctgs = false
+qG.eval_grad      = true
+
+qG.pcg_tol = 0.0003969886648255842
+qG.pcg_tol = 0.00039
+
+@btime quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys);
+
+# %%
+thrID = 1
+
+@time quasiGrad.cg!(ctg.dz_dpinj[thrID], ntk.Ybr, ctg.rhs[thrID], statevars = ctg.grad_cg_statevars[thrID],  abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its);
+
+@time ctg.dz_dpinj[thrID] .= ntk.Ybr\ctg.rhs[thrID];
+
+# %% test sorting
+zctg = [-10.0; -9.4; -22.8; -1; -0.0; -50.3]
+worst_ctg_ids = [6; 3; 1; 2; 4; 5]
+
+worst_ctg_ids
+
+# %%
+x = randn(25000)
+f(x::Vector{Float64}) = sortperm(x)
+
+# %%
+a = collect(1:10)
+@time deleteat!(a, [2;4;6;10])
+
+#a = randn(10000)
+#b = a[1:3:end]
+
+#@time setdiff!(a, b);
+
+
+# %%
+
+@btime x .= f();
+# %%
+
+
+tt = worst_ctg_ids[sortperm(zctg[worst_ctg_ids])]
+worst = 
+
+# %%
+flw.worst_ctg_ids[tii][1:num_ctg] .= union(flw.worst_ctg_ids[tii][1:num_wrst],quasiGrad.shuffle(setdiff(1:sys.nctg, flw.worst_ctg_ids[tii][1:num_wrst]))[1:num_rnd])
+
+
+#zctg[worst_ctg_ids]
+#flw.worst_ctg_ids[tii][1:num_ctg] .= sortperm(@view stt.zctg[tii][@view flw.worst_ctg_ids[tii][1:num_ctg]])
+
+# %% -- no change
+zctg          = randn(100)
+nctg          = 100
+num_ctg       = 10
+num_wrst      = 5
+num_rnd       = 5
+zctg_scored   = randn(10)
+worst_ctg_ids = [1; 4; 8; 19; 3; 6; 22; 43; 42; 5]
+
+# %%
+zctg_scored                         .= @view zctg[worst_ctg_ids]
+worst_ctg_ids[1:num_wrst]           .= @view worst_ctg_ids[partialsortperm(zctg_scored, 1:num_wrst)]
+worst_ctg_ids[(num_wrst+1:num_ctg)] .= @view quasiGrad.shuffle!(deleteat!(collect(1:nctg), sort(worst_ctg_ids[1:num_wrst])))[1:num_rnd]
+
+# %%
+b = randn(10000)
+d = randn(10000)
+c = @view b[1:440]
+d[1:440] .= c
+# %%
+
+            # 1. partial sort the worst
+            stt.zctg_scored[tii] .= @view stt.zctg[tii][1:num_ctg]
+            partialsortperm!(stt.zctg_ix[tii], stt.zctg_scored[tii], num_wrst)
+
+            # 2. stt.zctg_ix[tii] contains the sorted indices of "flw.worst_ctg_ids[tii][1:num_ctg]" -- apply them!
+            flw.worst_ctg_ids[tii][1:num_wrst] .= @view flw.worst_ctg_ids[tii][stt.zctg_ix[tii]]
+
+            # 3. select a random subset of the remainder :)
+            flw.worst_ctg_ids[tii][(num_wrst+1:num_ctg)] .= quasiGrad.shuffle!(deleteat!(1:sys.nctg, flw.worst_ctg_ids[tii][1:num_wrst]))
+
+
+
+
+            # sort: grab
+            stt.zctg_scored[tii] .= @view stt.zctg[tii][1:num_ctg]
+
+            partialsortperm!(stt.zctg_ix[tii], stt.zctg_scored[tii], num_wrst)
+
+
+            flw.worst_ctg_ids[tii][1:num_ctg] .= flw.worst_ctg_ids[tii][sortperm(stt.zctg[tii][1:num_ctg])]
+
+
+
+            #flw.worst_ctg_ids[tii][1:num_wrst] = union(flw.worst_ctg_ids[tii][1:num_wrst], quasiGrad.shuffle(
+            flw.worst_ctg_ids[tii][(num_ctg+1):(num_rnd+num_ctg)]      
+                
+            
+
+# %% 1. partial sort the worst
+zctg_scored .= @view zctg[1:num_ctg]
+partialsortperm(zctg_scored, 1:num_wrst)
+
+# 2. stt.zctg_ix[tii] contains the sorted indices of "flw.worst_ctg_ids[tii][1:num_ctg]" -- apply them!
+worst_ctg_ids[1:num_wrst] .= @view worst_ctg_ids[partialsortperm(zctg_scored, 1:num_wrst)]
+
+# 3. select a random subset of the remainder :)
+worst_ctg_ids[(num_wrst+1:num_ctg)] .= @view quasiGrad.shuffle!(deleteat!(collect(1:nctg), worst_ctg_ids[1:num_wrst]))[1:num_rnd]
+
+# %%
+
+tt = collect(1:10000)
+@btime 352523 in tt
+
+
+
+
+# %%
+tii = Int8(1)
+num_ctg = 219
+@time stt.zctg[tii][@view flw.worst_ctg_ids[tii][1:num_ctg]]
+
+# %%
+lck = Threads.SpinLock()
+
+@time Threads.lock(lck)
+@time Threads.unlock(lck)
+# %%
+x0 = randn(10000)
+y0 = randn(10000)
+u  = randn(10000)
+x  = randn(10000)
+g  = randn()
+
+f(x0::Vector{Float64}, y0::Vector{Float64}, u::Vector{Float64}, x::Vector{Float64}, g::Float64) = x0 .= y0 .- u.*(g*dot(u, x))
+# %%
+
+@time f(x0, y0, u, x, g)
 
 # %%
 x = randn(10)

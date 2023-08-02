@@ -9,7 +9,6 @@ using JuMP
 using FLoops
 using Gurobi
 using Random
-using ThreadsX
 using Polyester
 using Statistics
 using SparseArrays
@@ -36,6 +35,7 @@ include("./core/reserves.jl")
 include("./core/homotopy.jl")
 include("./scripts/solver.jl")
 include("./core/projection.jl")
+include("./core/power_flow.jl")
 include("./core/master_grad.jl")
 include("./core/optimization.jl")
 include("./core/contingencies.jl")
@@ -58,6 +58,9 @@ const eps_beta   = 1e-6::Float64
 const eps_susd   = 1e-6::Float64
 const d_unit     = 5e-3::Float64
 
+# set the BLAS thread limit to 1, to be safe
+LinearAlgebra.BLAS.set_num_threads(1)
+
 # define a gurobi licence: 
 #   => https://github.com/jump-dev/Gurobi.jl/issues/424
 const GRB_ENV = Ref{Gurobi.Env}()
@@ -65,8 +68,5 @@ function __init__()
     GRB_ENV[] = Gurobi.Env()
     return
 end
-
-# export
-export JuMP
 
 end

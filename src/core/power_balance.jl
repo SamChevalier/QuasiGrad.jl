@@ -28,7 +28,7 @@ function power_balance!(grd::quasiGrad.Grad, idx::quasiGrad.Index, msc::quasiGra
                 grd.zq.qb_slack[tii] .= (qG.pqbal_grad_weight_q*dt).*msc.qb_slack[tii]./(sqrt.(msc.qb_slack[tii].^2 .+ qG.pqbal_grad_eps2))
             elseif qG.pqbal_grad_type == "quadratic_for_lbfgs"
                 grd.zp.pb_slack[tii] .= (cp*dt).*msc.pb_slack[tii]
-                grd.zq.qb_slack[tii] .= (cp*dt).*msc.qb_slack[tii]
+                grd.zq.qb_slack[tii] .= (cq*dt).*msc.qb_slack[tii]
             else
                 println("not recognized!")
             end

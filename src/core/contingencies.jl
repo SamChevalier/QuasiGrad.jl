@@ -85,7 +85,7 @@ function solve_ctgs!(
                 flw.theta[tii] .= ntk.Ybr\flw.c[tii]
             else
                 # solve with a hot start!
-# quasiGrad.cg!(flw.theta[tii], ntk.Ybr, flw.c[tii], statevars = flw.pf_cg_statevars[tii], abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its)
+                quasiGrad.cg!(flw.theta[tii], ntk.Ybr, flw.c[tii], statevars = flw.pf_cg_statevars[tii], abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its)
                 
                 # if we wanted to test for cg convergence, we would do the following:
                     # => _, ch = quasiGrad.cg!(flw.theta[tii], ntk.Ybr, flw.c[tii], statevars = flw.pf_cg_statevars[tii], abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
@@ -140,34 +140,35 @@ function solve_ctgs!(
             @floop ThreadedEx(basesize = sys.nctg ÷ qG.num_threads) for ctg_ii in 1:sys.nctg
                 # use a custom "thread ID" -- three indices: tii, ctg_ii, and thrID
                 thrID = Int16(1)
-                #Threads.lock(lck) do
-                #    thrIdx = findfirst(ctg.ready_to_use)
-                #    if thrIdx != Nothing
-                #        thrID = Int16(thrIdx)
-                #    end
-                #    ctg.ready_to_use[thrID] = false # now in use :)
-                #end
+                Threads.lock(lck)
+                    thrIdx = findfirst(ctg.ready_to_use)
+                    if thrIdx != Nothing
+                        thrID = Int16(thrIdx)
+                    end
+                    ctg.ready_to_use[thrID] = false # now in use :)
+                Threads.unlock(lck)
 
-                # see the "else" case for comments and details
-                ctg.theta_k[thrID] .= wmi_update(flw.theta[tii], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], flw.c[tii])
-                ## => slow: ctg.pflow_k .= ntk.Yfr*ctg.theta_k .+ flw.bt
-                #quasiGrad.mul!(ctg.pflow_k[thrID], ntk.Yfr, ctg.theta_k[thrID])
-                #ctg.pflow_k[thrID] .+= flw.bt[tii]
-                #ctg.sfr[thrID]     .= sqrt.(flw.qfr2[tii] .+ ctg.pflow_k[thrID].^2)
-                #ctg.sto[thrID]     .= sqrt.(flw.qto2[tii] .+ ctg.pflow_k[thrID].^2)
-                #ctg.sfr_vio[thrID] .= ctg.sfr[thrID] .- ntk.s_max
-                #ctg.sto_vio[thrID] .= ctg.sto[thrID] .- ntk.s_max
-                #ctg.sfr_vio[thrID][ntk.ctg_out_ind[ctg_ii]] .= 0.0
-                #ctg.sto_vio[thrID][ntk.ctg_out_ind[ctg_ii]] .= 0.0
-                #for ac_dev in 1:sys.nac
-                #    stt.zctg[tii][ctg_ii] -= cs*max(ctg.sfr_vio[thrID][ac_dev], ctg.sto_vio[thrID][ac_dev], 0.0)
-                #end
-                    # single shot alternative => stt.zctg[tii][ctg_ii] = -cs*sum(max.(ctg.sfr_vio[thrID], ctg.sto_vio[thrID], 0.0))
+                # apply WMI update! don't use function -- it allocates: ctg.theta_k[thrID] .= wmi_update(flw.theta[tii], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], flw.c[tii])
+                ctg.theta_k[thrID] .= flw.theta[tii] .- ntk.u_k[ctg_ii].*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii], flw.c[tii]))
+                quasiGrad.mul!(ctg.pflow_k[thrID], ntk.Yfr, ctg.theta_k[thrID])
+                ctg.pflow_k[thrID] .+= flw.bt[tii]
+                ctg.sfr[thrID]     .= sqrt.(flw.qfr2[tii] .+ ctg.pflow_k[thrID].^2)
+                ctg.sto[thrID]     .= sqrt.(flw.qto2[tii] .+ ctg.pflow_k[thrID].^2)
+                ctg.sfr_vio[thrID] .= ctg.sfr[thrID] .- ntk.s_max
+                ctg.sto_vio[thrID] .= ctg.sto[thrID] .- ntk.s_max
+                ctg.sfr_vio[thrID][ntk.ctg_out_ind[ctg_ii]] .= 0.0
+                ctg.sto_vio[thrID][ntk.ctg_out_ind[ctg_ii]] .= 0.0
+
+                # The following is quite slow, for some reason
+                for ac_dev in 1:sys.nac
+                    stt.zctg[tii][ctg_ii] -= cs*max(ctg.sfr_vio[thrID][ac_dev], ctg.sto_vio[thrID][ac_dev], 0.0)
+                end
+                # single shot alternative => stt.zctg[tii][ctg_ii] = -cs*sum(max.(ctg.sfr_vio[thrID], ctg.sto_vio[thrID], 0.0))
 
                 # all done!!
-                Threads.lock(lck) do
-                    ctg.ready_to_use[thrID] = true # not in use :)
-                end
+                Threads.lock(lck)
+                    ctg.ready_to_use[thrID] = true
+                Threads.unlock(lck)
             end
         else
             # initialize -- redone at each time!
@@ -181,16 +182,16 @@ function solve_ctgs!(
             quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 
             # loop over contingency subset
-            @floop ThreadedEx(basesize = num_ctg ÷ qG.num_threads) for ctg_ii in flw.worst_ctg_ids[tii][1:num_ctg] # first is worst!!
+            @floop ThreadedEx(basesize = num_ctg ÷ qG.num_threads) for ctg_ii in @view flw.worst_ctg_ids[tii][1:num_ctg] # first is worst!!
                 # use a custom "thread ID"
                 thrID = Int16(1)
-                Threads.lock(lck) do
+                Threads.lock(lck)
                     thrIdx = findfirst(ctg.ready_to_use)
                     if thrIdx != Nothing
                         thrID = Int16(thrIdx)
                     end
                     ctg.ready_to_use[thrID] = false # now in use :)
-                end
+                Threads.unlock(lck)
                 # Here, we must solve theta_k = Ybr_k\c -- assume qG.ctg_solver == "wmi".
                 # now, we need to solve the following: (Yb + v*b*v')x = c
                 #
@@ -198,7 +199,8 @@ function solve_ctgs!(
                 #
                 # 1) correct theta (base) via WMI
                     # explicit version => theta_k = flw.theta[tii] - Vector(ntk.u_k[ctg_ii]*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii],c)))
-                ctg.theta_k[thrID] .= quasiGrad.wmi_update(flw.theta[tii], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], flw.c[tii])
+                    # function version (don't use -- allocates!) => wmi_update(flw.theta[tii], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], flw.c[tii])
+                ctg.theta_k[thrID] .= flw.theta[tii] .- ntk.u_k[ctg_ii].*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii], flw.c[tii]))
                 
                 # 2) compute flows
                 #
@@ -223,8 +225,7 @@ function solve_ctgs!(
                 for ac_dev in 1:sys.nac
                     stt.zctg[tii][ctg_ii] -= cs*max(ctg.sfr_vio[thrID][ac_dev], ctg.sto_vio[thrID][ac_dev], 0.0)
                 end
-                    # single shot alternative => stt.zctg[tii][ctg_ii] = -cs*sum(max.(ctg.sfr_vio[thrID], ctg.sto_vio[thrID], 0.0))
-
+                # single shot alternative => stt.zctg[tii][ctg_ii] = -cs*sum(max.(ctg.sfr_vio[thrID], ctg.sto_vio[thrID], 0.0))
 
                 # great -- now, do we take the gradient?
                 if qG.eval_grad
@@ -288,27 +289,24 @@ function solve_ctgs!(
                 end
 
                 # all done!!
-                Threads.lock(lck) do
-                    ctg.ready_to_use[thrID] = true # not in use :)
-                end
+                Threads.lock(lck)
+                    ctg.ready_to_use[thrID] = true
+                Threads.unlock(lck)
             end
 
             # now that we have backpropogated across all ctgs (in this time), we sum!
             # note -- these were 0'd out in the previous time loop (step 1)
-            #=
             for thrID in 1:(qG.num_threads+2) # two extra added, for safety
-                flw.dz_dpinj_all[tii]    += ctg.dz_dpinj_all_threadsum[thrID]
-                flw.dsmax_dqfr_flow_all[tii] += ctg.dsmax_dqfr_flow_threadsum[thrID]
-                flw.dsmax_dqto_flow_all[tii] += ctg.dsmax_dqto_flow_threadsum[thrID]
+                flw.dz_dpinj_all[tii]        .+= ctg.dz_dpinj_all_threadsum[thrID]
+                flw.dsmax_dqfr_flow_all[tii] .+= ctg.dsmax_dqfr_flow_threadsum[thrID]
+                flw.dsmax_dqto_flow_all[tii] .+= ctg.dsmax_dqto_flow_threadsum[thrID]
             end
-            =#
         end
     end
 
     ########################################################
     #  Step 3: Loop over parallel time and apply gradients #
     ########################################################
-    #=
     if qG.eval_grad && (~qG.score_all_ctgs)
         # parallel loop over time
         @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
@@ -323,19 +321,23 @@ function solve_ctgs!(
             quasiGrad.zctgs_grad_qfr_xfm!(flw, grd, idx, mgd, prm, qG, sys, tii)
             quasiGrad.zctgs_grad_qto_xfm!(flw, grd, idx, mgd, prm, qG, sys, tii)
 
-            # since we have scored all contingencies at this given time,
-            # rank them from most negative to least (worst is first)
-            flw.worst_ctg_ids[tii][1:num_ctg] .= sortperm(stt.zctg[tii][flw.worst_ctg_ids[tii][1:num_ctg]])
+            # score -- note: zctg_scored assumes and unchanging number of ctgs 
+            stt.zctg_scored[tii]                         .= @view stt.zctg[tii][flw.worst_ctg_ids[tii][1:num_ctg]]
+            flw.worst_ctg_ids[tii][1:num_wrst]           .= @view flw.worst_ctg_ids[tii][partialsortperm(stt.zctg_scored[tii], 1:num_wrst)]
+            flw.worst_ctg_ids[tii][(num_wrst+1:num_ctg)] .= @view quasiGrad.shuffle!(deleteat!(collect(1:sys.nctg), sort(flw.worst_ctg_ids[tii][1:num_wrst])))[1:num_rnd]
 
-            # however, only keep half!
-            flw.worst_ctg_ids[tii][1:num_ctg] .= union(flw.worst_ctg_ids[tii][1:num_wrst],quasiGrad.shuffle(setdiff(1:sys.nctg, flw.worst_ctg_ids[tii][1:num_wrst]))[1:num_rnd])
-        end
+            # OG scoring:
+                # =>  # since we have scored all contingencies at this given time,
+                # =>  # rank them from most negative to least (worst is first)
+                # =>  flw.worst_ctg_ids[tii][1:num_ctg] .= sortperm(@view stt.zctg[tii][@view flw.worst_ctg_ids[tii][1:num_ctg]])
+                # =>  # however, only keep half!
+                # =>  flw.worst_ctg_ids[tii][1:num_ctg] .= union(flw.worst_ctg_ids[tii][1:num_wrst],quasiGrad.shuffle(setdiff(1:sys.nctg, flw.worst_ctg_ids[tii][1:num_wrst]))[1:num_rnd])
+            end
     end
-    =#
 
     # final scores
-    # scr[:zctg_min] = sum(minimum(stt.zctg[tii]) for tii in prm.ts.time_keys)
-    # scr[:zctg_avg] = sum(sum(stt.zctg[tii]) for tii in prm.ts.time_keys)/sys.nctg
+    scr[:zctg_min] = sum(minimum(stt.zctg[tii]) for tii in prm.ts.time_keys)
+    scr[:zctg_avg] = sum(sum(stt.zctg[tii]) for tii in prm.ts.time_keys)/sys.nctg
 end
 
 function solve_and_lowrank_update_single_ctg_gradient!(ctg::quasiGrad.Contingency, ctg_ii::Int64, ntk::quasiGrad.Network, qG::quasiGrad.QG, sys::quasiGrad.System, thrID::Int16)
@@ -352,8 +354,7 @@ function solve_and_lowrank_update_single_ctg_gradient!(ctg::quasiGrad.Contingenc
             ctg.dz_dpinj[thrID] .= ntk.Ybr\ctg.rhs[thrID]
         else
             # solve with a hot start!
-# quasiGrad.cg!(ctg.dz_dpinj[thrID], ntk.Ybr, ctg.rhs[thrID], statevars = ctg.grad_cg_statevars[thrID],  abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its)
-        
+            quasiGrad.cg!(ctg.dz_dpinj[thrID], ntk.Ybr, ctg.rhs[thrID], statevars = ctg.grad_cg_statevars[thrID],  abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its)
             # if we wanted to test for cg convergence, we would do the following:
                 # _, ch = quasiGrad.cg!(ctg.dz_dpinj[thrID], ntk.Ybr, ctg.rhs[thrID], statevars = ctg.grad_cg_statevars[thrID],  abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
                 # test the krylov solution
@@ -367,7 +368,8 @@ function solve_and_lowrank_update_single_ctg_gradient!(ctg::quasiGrad.Contingenc
 
     # step 2: now, apply a low-rank update!
         # explicit version => dz_dpinj = ctg.dz_dpinj[thrID] - Vector(ntk.u_k[ctg_ii]*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii], rhs)))
-    ctg.dz_dpinj[thrID] .= quasiGrad.wmi_update(ctg.dz_dpinj[thrID], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], ctg.rhs[thrID])
+        # function version (don't use -- allocates) => wmi_update(ctg.dz_dpinj[thrID], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], ctg.rhs[thrID])
+    ctg.dz_dpinj[thrID] .= ctg.dz_dpinj[thrID] .- ntk.u_k[ctg_ii].*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii], ctg.rhs[thrID]))
 end
 
 function zctgs_grad_qfr_acline!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System, tii::Int8)
@@ -565,28 +567,26 @@ function zctgs_grad_pinj!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGr
         # shunt injections -- shunt steps # grd[:pb_slack][bus][:sh_p][tii][idx.sh[bus]].*
         for sh in idx.sh[bus]
             mgd.u_step_shunt[tii][sh] += -alpha[bus-1]*
-            grd.sh_p.g_tv_shunt[tii][sh]*
-            prm.shunt.gs[sh] # => grd[:g_tv_shunt][:u_step_shunt][idx.sh[bus]]
-        end
-        
-        # skip dc lines if there are none
-        if !isempty(idx.bus_is_dc_frs[bus])
-            # dc injections -- "pfr" contributions # grd[:pb_slack][bus][:dc_pfr][tii][idx.bus_is_dc_frs[bus]]
-            mgd.dc_pfr[tii][idx.bus_is_dc_frs[bus]] .+= -alpha[bus-1]
+            grd.sh_p.g_tv_shunt[tii][sh]*prm.shunt.gs[sh] # => grd[:g_tv_shunt][:u_step_shunt][idx.sh[bus]]
         end
 
-        if !isempty(idx.bus_is_dc_tos[bus])
-            # dc injections -- "pto" contributions
-            #
-            # note: "dc_pto" does not exist, as a "mgd" variable, so
-            # we just leverage that dc_pto = -dc_pfr   ->  d(dc_pto)_d(dc_pfr) = -1 grd[:pb_slack][bus][:dc_pto][tii][idx.bus_is_dc_tos[bus]]
-            mgd.dc_pfr[tii][idx.bus_is_dc_tos[bus]] .+= - -alpha[bus-1]
+        # dc injections -- "pfr" contributions # grd[:pb_slack][bus][:dc_pfr][tii][idx.bus_is_dc_frs[bus]]
+        for dc_fr in idx.bus_is_dc_frs[bus]
+            mgd.dc_pfr[tii][dc_fr] += -alpha[bus-1]
+        end
+
+        # dc injections -- "pto" contributions
+        #
+        # note: "dc_pto" does not exist, as a "mgd" variable, so we just leverage
+        # that dc_pto = -dc_pfr   ->  d(dc_pto)_d(dc_pfr) = -1 grd[:pb_slack][bus][:dc_pto][tii][idx.bus_is_dc_tos[bus]]
+        for dc_to in idx.bus_is_dc_tos[bus]
+            mgd.dc_pfr[tii][dc_to] -= -alpha[bus-1]
         end
         
         # phase shift derivatives -- apply gradients
         #   => pinj = (p_pr - p_cs - p_sh - p_fr_dc - p_to_dc - alpha*slack) + Er^T*phi*b
-        if ~isempty(ntk.xfm_at_bus[bus]) # make sure there is an xfm here!
-            mgd.phi[tii][ntk.xfm_at_bus[bus]] .+= alpha[bus-1].*ntk.xfm_phi_scalars[bus]
+        for (ii,xfm) in enumerate(ntk.xfm_at_bus[bus])
+            mgd.phi[tii][xfm] += alpha[bus-1]*ntk.xfm_phi_scalars[bus][ii]
         end
     end
 end
