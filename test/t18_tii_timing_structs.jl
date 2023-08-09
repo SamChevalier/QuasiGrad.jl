@@ -8,10 +8,10 @@ InFile1 = path
 jsn     = quasiGrad.load_json(InFile1)
 
 # %%
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
 
 # %%
-@time quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
+@time quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
 
 # %%
 #@btime 
@@ -19,8 +19,8 @@ adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = 
 @btime quasiGrad.acline_flows_st!(bit, grd, idx, msc_im, prm, qG, stt_im, sys)
 
 # %%
-@btime stt.acline_pfr[:t1] .= stt.u_on_acline[:t1].*msc.pfr[:t1];
-@btime stt_im.acline_pfr[1] .= stt_im.u_on_acline[1].*msc.pfr[:t1];
+@btime stt.acline_pfr[:t1] .= stt.u_on_acline[:t1].*stt.pfr[:t1];
+@btime stt_im.acline_pfr[1] .= stt_im.u_on_acline[1].*stt.pfr[:t1];
 
 # %%
 uv = UInt8.(1:(sys.nT))

@@ -632,7 +632,7 @@ end
 function calc_nzms_qG(grd, idx, mgd, prm, qG, stt, sys)
 
         # compute states and grads
-        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     
         # output
         return scr[:nzms]
@@ -649,22 +649,22 @@ function calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     # don't clip!!
     
     # compute network flows and injections
-    quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
-    quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
-    quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
+    quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
+    quasiGrad.xfm_flows!(grd, idx, prm, qG, stt, sys)
+    quasiGrad.shunts!(grd, idx, prm, qG, stt)
 
     # device powers
     quasiGrad.all_device_statuses_and_costs!(grd, prm, qG, stt)
-    quasiGrad.device_startup_states!(grd, idx, mgd, msc, prm, qG, stt, sys)
+    quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
     quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
     quasiGrad.device_reactive_powers!(idx, prm, qG, stt)
     quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
-    quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
-    quasiGrad.penalized_device_constraints!(grd, idx, mgd, msc, prm, qG, scr, stt, sys)
+    quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
+    quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
     quasiGrad.device_reserve_costs!(prm, qG, stt)
 
     # now, we can compute the power balances
-    quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
 
     # compute reserve margins and penalties (no grads here)
     quasiGrad.reserve_balance!(idx, prm, qG, stt, sys)
@@ -680,7 +680,7 @@ function calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     quasiGrad.score_zms!(scr)
 
     # compute the master grad
-    quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
+    quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
     # output
 
     return -scr[:zms_penalized] # previously => scr[:nzms]
@@ -751,20 +751,20 @@ function load_and_project(path::String, solution_file::String)
     jsn = quasiGrad.load_json(InFile1)
 
     # initialize
-    adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
 
     # solve
     fix       = true
     pct_round = 100.0
-    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
-    quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, msc, ntk, prm, qG, stt, sys, upd)
-    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+    quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
     
     quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
     quasiGrad.write_solution(solution_file, prm, qG, stt, sys)
-    quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+    quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 end
 
 ## %% ============

@@ -8,10 +8,10 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 jsn = quasiGrad.load_json(path)
 
 # %% init
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, false, 1.0);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # solve
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # run an ED
 ED = quasiGrad.solve_economic_dispatch(GRB, idx, prm, qG, scr, stt, sys, upd);
@@ -19,12 +19,12 @@ quasiGrad.apply_economic_dispatch_projection!(ED, idx, prm, qG, stt, sys);
 
 # recompute the state
 qG.eval_grad = false
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 qG.eval_grad = true
 
 # ===== new score?
-quasiGrad.dcpf_initialization!(flw, idx, msc, ntk, prm, qG, stt, sys)
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # intialize lbfgs
 lbfgs, lbfgs_diff, lbfgs_idx, lbfgs_map, lbfgs_step = quasiGrad.initialize_lbfgs(mgd, prm, sys, upd);
@@ -39,7 +39,7 @@ for ii in 1:1000
     lbfgs_step[:nzms_prev] = scr[:nzms]
 
     # compute all states and grads
-    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
     # print
     println("The (non-penalized) market surplus is $(scr[:zms])!")
@@ -69,10 +69,10 @@ for ii in 1:1000
     beta2_decay = beta2_decay*beta2
 
     # compute all states and grads
-    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
     # take an adam step
-    quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+    quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
 
     # print
     println("The (non-penalized) market surplus is $(scr[:zms])!")
@@ -85,7 +85,7 @@ quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
 
 # one last clip + state computation -- no grad needed!
 qG.eval_grad = false
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # write the final solution
 soln_dict = quasiGrad.prepare_solution(prm, stt, sys)

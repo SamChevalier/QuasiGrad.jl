@@ -110,12 +110,12 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     scale_c_sflow_testing    = 1.0
 
     # ctg solver settings
-    ctg_grad_cutoff          = -50.0  # don't take gradients of ctg violations that are smaller
+    ctg_grad_cutoff          = -25.0  # don't take gradients of ctg violations that are smaller
                                       # (in magnitude) than this value -- not worth it!
     score_all_ctgs           = false  # this is used for testing/post-processing
     min_buses_for_krylov     = 25     # don't use Krylov if there are this many or fewer buses
 
-    # adaptively the frac of ctgs to keep
+    # adaptively choose the frac of ctgs to keep
     max_ctg_to_keep = min(1000, length(prm.ctg.id))
     frac_ctg_keep   = max_ctg_to_keep/length(prm.ctg.id)
     # this is the fraction of ctgs that are scored and differentiated
@@ -150,6 +150,9 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     build_ctg_full           = false # build the full contingency matrices?
     build_ctg_lowrank        = true  # build the low rank contingency elements?
                                      #  -- you don't need both ^, unless for testing
+    ctg_adam_counter         = 0    # this incremenets each time we take an adam step
+    ctg_solve_frequency      = 3    # i.e., how often should we solve ctgs? every "x" adam steps
+    always_solve_ctg         = true # for testing, mainly
     # for setting cutoff_level = memory, from LimitedLDLFactorizations.lldl:
                                      # `memory::Int=0`: extra amount of memory to allocate for the incomplete factor `L`.
                                      # The total memory allocated is nnz(T) + n * `memory`, where
@@ -166,54 +169,93 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     #      -- come back to this!
 
     # initialize adam parameters
-    eps        = 1e-8         # for numerical stability -- keep at 1e-8 (?)
-    beta1      = 0.75
-    beta2      = 0.9
+    decay_adam_step         = true
+    homotopy_with_cos_decay = true
+    adm_step                = 0
+    eps                     = 1e-8  # for numerical stability -- keep at 1e-8 (?)
+    beta1                   = 0.75
+    beta2                   = 0.9
+    beta1_decay             = 1.0
+    beta2_decay             = 1.0
+    one_min_beta1           = 1.0
+    one_min_beta2           = 1.0
+    one_min_beta1_decay     = 1.0
+    one_min_beta2_decay     = 1.0
 
-    # the following are NOT used
-    alpha_min  = 0.001/10.0   # for cos decay
-    alpha_max  = 0.001/0.5    # for cos decay
-    Ti         = 100          # for cos decay -- at Tcurr == Ti, cos() => -1
-    step_decay = 0.999        # for exp decay
-
-    # choose step sizes
-    vmva_scale    = 1e-6
-    xfm_scale     = 1e-6
-    dc_scale      = 1e-4
-    power_scale   = 1e-4
-    reserve_scale = 1e-4
-    bin_scale     = 3e-3 # bullish!!!
-    alpha_0 = Dict(:vm     => vmva_scale,
-                   :va     => vmva_scale,
+    # choose adam step sizes (initial)
+    vmva_scale_t0    = 1e-3
+    xfm_scale_t0     = 1e-3
+    dc_scale_t0      = 1e-2
+    power_scale_t0   = 1e-2
+    reserve_scale_t0 = 1e-2
+    bin_scale_t0     = 1e-2 # bullish!!!
+    alpha_t0 = Dict(:vm    => vmva_scale_t0,
+                   :va     => vmva_scale_t0,
                    # xfm
-                   :phi    => xfm_scale,
-                   :tau    => xfm_scale,
+                   :phi    => xfm_scale_t0,
+                   :tau    => xfm_scale_t0,
                    # dc
-                   :dc_pfr => dc_scale,
-                   :dc_qto => dc_scale,
-                   :dc_qfr => dc_scale,
+                   :dc_pfr => dc_scale_t0,
+                   :dc_qto => dc_scale_t0,
+                   :dc_qfr => dc_scale_t0,
                    # powers -- decay this!!
-                   :dev_q  => power_scale,
-                   :p_on   => power_scale,
+                   :dev_q  => power_scale_t0,
+                   :p_on   => power_scale_t0,
                    # reserves
-                   :p_rgu     => reserve_scale,
-                   :p_rgd     => reserve_scale,
-                   :p_scr     => reserve_scale,
-                   :p_nsc     => reserve_scale,
-                   :p_rrd_on  => reserve_scale,
-                   :p_rrd_off => reserve_scale,
-                   :p_rru_on  => reserve_scale,
-                   :p_rru_off => reserve_scale,
-                   :q_qrd     => reserve_scale,
-                   :q_qru     => reserve_scale,
+                   :p_rgu     => reserve_scale_t0,
+                   :p_rgd     => reserve_scale_t0,
+                   :p_scr     => reserve_scale_t0,
+                   :p_nsc     => reserve_scale_t0,
+                   :p_rrd_on  => reserve_scale_t0,
+                   :p_rrd_off => reserve_scale_t0,
+                   :p_rru_on  => reserve_scale_t0,
+                   :p_rru_off => reserve_scale_t0,
+                   :q_qrd     => reserve_scale_t0,
+                   :q_qru     => reserve_scale_t0,
                    # bins
-                   :u_on_xfm     => bin_scale,
-                   :u_on_dev     => bin_scale,
-                   :u_step_shunt => bin_scale,
-                   :u_on_acline  => bin_scale)
+                   :u_on_xfm     => bin_scale_t0,
+                   :u_on_dev     => bin_scale_t0,
+                   :u_step_shunt => bin_scale_t0,
+                   :u_on_acline  => bin_scale_t0)
 
-    # specify step size decay approach: "cos", "none", or "exponential"
-    decay_type = "none" #"cos"
+        # choose adam step sizes (final)
+        vmva_scale_tf    = 1e-5
+        xfm_scale_tf     = 1e-5
+        dc_scale_tf      = 1e-4
+        power_scale_tf   = 1e-4
+        reserve_scale_tf = 1e-4
+        bin_scale_tf     = 1e-4 # bullish!!!
+        alpha_tf = Dict(:vm    => vmva_scale_tf,
+                       :va     => vmva_scale_tf,
+                       # xfm
+                       :phi    => xfm_scale_tf,
+                       :tau    => xfm_scale_tf,
+                       # dc
+                       :dc_pfr => dc_scale_tf,
+                       :dc_qto => dc_scale_tf,
+                       :dc_qfr => dc_scale_tf,
+                       # powers -- decay this!!
+                       :dev_q  => power_scale_tf,
+                       :p_on   => power_scale_tf,
+                       # reserves
+                       :p_rgu     => reserve_scale_tf,
+                       :p_rgd     => reserve_scale_tf,
+                       :p_scr     => reserve_scale_tf,
+                       :p_nsc     => reserve_scale_tf,
+                       :p_rrd_on  => reserve_scale_tf,
+                       :p_rrd_off => reserve_scale_tf,
+                       :p_rru_on  => reserve_scale_tf,
+                       :p_rru_off => reserve_scale_tf,
+                       :q_qrd     => reserve_scale_tf,
+                       :q_qru     => reserve_scale_tf,
+                       # bins
+                       :u_on_xfm     => bin_scale_tf,
+                       :u_on_dev     => bin_scale_tf,
+                       :u_step_shunt => bin_scale_tf,
+                       :u_on_acline  => bin_scale_tf)
+
+        # choose adam step size (current)
+        alpha_tnow = deepcopy(alpha_tf)
 
     # adam plotting
     plot_scale_up = 2.0
@@ -229,10 +271,15 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # see the homotopy file for more parameters!!!
 
     # gradient modifications -- power balance
-    pqbal_grad_type     = "soft_abs" # "quadratic_for_lbfgs", "standard"
+    pqbal_grad_type     = "scaled_quadratic" # "soft_abs" # "quadratic_for_lbfgs", "standard"
     pqbal_grad_weight_p = prm.vio.p_bus # standard: prm.vio.p_bus
     pqbal_grad_weight_q = prm.vio.q_bus # standard: prm.vio.q_bus
     pqbal_grad_eps2     = 1e-5
+    # in the following, we tune the weight so that the quadratic power balance gradients
+    # match the standard gradients (in terms of magnitude) when p/q_error = 0.05 -- after
+    # that point, they get weaker; before that, they get stronger
+    pqbal_quadratic_grad_weight_p = prm.vio.p_bus/(2.0*0.05)
+    pqbal_quadratic_grad_weight_q = prm.vio.q_bus/(2.0*0.05)
 
     # gradient modification for constraints
     constraint_grad_is_soft_abs = true # "standard"
@@ -252,8 +299,12 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     #           => bit.sfr_vio .= (flw.sfr_vio .> qG.grad_ctg_tol) .&& (flw.sfr_vio .> flw.sto_vio)
     #           => bit.sto_vio .= (flw.sto_vio .> qG.grad_ctg_tol) .&& (flw.sto_vio .> flw.sfr_vio)
     ctg_grad_is_soft_abs = true # "standard"
-    ctg_grad_weight = prm.vio.s_flow
-    ctg_grad_eps2 = 1e-4
+    ctg_grad_weight    = prm.vio.s_flow
+    ctg_grad_eps2      = 1e-4
+    ctg_memory         = 0.75                # how much memory should we give the ctg gradients?
+    one_min_ctg_memory = 1.0 - ctg_memory    # ctg_memory + one_min_ctg_memory = 1 !!
+    # NOTE: for no memory, just set ctg_memory = 0.0 -- then, every new gradient will be linearly 
+    #       added and applied, and no smoothing will take place (except via adam itself!)
 
     # gradient modification for reserves (we do NOT perturb reserve gradient weights -- they are small enough!)
     reserve_grad_is_soft_abs = true # "standard"
@@ -276,7 +327,8 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
         max_linear_pfs_final_solve = 6       # stop when number of pfs > max_linear_pfs_final_solve
         max_linear_pfs_total       = 6       # this includes failures
     end
-    Gurobi_pf_obj = "min_dispatch_distance" # or, "min_dispatch_perturbation"
+    
+    Gurobi_pf_obj = "l2_penalties" # "min_dispatch_distance" or, "min_dispatch_perturbation"
 
     # don't use given initializations
     initialize_shunt_to_given_value = false
@@ -373,25 +425,36 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
         ctg_solver,
         build_ctg_full,
         build_ctg_lowrank,
+        ctg_adam_counter,   
+        ctg_solve_frequency,
+        always_solve_ctg,
+        decay_adam_step,
+        homotopy_with_cos_decay,
+        adm_step,
         eps,
         beta1,
         beta2,
-        alpha_0,
-        alpha_min,
-        alpha_max,
-        Ti,
-        step_decay,
-        decay_type,
+        beta1_decay,
+        beta2_decay,
+        one_min_beta1,
+        one_min_beta2,
+        one_min_beta1_decay,
+        one_min_beta2_decay,
+        alpha_tf,
+        alpha_t0,
+        alpha_tnow,
         plot_scale_up, 
         plot_scale_dn, 
         adam_max_time, 
         adam_max_its,
         adam_stopper,
-        apply_grad_weight_homotopy, 
+        apply_grad_weight_homotopy,
         pqbal_grad_type,
         pqbal_grad_weight_p,
         pqbal_grad_weight_q,
         pqbal_grad_eps2,
+        pqbal_quadratic_grad_weight_p,
+        pqbal_quadratic_grad_weight_q,
         constraint_grad_is_soft_abs, 
         constraint_grad_weight,
         constraint_grad_eps2,
@@ -401,6 +464,8 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
         ctg_grad_is_soft_abs,
         ctg_grad_weight,
         ctg_grad_eps2,
+        ctg_memory,        
+        one_min_ctg_memory,
         reserve_grad_is_soft_abs,
         reserve_grad_eps2,
         compute_pf_injs_with_Jac,
@@ -443,10 +508,10 @@ function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::B
     qG = initialize_qG(prm, Div=Div, hpc_params=hpc_params)
 
     # intialize (empty) states
-    cgd, grd, mgd, scr, stt, msc = initialize_states(idx, prm, sys, qG)
+    cgd, grd, mgd, scr, stt = initialize_states(idx, prm, sys, qG)
 
     # initialize the states which adam will update -- the rest are fixed
-    adm = initialize_adam_states(qG, sys)
+    adm = initialize_adam_states(prm, qG, sys)
 
     # define the states which adam can/will update, and fix the rest!
     upd = identify_update_states(prm, idx, stt, sys)
@@ -467,8 +532,11 @@ function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::B
         upd = identify_update_states(prm, idx, stt, sys)
     end
 
+    # release memory and force garbage collection
+    jsn = 0; GC.gc()
+
     # output
-    return adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd
+    return adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd
 end
 
 function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
@@ -664,18 +732,15 @@ function initialize_states(idx::quasiGrad.Index, prm::quasiGrad.Param, sys::quas
     stt = build_state(prm, sys, qG)
 
     # build grd
-    grd = build_grad(sys)
+    grd = build_grad(prm, sys)
 
     # build the (fully initialized) cgd: constant gradient structure
-    cgd = build_constant_gradient(idx, prm, sys)
-
-    # vector of miscellaneous vectors (so I don't have to initialize a new one each time)
-    msc = build_miscellaneous(prm, sys)
+    cgd = build_constant_gradient(idx, prm, qG, sys)
 
     # mgd = master grad -- this is the gradient which relates the negative market surplus function 
     #   with all "basis" variables -- i.e., the variables for which all others are computed.
     #   These are *exactly* (I think..) the variables which are reported in the solution file
-    mgd = build_master_grad(sys)
+    mgd = build_master_grad(prm, sys)
 
     # build scr -- this is the only dictionary we use
     scr = Dict(
@@ -707,7 +772,7 @@ function initialize_states(idx::quasiGrad.Index, prm::quasiGrad.Param, sys::quas
         :ed_obj          => 0.0) # hold the ed solution
 
     # output
-    return cgd, grd, mgd, scr, stt, msc
+    return cgd, grd, mgd, scr, stt
 end
 
 function identify_update_states(prm::quasiGrad.Param, idx::quasiGrad.Index, stt::quasiGrad.State, sys::quasiGrad.System)
@@ -721,19 +786,19 @@ function identify_update_states(prm::quasiGrad.Param, idx::quasiGrad.Index, stt:
         #       via Gurobi will handled later
     #
     # all other, non-fixed states are "variable" states
-    upd   = Dict(:u_on_dev     => [collect(1:sys.ndev) for ii in 1:sys.nT],
-                 :p_rrd_off    => [collect(1:sys.ndev) for ii in 1:sys.nT],
-                 :p_nsc        => [collect(1:sys.ndev) for ii in 1:sys.nT],
-                 :p_rru_off    => [collect(1:sys.ndev) for ii in 1:sys.nT],
-                 :q_qru        => [collect(1:sys.ndev) for ii in 1:sys.nT],
-                 :q_qrd        => [collect(1:sys.ndev) for ii in 1:sys.nT],
-                 :phi          => [collect(1:sys.nx)   for ii in 1:sys.nT],
-                 :tau          => [collect(1:sys.nx)   for ii in 1:sys.nT],
-                 :dc_pto       => [collect(1:sys.nldc) for ii in 1:sys.nT],
-                 :va           => [collect(1:sys.nb)   for ii in 1:sys.nT],
-                 :u_on_acline  => [collect(1:sys.nl)   for ii in 1:sys.nT],
-                 :u_on_xfm     => [collect(1:sys.nx)   for ii in 1:sys.nT],
-                 :u_step_shunt => [collect(1:sys.nsh)  for ii in 1:sys.nT])
+    upd   = Dict(:u_on_dev     => [collect(1:sys.ndev) for tii in prm.ts.time_keys],
+                 :p_rrd_off    => [collect(1:sys.ndev) for tii in prm.ts.time_keys],
+                 :p_nsc        => [collect(1:sys.ndev) for tii in prm.ts.time_keys],
+                 :p_rru_off    => [collect(1:sys.ndev) for tii in prm.ts.time_keys],
+                 :q_qru        => [collect(1:sys.ndev) for tii in prm.ts.time_keys],
+                 :q_qrd        => [collect(1:sys.ndev) for tii in prm.ts.time_keys],
+                 :phi          => [collect(1:sys.nx)   for tii in prm.ts.time_keys],
+                 :tau          => [collect(1:sys.nx)   for tii in prm.ts.time_keys],
+                 :dc_pto       => [collect(1:sys.nldc) for tii in prm.ts.time_keys],
+                 :va           => [collect(1:sys.nb)   for tii in prm.ts.time_keys],
+                 :u_on_acline  => [collect(1:sys.nl)   for tii in prm.ts.time_keys],
+                 :u_on_xfm     => [collect(1:sys.nx)   for tii in prm.ts.time_keys],
+                 :u_step_shunt => [collect(1:sys.nsh)  for tii in prm.ts.time_keys])
 
     # 1. must run sets =======================================
     for dev in reverse(1:sys.ndev)
@@ -873,7 +938,7 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     ac_b_params = -[prm.acline.b_sr; prm.xfm.b_sr]
     
     # build the full incidence matrix: E = lines x buses
-    E  = build_incidence(idx, prm, stt, sys)
+    E, Efr, Eto = build_incidence(idx, prm, stt, sys)
     Er = E[:,2:end]
     ErT = copy(Er')
 
@@ -965,6 +1030,7 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
         # no need => b_k = Dict(ctg_ii => 0.0 for ctg_ii in 1:sys.nctg)
         u_k = [zeros(sys.nb-1) for ctg_ii in 1:sys.nctg] # Dict(ctg_ii => zeros(sys.nb-1) for ctg_ii in 1:sys.nctg) # Dict(ctg_ii => quasiGrad.spzeros(sys.nb-1) for ctg_ii in 1:sys.nctg)
         g_k = zeros(sys.nctg) # => Dict(ctg_ii => 0.0 for ctg_ii in 1:sys.nctg)
+        z_k = [zeros(sys.nac) for ctg_ii in 1:sys.nctg]
         # if the "w_k" formulation is wanted => w_k = Dict(ctg_ii => quasiGrad.spzeros(sys.nb-1) for ctg_ii in 1:sys.nctg)
     else
         v_k = 0
@@ -987,7 +1053,8 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     @floop ThreadedEx(basesize = sys.nctg ÷ qG.num_threads) for ctg_ii in 1:sys.nctg
         # this code is optimized -- see above for comments!!!
         u_k[ctg_ii] .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
-        g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
+        @turbo g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
+        @turbo mul!(z_k[ctg_ii], Yfr, u_k[ctg_ii])
     end
     FLoops.assistant(true)
     # => @info "Done."
@@ -1083,16 +1150,16 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     # build the phase angle solution dict -- this will have "sys.nb-1" angles for each solution,
     # since theta1 = 0, and it will have n_ctg+1 solutions, because the base case solution will be
     # optionally saved at the end.. similar for pflow_k
-    # theta_k       = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1)) for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT)
-    # pflow_k       = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nac))  for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT)
-    # theta_k       = Dict(tkeys[ii] => [zeros(sys.nb-1) for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT)
-    # pflow_k       = Dict(tkeys[ii] => [zeros(sys.nac)  for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT)
+    # theta_k       = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1)) for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys)
+    # pflow_k       = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nac))  for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys)
+    # theta_k       = Dict(tkeys[ii] => [zeros(sys.nb-1) for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys)
+    # pflow_k       = Dict(tkeys[ii] => [zeros(sys.nac)  for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys)
     # this is the gradient solution assuming a base case admittance (it is then rank 1 corrected to dz_dpinj)
-    # ctd = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT) 
-    # ctd = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT)   
+    # ctd = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys) 
+    # ctd = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys)   
     # this is the gradient solution, corrected from ctd
-    # dz_dpinj      = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT) 
-    # dz_dpinj      = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for ii in 1:sys.nT) 
+    # dz_dpinj      = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys) 
+    # dz_dpinj      = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys) 
 
     # "local" storage for apparent power flows (not needed across time)
     # sfr     = Dict(ctg_ii => zeros(sys.nac) for ctg_ii in 1:sys.nctg)
@@ -1109,18 +1176,47 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     xfm_phi_scalars = Dict(bus => ac_b_params[xfm_at_bus[bus] .+ sys.nl].*sign.(xfm_at_bus_sign[bus]) for bus in 2:sys.nb)
 
     # compute the constant acline Ybus matrix
-    Ybus_acline_real, Ybus_acline_imag = quasiGrad.initialize_acline_Ybus(idx, prm, stt, sys)
+    Ybus_acline_real, Ybus_acline_imag, Yflow_acline_series_real, Yflow_acline_series_imag, 
+        Yflow_acline_shunt_fr_real, Yflow_acline_shunt_fr_imag, Yflow_acline_shunt_to_real, 
+        Yflow_acline_shunt_to_imag = quasiGrad.initialize_acline_Ybus(idx, prm, stt, sys)
+
+    # other network matrices
+    Ybus_real                = [spzeros(sys.nb,sys.nb)     for tii in prm.ts.time_keys]
+    Ybus_imag                = [spzeros(sys.nb,sys.nb)     for tii in prm.ts.time_keys]
+    Ybus_xfm_imag            = [spzeros(sys.nb,sys.nb)     for tii in prm.ts.time_keys]
+    Ybus_shunt_imag          = [spzeros(sys.nb,sys.nb)     for tii in prm.ts.time_keys]
+    Ybus_xfm_real            = [spzeros(sys.nb,sys.nb)     for tii in prm.ts.time_keys]
+    Ybus_shunt_real          = [spzeros(sys.nb,sys.nb)     for tii in prm.ts.time_keys]
+    Yflow_xfm_series_fr_real = [spzeros(sys.nac,sys.nb)    for tii in prm.ts.time_keys]
+    Yflow_xfm_series_fr_imag = [spzeros(sys.nac,sys.nb)    for tii in prm.ts.time_keys]
+    Yflow_xfm_series_to_real = [spzeros(sys.nac,sys.nb)    for tii in prm.ts.time_keys]
+    Yflow_xfm_series_to_imag = [spzeros(sys.nac,sys.nb)    for tii in prm.ts.time_keys]
+    Yflow_xfm_shunt_fr_real  = [spzeros(sys.nac,sys.nb)    for tii in prm.ts.time_keys]
+    Yflow_xfm_shunt_fr_imag  = [spzeros(sys.nac,sys.nb)    for tii in prm.ts.time_keys]
+    Yflow_xfm_shunt_to_real  = [spzeros(sys.nac,sys.nb)    for tii in prm.ts.time_keys]
+    Yflow_xfm_shunt_to_imag  = [spzeros(sys.nac,sys.nb)    for tii in prm.ts.time_keys]
+    Yflow_fr_real            = [spzeros(sys.nac,sys.nb)    for tii in prm.ts.time_keys]
+    Yflow_fr_imag            = [spzeros(sys.nac,sys.nb)    for tii in prm.ts.time_keys]
+    Yflow_to_real            = [spzeros(sys.nac,sys.nb)    for tii in prm.ts.time_keys]
+    Yflow_to_imag            = [spzeros(sys.nac,sys.nb)    for tii in prm.ts.time_keys]
+    Jac                      = [spzeros(2*sys.nb,2*sys.nb) for tii in prm.ts.time_keys]
+    Jac_pq_flow_fr           = [spzeros(2*sys.nac,2*sys.nb) for tii in prm.ts.time_keys]
+    Jac_pq_flow_to           = [spzeros(2*sys.nac,2*sys.nb) for tii in prm.ts.time_keys]
+    Jac_sflow_fr             = [spzeros(sys.nac,2*sys.nb) for tii in prm.ts.time_keys]
+    Jac_sflow_to             = [spzeros(sys.nac,2*sys.nb) for tii in prm.ts.time_keys]
 
     # initialize state vectors for holding cg! results. first, standard base-case power flow solver:
     x                 = randn(sys.nb-1) # using this format just to match "cg.jl"
     # note -- the first array does NOT need to be zero'd out at each iteration, it seems
-    pf_cg_statevars   = [quasiGrad.IterativeSolvers.CGStateVariables(zero(x), similar(x), similar(x)) for ii in 1:sys.nT]
+    pf_cg_statevars   = [quasiGrad.IterativeSolvers.CGStateVariables(zero(x), similar(x), similar(x)) for tii in prm.ts.time_keys]
     grad_cg_statevars = [quasiGrad.IterativeSolvers.CGStateVariables(zero(x), similar(x), similar(x)) for ii in 1:(qG.num_threads+2)]
 
     # network parameters
     ntk = quasiGrad.Network(
             s_max_ctg,     # max contingency flows
             E,             # full incidence matrix
+            Efr,           # Efr = 0.5*(E + abs(E)) = E1
+            Eto,           # Eto = 0.5*(abs(E) - E) = E2
             Er,            # reduced incidence matrix
             ErT,           # Er transposed :)
             Yb,            # full Ybus (DC)    
@@ -1141,23 +1237,57 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
             Ybr_ChPr,         # base case preconditioner (everyone uses it!)
             u_k,              # low rank update vector: u_k = Y\v, w_k = b*u/(1+v'*u*b)
             g_k,              # low rank update scalar: g_k = b/(1+v'*u*b)
+            z_k,              # Yflow*u_k
             Ybus_acline_real, # constant acline Ybus 
-            Ybus_acline_imag) # constant acline Ybus 
+            Ybus_acline_imag, # constant acline Ybus
+            Yflow_acline_series_real,    # constant acline (series)
+            Yflow_acline_series_imag,    # constant acline (series)
+            Yflow_acline_shunt_fr_real,  # constant acline (shunt)
+            Yflow_acline_shunt_fr_imag,  # constant acline (shunt)
+            Yflow_acline_shunt_to_real,  # constant acline (shunt)
+            Yflow_acline_shunt_to_imag,  # constant acline (shunt)
+            Ybus_real,
+            Ybus_imag,
+            Ybus_xfm_imag,
+            Ybus_shunt_imag,
+            Ybus_xfm_real,
+            Ybus_shunt_real,
+            Yflow_xfm_series_fr_real,  
+            Yflow_xfm_series_fr_imag,  
+            Yflow_xfm_series_to_real,  
+            Yflow_xfm_series_to_imag,  
+            Yflow_xfm_shunt_fr_real,
+            Yflow_xfm_shunt_fr_imag,
+            Yflow_xfm_shunt_to_real,
+            Yflow_xfm_shunt_to_imag,
+            Yflow_fr_real,
+            Yflow_fr_imag,
+            Yflow_to_real,
+            Yflow_to_imag,
+            Jac,
+            Jac_pq_flow_fr,
+            Jac_pq_flow_to,
+            Jac_sflow_fr,  
+            Jac_sflow_to)
     
     # flow data
-    flw = quasiGrad.Flow([zeros(sys.nac)      for ii in 1:sys.nT],
-                         [zeros(sys.nac)      for ii in 1:sys.nT],
-                         [zeros(sys.nac)      for ii in 1:sys.nT],
-                         [zeros(sys.nac)      for ii in 1:sys.nT],
-                         [zeros(sys.nac)      for ii in 1:sys.nT],
-                         [zeros(sys.nac)      for ii in 1:sys.nT],
-                         [zeros(sys.nac)      for ii in 1:sys.nT],
-                         [zeros(sys.nac)      for ii in 1:sys.nT],
-                         [zeros(sys.nb)       for ii in 1:sys.nT],
-                         [zeros(sys.nb-1)     for ii in 1:sys.nT],
-                         [zeros(sys.nb-1)     for ii in 1:sys.nT],
-                         [zeros(sys.nb-1)     for ii in 1:sys.nT],
-                         [collect(1:sys.nctg) for ii in 1:sys.nT],
+    flw = quasiGrad.Flow([zeros(sys.nac)      for tii in prm.ts.time_keys],
+                         [zeros(sys.nac)      for tii in prm.ts.time_keys],
+                         [zeros(sys.nac)      for tii in prm.ts.time_keys],
+                         [zeros(sys.nac)      for tii in prm.ts.time_keys],
+                         [zeros(sys.nac)      for tii in prm.ts.time_keys],
+                         [zeros(sys.nac)      for tii in prm.ts.time_keys],
+                         [zeros(sys.nac)      for tii in prm.ts.time_keys],
+                         [zeros(sys.nac)      for tii in prm.ts.time_keys],
+                         [zeros(sys.nac)      for tii in prm.ts.time_keys],
+                         [zeros(sys.nac)      for tii in prm.ts.time_keys],
+                         [zeros(sys.nb)       for tii in prm.ts.time_keys],
+                         [zeros(sys.nb-1)     for tii in prm.ts.time_keys],
+                         [zeros(sys.nb-1)     for tii in prm.ts.time_keys],
+                         [zeros(sys.nb-1)     for tii in prm.ts.time_keys],
+                         [zeros(sys.nb-1)     for tii in prm.ts.time_keys],
+                         [zeros(sys.nac)      for tii in prm.ts.time_keys],
+                         [collect(1:sys.nctg) for tii in prm.ts.time_keys],
                          pf_cg_statevars)
 
     # contingency variables
@@ -1215,8 +1345,12 @@ function build_incidence(idx::quasiGrad.Index, prm::quasiGrad.Param, stt::quasiG
     # combine the output
     E = E_acline_fr + E_acline_to + E_xfm_fr + E_xfm_to
 
+    # Now, also build E1 = Efr and E2 = Eto
+    Efr = +E_acline_fr + E_xfm_fr # E1
+    Eto = -E_acline_to - E_xfm_to # E2
+
     # output
-    return E
+    return E, Efr, Eto
 end
 
 function initialize_acline_Ybus(idx::quasiGrad.Index, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System)
@@ -1255,7 +1389,8 @@ function initialize_acline_Ybus(idx::quasiGrad.Index, prm::quasiGrad.Param, stt:
     # loop and populate
     for line in 1:sys.nl
         if line in lines_off
-            # skip!!
+            # skip!! actually, remove the corresponding line in Yd_acline_series
+            Yd_acline_series[line,line] = 0.0
         else
             fr = idx.acline_fr_bus[line]
             to = idx.acline_to_bus[line]
@@ -1277,19 +1412,48 @@ function initialize_acline_Ybus(idx::quasiGrad.Index, prm::quasiGrad.Param, stt:
     Ybus_acline_real = real(Ybus_acline)
     Ybus_acline_imag = imag(Ybus_acline)
 
+    # ========================================= #
+    # for the purposes of building line flow matrices, also compute series and line shunt matrices
+    Yflow_acline_series_real   = real(Yd_acline_series*E_acline)
+    Yflow_acline_series_imag   = imag(Yd_acline_series*E_acline)
+    Yflow_acline_shunt_fr_real = quasiGrad.spzeros(Complex{Float64}, m, n)
+    Yflow_acline_shunt_fr_imag = quasiGrad.spzeros(Complex{Float64}, m, n)
+    Yflow_acline_shunt_to_real = quasiGrad.spzeros(Complex{Float64}, m, n)
+    Yflow_acline_shunt_to_imag = quasiGrad.spzeros(Complex{Float64}, m, n)
+
+    # loop and populate
+    for line in 1:sys.nl
+        if line in lines_off
+            # skip!!
+        else
+            fr = idx.acline_fr_bus[line]
+            to = idx.acline_to_bus[line]
+
+            # fr first
+            Yflow_acline_shunt_fr_real[line,fr] += prm.acline.g_fr[line]
+            Yflow_acline_shunt_fr_imag[line,fr] += prm.acline.b_fr[line]
+            Yflow_acline_shunt_fr_imag[line,fr] += prm.acline.b_ch[line]/2.0
+
+            # to second
+            Yflow_acline_shunt_to_real[line,to] += prm.acline.g_to[line]
+            Yflow_acline_shunt_to_imag[line,to] += prm.acline.b_to[line]
+            Yflow_acline_shunt_to_imag[line,to] += prm.acline.b_ch[line]/2.0
+        end
+    end
+
     # output
-    return Ybus_acline_real, Ybus_acline_imag
+    return Ybus_acline_real, Ybus_acline_imag, Yflow_acline_series_real, Yflow_acline_series_imag, Yflow_acline_shunt_fr_real, Yflow_acline_shunt_fr_imag, Yflow_acline_shunt_to_real, Yflow_acline_shunt_to_imag
 end
 
-function update_Ybus(idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function update_Ybus!(idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
     # this function updates the Ybus matrix using the time-varying shunt and xfm values
     #
     # NOTE: this assumes all xfms are on
     n = sys.nb
-    Ybus_xfm_imag   = spzeros(n,n)
-    Ybus_shunt_imag = spzeros(n,n)
-    Ybus_xfm_real   = spzeros(n,n)
-    Ybus_shunt_real = spzeros(n,n)
+    ntk.Ybus_xfm_imag[tii]   .= spzeros(n,n)
+    ntk.Ybus_shunt_imag[tii] .= spzeros(n,n)
+    ntk.Ybus_xfm_real[tii]   .= spzeros(n,n)
+    ntk.Ybus_shunt_real[tii] .= spzeros(n,n)
     #
     xfms_off = findall(stt.u_on_xfm[1] .== 0.0)
     # xfm ===========================
@@ -1309,32 +1473,98 @@ function update_Ybus(idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGra
             ytf = (-series_y)/(stt.tau[tii][xfm]*(cos_phi + im*sin_phi))
         
             # populate real!
-            Ybus_xfm_real[idx.xfm_fr_bus[xfm], idx.xfm_fr_bus[xfm]] += real(yff)
-            Ybus_xfm_real[idx.xfm_to_bus[xfm], idx.xfm_to_bus[xfm]] += real(ytt)
-            Ybus_xfm_real[idx.xfm_fr_bus[xfm], idx.xfm_to_bus[xfm]] += real(yft)
-            Ybus_xfm_real[idx.xfm_to_bus[xfm], idx.xfm_fr_bus[xfm]] += real(ytf)
+            ntk.Ybus_xfm_real[tii][idx.xfm_fr_bus[xfm], idx.xfm_fr_bus[xfm]] += real(yff)
+            ntk.Ybus_xfm_real[tii][idx.xfm_to_bus[xfm], idx.xfm_to_bus[xfm]] += real(ytt)
+            ntk.Ybus_xfm_real[tii][idx.xfm_fr_bus[xfm], idx.xfm_to_bus[xfm]] += real(yft)
+            ntk.Ybus_xfm_real[tii][idx.xfm_to_bus[xfm], idx.xfm_fr_bus[xfm]] += real(ytf)
 
             # populate imag
-            Ybus_xfm_imag[idx.xfm_fr_bus[xfm], idx.xfm_fr_bus[xfm]] += imag(yff)
-            Ybus_xfm_imag[idx.xfm_to_bus[xfm], idx.xfm_to_bus[xfm]] += imag(ytt)
-            Ybus_xfm_imag[idx.xfm_fr_bus[xfm], idx.xfm_to_bus[xfm]] += imag(yft)
-            Ybus_xfm_imag[idx.xfm_to_bus[xfm], idx.xfm_fr_bus[xfm]] += imag(ytf)
+            ntk.Ybus_xfm_imag[tii][idx.xfm_fr_bus[xfm], idx.xfm_fr_bus[xfm]] += imag(yff)
+            ntk.Ybus_xfm_imag[tii][idx.xfm_to_bus[xfm], idx.xfm_to_bus[xfm]] += imag(ytt)
+            ntk.Ybus_xfm_imag[tii][idx.xfm_fr_bus[xfm], idx.xfm_to_bus[xfm]] += imag(yft)
+            ntk.Ybus_xfm_imag[tii][idx.xfm_to_bus[xfm], idx.xfm_fr_bus[xfm]] += imag(ytf)
         end
     end
 
     # shunt ===========================
     for shunt in 1:sys.nsh
         bus = idx.shunt_bus[shunt]
-        Ybus_shunt_real[bus,bus] += prm.shunt.gs[shunt]*(stt.u_step_shunt[tii][shunt])
-        Ybus_shunt_imag[bus,bus] += prm.shunt.bs[shunt]*(stt.u_step_shunt[tii][shunt])
+        ntk.Ybus_shunt_real[tii][bus,bus] += prm.shunt.gs[shunt]*(stt.u_step_shunt[tii][shunt])
+        ntk.Ybus_shunt_imag[tii][bus,bus] += prm.shunt.bs[shunt]*(stt.u_step_shunt[tii][shunt])
     end
 
     # construct the output
-    Ybus_real = ntk.Ybus_acline_real + Ybus_xfm_real + Ybus_shunt_real
-    Ybus_imag = ntk.Ybus_acline_imag + Ybus_xfm_imag + Ybus_shunt_imag
+    ntk.Ybus_real[tii] .= ntk.Ybus_acline_real .+ ntk.Ybus_xfm_real[tii] .+ ntk.Ybus_shunt_real[tii]
+    ntk.Ybus_imag[tii] .= ntk.Ybus_acline_imag .+ ntk.Ybus_xfm_imag[tii] .+ ntk.Ybus_shunt_imag[tii]
+end
 
-    # output
-    return Ybus_real, Ybus_imag
+function update_Yflow!(idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+    # this function updates the Yflow matrix using the time-varying shunt and xfm values
+    #
+    # Pfr, Qfr = (Efr*V).*conj((Yflow_series_fr + Yflow_shunt_fr)*V), with V = phasor
+    # Pto, Qto = (Eto*V).*conj((Yflow_series_to + Yflow_shunt_to)*V), with V = phasor
+    #
+    # NOTE: this assumes all xfms are on
+    ntk.Yflow_xfm_series_fr_real[tii] .= spzeros(sys.nac,sys.nb)
+    ntk.Yflow_xfm_series_fr_imag[tii] .= spzeros(sys.nac,sys.nb)
+    ntk.Yflow_xfm_series_to_real[tii] .= spzeros(sys.nac,sys.nb)
+    ntk.Yflow_xfm_series_to_imag[tii] .= spzeros(sys.nac,sys.nb)
+    ntk.Yflow_xfm_shunt_fr_real[tii]  .= spzeros(sys.nac,sys.nb)
+    ntk.Yflow_xfm_shunt_fr_imag[tii]  .= spzeros(sys.nac,sys.nb)
+    ntk.Yflow_xfm_shunt_to_real[tii]  .= spzeros(sys.nac,sys.nb)
+    ntk.Yflow_xfm_shunt_to_imag[tii]  .= spzeros(sys.nac,sys.nb)
+
+    #
+    xfms_off = findall(stt.u_on_xfm[1] .== 0.0)
+    # xfm ===========================
+    for xfm in 1:sys.nx
+        if xfm in xfms_off
+            # skip!! no contribution :)
+        else
+            # prepare
+            cos_phi  = cos(stt.phi[tii][xfm])
+            sin_phi  = sin(stt.phi[tii][xfm])
+            series_y = prm.xfm.g_sr[xfm] + im*prm.xfm.b_sr[xfm]
+
+            # series elements
+            yff_series = (series_y)/(stt.tau[tii][xfm]^2)
+            ytt_series = (series_y)
+            yft_series = (-series_y)/(stt.tau[tii][xfm]*(cos_phi - im*sin_phi))
+            ytf_series = (-series_y)/(stt.tau[tii][xfm]*(cos_phi + im*sin_phi))
+
+            # shunt elements
+            yff_shunt = (im*prm.xfm.b_ch[xfm]/2.0 + prm.xfm.g_fr[xfm] + im*prm.xfm.b_fr[xfm])/(stt.tau[tii][xfm]^2)
+            ytt_shunt = (im*prm.xfm.b_ch[xfm]/2.0 + prm.xfm.g_to[xfm] + im*prm.xfm.b_to[xfm])
+
+            # first, populate the series terms
+            #
+            # populate real!
+            ntk.Yflow_xfm_series_fr_real[tii][xfm+sys.nl, idx.xfm_fr_bus[xfm]] += real(yff_series)
+            ntk.Yflow_xfm_series_fr_real[tii][xfm+sys.nl, idx.xfm_to_bus[xfm]] += real(yft_series)
+            ntk.Yflow_xfm_series_to_real[tii][xfm+sys.nl, idx.xfm_to_bus[xfm]] += real(ytt_series)
+            ntk.Yflow_xfm_series_to_real[tii][xfm+sys.nl, idx.xfm_fr_bus[xfm]] += real(ytf_series)
+            # populate imag
+            ntk.Yflow_xfm_series_fr_imag[tii][xfm+sys.nl, idx.xfm_fr_bus[xfm]] += imag(yff_series)
+            ntk.Yflow_xfm_series_fr_imag[tii][xfm+sys.nl, idx.xfm_to_bus[xfm]] += imag(yft_series)
+            ntk.Yflow_xfm_series_to_imag[tii][xfm+sys.nl, idx.xfm_to_bus[xfm]] += imag(ytt_series)
+            ntk.Yflow_xfm_series_to_imag[tii][xfm+sys.nl, idx.xfm_fr_bus[xfm]] += imag(ytf_series)
+
+            # second, populate the shunt terms
+            ntk.Yflow_xfm_shunt_fr_real[tii][xfm+sys.nl, idx.xfm_fr_bus[xfm]] += real(yff_shunt)
+            ntk.Yflow_xfm_shunt_to_real[tii][xfm+sys.nl, idx.xfm_to_bus[xfm]] += real(ytt_shunt)
+            # populate imag
+            ntk.Yflow_xfm_shunt_fr_imag[tii][xfm+sys.nl, idx.xfm_fr_bus[xfm]] += imag(yff_shunt)
+            ntk.Yflow_xfm_shunt_to_imag[tii][xfm+sys.nl, idx.xfm_to_bus[xfm]] += imag(ytt_shunt)
+        end
+    end
+
+    # construct the output -- Yflow_real and Yflow_imag are the full matrices
+    #                         which map nodal voltage vectors to p/q lines flows
+    #                         via: (E1*V).*conj(Yflow*V), with V = phasor
+    ntk.Yflow_fr_real[tii] .=  ntk.Yflow_acline_series_real .+ ntk.Yflow_xfm_series_fr_real[tii] .+ ntk.Yflow_acline_shunt_fr_real .+ ntk.Yflow_xfm_shunt_fr_real[tii]
+    ntk.Yflow_fr_imag[tii] .=  ntk.Yflow_acline_series_imag .+ ntk.Yflow_xfm_series_fr_imag[tii] .+ ntk.Yflow_acline_shunt_fr_imag .+ ntk.Yflow_xfm_shunt_fr_imag[tii]
+    ntk.Yflow_to_real[tii] .= -ntk.Yflow_acline_series_real .+ ntk.Yflow_xfm_series_to_real[tii] .+ ntk.Yflow_acline_shunt_to_real .+ ntk.Yflow_xfm_shunt_to_real[tii]
+    ntk.Yflow_to_imag[tii] .= -ntk.Yflow_acline_series_imag .+ ntk.Yflow_xfm_series_to_imag[tii] .+ ntk.Yflow_acline_shunt_to_imag .+ ntk.Yflow_xfm_shunt_to_imag[tii]
 end
 
 # get the "must run" times
@@ -1456,58 +1686,58 @@ function initialize_static_grads!(idx::quasiGrad.Index, grd::quasiGrad.Grad, sys
     # prm.xfm.disconnection_cost    .= 1000000.0
 end
 
-function initialize_adam_states(qG::quasiGrad.QG, sys::quasiGrad.System)
+function initialize_adam_states(prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System)
     # build the adm dictionary, which has the same set of
     # entries (keys) as the mgd dictionary
     keys = [:vm, :va, :tau, :phi, :dc_pfr, :dc_qfr, :dc_qto, :u_on_acline, :u_on_xfm,
             :u_step_shunt, :u_on_dev, :p_on, :dev_q, :p_rgu, :p_rgd, :p_scr, :p_nsc,
             :p_rru_on, :p_rrd_on, :p_rru_off, :p_rrd_off, :q_qru, :q_qrd]
-    vm = quasiGrad.MV([zeros(sys.nb) for ii in 1:sys.nT],
-                      [zeros(sys.nb) for ii in 1:sys.nT])
-    va = quasiGrad.MV([zeros(sys.nb) for ii in 1:sys.nT],
-                      [zeros(sys.nb) for ii in 1:sys.nT])
-    tau = quasiGrad.MV([zeros(sys.nx) for ii in 1:sys.nT],
-                       [zeros(sys.nx) for ii in 1:sys.nT])
-    phi = quasiGrad.MV([zeros(sys.nx) for ii in 1:sys.nT],
-                       [zeros(sys.nx) for ii in 1:sys.nT])
-    dc_pfr = quasiGrad.MV([zeros(sys.nldc) for ii in 1:sys.nT],
-                          [zeros(sys.nldc) for ii in 1:sys.nT])
-    dc_qfr = quasiGrad.MV([zeros(sys.nldc) for ii in 1:sys.nT],
-                          [zeros(sys.nldc) for ii in 1:sys.nT])
-    dc_qto = quasiGrad.MV([zeros(sys.nldc) for ii in 1:sys.nT],
-                          [zeros(sys.nldc) for ii in 1:sys.nT])
-    u_on_acline = quasiGrad.MV([zeros(sys.nl) for ii in 1:sys.nT],
-                               [zeros(sys.nl) for ii in 1:sys.nT])
-    u_on_xfm = quasiGrad.MV([zeros(sys.nx) for ii in 1:sys.nT],
-                            [zeros(sys.nx) for ii in 1:sys.nT])
-    u_step_shunt = quasiGrad.MV([zeros(sys.nsh) for ii in 1:sys.nT],
-                                [zeros(sys.nsh) for ii in 1:sys.nT])
-    u_on_dev = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
-                            [zeros(sys.ndev) for ii in 1:sys.nT])
-    p_on = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
-                        [zeros(sys.ndev) for ii in 1:sys.nT])
-    dev_q = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
-                         [zeros(sys.ndev) for ii in 1:sys.nT])
-    p_rgu = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
-                         [zeros(sys.ndev) for ii in 1:sys.nT])
-    p_rgd = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
-                         [zeros(sys.ndev) for ii in 1:sys.nT])
-    p_scr = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
-                         [zeros(sys.ndev) for ii in 1:sys.nT])
-    p_nsc = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
-                         [zeros(sys.ndev) for ii in 1:sys.nT])
-    p_rru_on = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
-                            [zeros(sys.ndev) for ii in 1:sys.nT])
-    p_rrd_on = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
-                            [zeros(sys.ndev) for ii in 1:sys.nT])
-    p_rru_off = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
-                             [zeros(sys.ndev) for ii in 1:sys.nT]) 
-    p_rrd_off = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
-                             [zeros(sys.ndev) for ii in 1:sys.nT])
-    q_qru = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
-                         [zeros(sys.ndev) for ii in 1:sys.nT])
-    q_qrd = quasiGrad.MV([zeros(sys.ndev) for ii in 1:sys.nT],
-                         [zeros(sys.ndev) for ii in 1:sys.nT])
+    vm = quasiGrad.MV([zeros(sys.nb) for tii in prm.ts.time_keys],
+                      [zeros(sys.nb) for tii in prm.ts.time_keys])
+    va = quasiGrad.MV([zeros(sys.nb) for tii in prm.ts.time_keys],
+                      [zeros(sys.nb) for tii in prm.ts.time_keys])
+    tau = quasiGrad.MV([zeros(sys.nx) for tii in prm.ts.time_keys],
+                       [zeros(sys.nx) for tii in prm.ts.time_keys])
+    phi = quasiGrad.MV([zeros(sys.nx) for tii in prm.ts.time_keys],
+                       [zeros(sys.nx) for tii in prm.ts.time_keys])
+    dc_pfr = quasiGrad.MV([zeros(sys.nldc) for tii in prm.ts.time_keys],
+                          [zeros(sys.nldc) for tii in prm.ts.time_keys])
+    dc_qfr = quasiGrad.MV([zeros(sys.nldc) for tii in prm.ts.time_keys],
+                          [zeros(sys.nldc) for tii in prm.ts.time_keys])
+    dc_qto = quasiGrad.MV([zeros(sys.nldc) for tii in prm.ts.time_keys],
+                          [zeros(sys.nldc) for tii in prm.ts.time_keys])
+    u_on_acline = quasiGrad.MV([zeros(sys.nl) for tii in prm.ts.time_keys],
+                               [zeros(sys.nl) for tii in prm.ts.time_keys])
+    u_on_xfm = quasiGrad.MV([zeros(sys.nx) for tii in prm.ts.time_keys],
+                            [zeros(sys.nx) for tii in prm.ts.time_keys])
+    u_step_shunt = quasiGrad.MV([zeros(sys.nsh) for tii in prm.ts.time_keys],
+                                [zeros(sys.nsh) for tii in prm.ts.time_keys])
+    u_on_dev = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+                            [zeros(sys.ndev) for tii in prm.ts.time_keys])
+    p_on = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+                        [zeros(sys.ndev) for tii in prm.ts.time_keys])
+    dev_q = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+                         [zeros(sys.ndev) for tii in prm.ts.time_keys])
+    p_rgu = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+                         [zeros(sys.ndev) for tii in prm.ts.time_keys])
+    p_rgd = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+                         [zeros(sys.ndev) for tii in prm.ts.time_keys])
+    p_scr = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+                         [zeros(sys.ndev) for tii in prm.ts.time_keys])
+    p_nsc = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+                         [zeros(sys.ndev) for tii in prm.ts.time_keys])
+    p_rru_on = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+                            [zeros(sys.ndev) for tii in prm.ts.time_keys])
+    p_rrd_on = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+                            [zeros(sys.ndev) for tii in prm.ts.time_keys])
+    p_rru_off = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+                             [zeros(sys.ndev) for tii in prm.ts.time_keys]) 
+    p_rrd_off = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+                             [zeros(sys.ndev) for tii in prm.ts.time_keys])
+    q_qru = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+                         [zeros(sys.ndev) for tii in prm.ts.time_keys])
+    q_qrd = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+                         [zeros(sys.ndev) for tii in prm.ts.time_keys])
 
     # build the adam struct
     adm = quasiGrad.Adam(keys, vm, va, tau, phi, dc_pfr, dc_qfr, dc_qto, u_on_acline,
@@ -1515,177 +1745,6 @@ function initialize_adam_states(qG::quasiGrad.QG, sys::quasiGrad.System)
                          p_rgd, p_scr, p_nsc, p_rru_on, p_rrd_on, p_rru_off, 
                          p_rrd_off, q_qru, q_qrd)
                                       
-    return adm
-end
-
-function initialize_exhastive_adam_states(qG::quasiGrad.QG, sys::quasiGrad.System)
-    # build the adm dictionary, which has the same set of
-    # entries (keys) as the mgd dictionary -- extra states for adagrad, the_quasiGrad, etc..
-    tkeys = [Symbol("t"*string(ii)) for ii in 1:sys.nT]
-
-    # build the dict
-    adm = Dict( :vm            => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nb)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT)),
-                :va            => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nb)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nb)   for ii in 1:sys.nT)),
-                :tau            => Dict(:m         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nx)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT)),
-                :phi           => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nx)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT)),
-                :dc_pfr        => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nldc)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT)),
-                :dc_qfr        => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nldc)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT)),
-                :dc_qto        => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nldc)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nldc)   for ii in 1:sys.nT)),
-                :u_on_acline   => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nl)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nl)   for ii in 1:sys.nT)),
-                :u_on_xfm      => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nx)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nx)   for ii in 1:sys.nT)),
-                :u_step_shunt  => Dict( :m         => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.nsh)  for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.nsh)  for ii in 1:sys.nT)),
-                # device variables
-                :u_on_dev      => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
-                :p_on          => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
-                :dev_q         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
-                :p_rgu         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
-                :p_rgd         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
-                :p_scr         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
-                :p_nsc         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
-                :p_rru_on      => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
-                :p_rrd_on      => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
-                :p_rru_off     => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
-                :p_rrd_off     => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
-                :q_qru         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)),
-                :q_qrd         => Dict( :m         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :v         => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :mhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :vhat      => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :qG_step   => Dict(tkeys[ii] => qG.first_qG_step_size*ones(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_stt  => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT),
-                                        :prev_grad => Dict(tkeys[ii] => zeros(sys.ndev)   for ii in 1:sys.nT)))
     return adm
 end
 
@@ -1698,117 +1757,241 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
 
     # stt -- use initial values
     stt = quasiGrad.State(
-        [ones(sys.nb)              for ii in 1:sys.nT],         
-        [copy(prm.bus.init_va)     for ii in 1:sys.nT],
-        [zeros(sys.nl)             for ii in 1:sys.nT],            
-        [zeros(sys.nl)             for ii in 1:sys.nT],            
-        [zeros(sys.nl)             for ii in 1:sys.nT],            
-        [zeros(sys.nl)             for ii in 1:sys.nT],            
-        [prm.acline.init_on_status for ii in 1:sys.nT],
-        [zeros(sys.nl)             for ii in 1:sys.nT],           
-        [zeros(sys.nl)             for ii in 1:sys.nT],           
-        [copy(prm.xfm.init_phi)    for ii in 1:sys.nT],
-        [copy(prm.xfm.init_tau)    for ii in 1:sys.nT],
-        [zeros(sys.nx)             for ii in 1:sys.nT],       
-        [zeros(sys.nx)             for ii in 1:sys.nT],       
-        [zeros(sys.nx)             for ii in 1:sys.nT],       
-        [zeros(sys.nx)             for ii in 1:sys.nT],       
-        [prm.xfm.init_on_status    for ii in 1:sys.nT],
-        [zeros(sys.nx)             for ii in 1:sys.nT],        
-        [zeros(sys.nx)             for ii in 1:sys.nT],        
-        [copy(prm.dc.init_pdc_fr)  for ii in 1:sys.nT], 
-        [copy(-prm.dc.init_pdc_fr) for ii in 1:sys.nT], 
-        [copy(prm.dc.init_qdc_fr)  for ii in 1:sys.nT], 
-        [copy(prm.dc.init_qdc_to)  for ii in 1:sys.nT], 
-        [zeros(sys.nsh)            for ii in 1:sys.nT], 
-        [zeros(sys.nsh)            for ii in 1:sys.nT], 
-        [zeros(sys.nsh)            for ii in 1:sys.nT], 
-        [ones(sys.ndev)            for ii in 1:sys.nT],   # u_on_dev
+        [ones(sys.nb)              for tii in prm.ts.time_keys],         
+        [copy(prm.bus.init_va)     for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],            
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],            
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],            
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],            
+        [prm.acline.init_on_status for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],           
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],           
+        [copy(prm.xfm.init_phi)    for tii in prm.ts.time_keys],
+        [copy(prm.xfm.init_tau)    for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],       
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],       
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],       
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],       
+        [prm.xfm.init_on_status    for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],        
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],        
+        [copy(prm.dc.init_pdc_fr)  for tii in prm.ts.time_keys], 
+        [copy(-prm.dc.init_pdc_fr) for tii in prm.ts.time_keys], 
+        [copy(prm.dc.init_qdc_fr)  for tii in prm.ts.time_keys], 
+        [copy(prm.dc.init_qdc_to)  for tii in prm.ts.time_keys], 
+        [zeros(sys.nsh)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nsh)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nsh)            for tii in prm.ts.time_keys], 
+        [ones(sys.ndev)            for tii in prm.ts.time_keys],   # u_on_dev
         [ones(sys.nT)              for ii in 1:sys.ndev], # u_on_dev_Trx
-        [zeros(sys.ndev)           for ii in 1:sys.nT],   # dev_p
-        [zeros(sys.ndev)           for ii in 1:sys.nT],   # dev_q
-        [ones(sys.ndev)            for ii in 1:sys.nT],   # u_on_dev_GRB
-        [zeros(sys.ndev)           for ii in 1:sys.nT],   # u_su_dev
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys],   # dev_p
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys],   # dev_q
+        [ones(sys.ndev)            for tii in prm.ts.time_keys],   # u_on_dev_GRB
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys],   # u_su_dev
         [zeros(sys.nT)             for ii in 1:sys.ndev], # u_su_dev_Trx
-        [zeros(sys.ndev)           for ii in 1:sys.nT],   # u_sd_dev
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys],   # u_sd_dev
         [zeros(sys.nT)             for ii in 1:sys.ndev], # u_sd_dev_Trx
-        [zeros(sys.ndev)           for ii in 1:sys.nT],   # u_sum
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys],   # u_sum
         [zeros(sys.nT)             for ii in 1:sys.ndev], # u_sum_Trx
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.nctg)           for ii in 1:sys.nT], 
-        [zeros(num_ctg)            for ii in 1:sys.nT],
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.nl)             for ii in 1:sys.nT], 
-        [zeros(sys.nx)             for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.nl)             for ii in 1:sys.nT], 
-        [zeros(sys.nx)             for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.nl)             for ii in 1:sys.nT], 
-        [zeros(sys.nx)             for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.nb)             for ii in 1:sys.nT], 
-        [zeros(sys.nb)             for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzQ)            for ii in 1:sys.nT], 
-        [zeros(sys.nzQ)            for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzP)            for ii in 1:sys.nT], 
-        [zeros(sys.nzQ)            for ii in 1:sys.nT], 
-        [zeros(sys.nzQ)            for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT], 
-        [zeros(sys.ndev)           for ii in 1:sys.nT])
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.nctg)           for tii in prm.ts.time_keys], 
+        [zeros(num_ctg)            for tii in prm.ts.time_keys],
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.nl)             for tii in prm.ts.time_keys], 
+        [zeros(sys.nx)             for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.nl)             for tii in prm.ts.time_keys], 
+        [zeros(sys.nx)             for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.nl)             for tii in prm.ts.time_keys], 
+        [zeros(sys.nx)             for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.nb)             for tii in prm.ts.time_keys], 
+        [zeros(sys.nb)             for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzQ)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzQ)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzP)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzQ)            for tii in prm.ts.time_keys], 
+        [zeros(sys.nzQ)            for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys],
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys],
+        [zeros(sys.nb)             for tii in prm.ts.time_keys],
+        [zeros(sys.nb)             for tii in prm.ts.time_keys],
+        [zeros(sys.nb)             for tii in prm.ts.time_keys],
+        [zeros(sys.nb)             for tii in prm.ts.time_keys],
+        [zeros(sys.nb)             for tii in prm.ts.time_keys],
+        [zeros(sys.nb)             for tii in prm.ts.time_keys],
+        [zeros(sys.nb)             for tii in prm.ts.time_keys],
+        [zeros(sys.nb)             for tii in prm.ts.time_keys],
+        [zeros(sys.nb)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys], 
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nl)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nx)             for tii in prm.ts.time_keys],
+        [zeros(sys.nsh)            for tii in prm.ts.time_keys],
+        [zeros(sys.nsh)            for tii in prm.ts.time_keys],
+        [zeros(sys.nsh)            for tii in prm.ts.time_keys],
+        [[zeros(prm.dev.num_sus[dev]) for dev in 1:(sys.ndev)] for tii in prm.ts.time_keys],
+        [[zeros(prm.dev.num_sus[dev]) for dev in 1:(sys.ndev)] for tii in prm.ts.time_keys],
+        zeros(sys.ndev),
+        zeros(sys.ndev),
+        zeros(sys.ndev),
+        [zeros(sys.ndev) for tii in prm.ts.time_keys],
+        [zeros(sys.ndev) for tii in prm.ts.time_keys],
+        [zeros(sys.ndev) for tii in prm.ts.time_keys],
+        [zeros(sys.ndev) for tii in prm.ts.time_keys],
+        [zeros(sys.nb)   for tii in prm.ts.time_keys],
+        [zeros(sys.nb)   for tii in prm.ts.time_keys],
+        [zeros(sys.nb)   for tii in prm.ts.time_keys],
+        [zeros(sys.nb)   for tii in prm.ts.time_keys],
+        [zeros(sys.nb)   for tii in prm.ts.time_keys],
+        [zeros(sys.nb)   for tii in prm.ts.time_keys],
+        [zeros(sys.nac)  for tii in prm.ts.time_keys],
+        [zeros(sys.nac)  for tii in prm.ts.time_keys],
+        [zeros(sys.nac)  for tii in prm.ts.time_keys],
+        [zeros(sys.nac)  for tii in prm.ts.time_keys],
+        [zeros(sys.nac)  for tii in prm.ts.time_keys],
+        [zeros(sys.nac)  for tii in prm.ts.time_keys],
+        [zeros(sys.nac)  for tii in prm.ts.time_keys],
+        [zeros(sys.nac)  for tii in prm.ts.time_keys],
+        [zeros(sys.nl)   for tii in prm.ts.time_keys],
+        [zeros(sys.nl)   for tii in prm.ts.time_keys],
+        [zeros(sys.nl)   for tii in prm.ts.time_keys],
+        [zeros(sys.nl)   for tii in prm.ts.time_keys],
+        [zeros(sys.nx)   for tii in prm.ts.time_keys],
+        [zeros(sys.nx)   for tii in prm.ts.time_keys],
+        [zeros(sys.nx)   for tii in prm.ts.time_keys],
+        [zeros(sys.nx)   for tii in prm.ts.time_keys])
 
         # shunts -- should we use the supplied initialization? default: no!
         if qG.initialize_shunt_to_given_value
@@ -1828,274 +2011,165 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
     return stt
 end
 
-function build_miscellaneous(prm::quasiGrad.Param, sys::quasiGrad.System)
-    msc = quasiGrad.Msc(
-        [zeros(sys.nb) for tii in 1:sys.nT],
-        [zeros(sys.nb) for tii in 1:sys.nT],
-        [zeros(sys.nb) for tii in 1:sys.nT],
-        [zeros(sys.nb) for tii in 1:sys.nT],
-        [zeros(sys.nb) for tii in 1:sys.nT],
-        [zeros(sys.nb) for tii in 1:sys.nT],
-        [zeros(sys.nb) for tii in 1:sys.nT],
-        [zeros(sys.nb) for tii in 1:sys.nT],
-        [zeros(sys.nb) for tii in 1:sys.nT],
-        [zeros(sys.nb) for tii in 1:sys.nT],
-        [zeros(sys.nb) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT], 
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nl) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nx) for tii in 1:sys.nT],
-        [zeros(sys.nsh) for tii in 1:sys.nT],
-        [zeros(sys.nsh) for tii in 1:sys.nT],
-        [zeros(sys.nsh) for tii in 1:sys.nT],
-        [[zeros(prm.dev.num_sus[dev]) for dev in 1:(sys.ndev)] for tii in 1:sys.nT],
-        [[zeros(prm.dev.num_sus[dev]) for dev in 1:(sys.ndev)] for tii in 1:sys.nT],
-        zeros(sys.ndev),
-        zeros(sys.ndev),
-        zeros(sys.ndev),
-        [zeros(sys.ndev) for tii in 1:sys.nT],
-        [zeros(sys.ndev) for tii in 1:sys.nT])
-
-    # output
-    return msc
-end
-
-function build_master_grad(sys::quasiGrad.System)
+function build_master_grad(prm::quasiGrad.Param, sys::quasiGrad.System)
     # mgd = master grad -- this is the gradient which relates the negative market surplus function 
     # with all "basis" variables -- i.e., the variables for which all others are computed.
     # These are *exactly* (I think..) the variables which are reported in the solution file
     mgd = quasiGrad.MasterGrad(
-        [zeros(sys.nb)   for ii in 1:sys.nT],       
-        [zeros(sys.nb)   for ii in 1:sys.nT],         
-        [zeros(sys.nx)   for ii in 1:sys.nT],         
-        [zeros(sys.nx)   for ii in 1:sys.nT], 
-        [zeros(sys.nldc) for ii in 1:sys.nT], 
-        [zeros(sys.nldc) for ii in 1:sys.nT], 
-        [zeros(sys.nldc) for ii in 1:sys.nT], 
-        [zeros(sys.nl)   for ii in 1:sys.nT],  
-        [zeros(sys.nx)   for ii in 1:sys.nT],  
-        [zeros(sys.nsh)  for ii in 1:sys.nT],
-        [zeros(sys.ndev) for ii in 1:sys.nT], 
-        [zeros(sys.ndev) for ii in 1:sys.nT], 
-        [zeros(sys.ndev) for ii in 1:sys.nT], 
-        [zeros(sys.ndev) for ii in 1:sys.nT], 
-        [zeros(sys.ndev) for ii in 1:sys.nT], 
-        [zeros(sys.ndev) for ii in 1:sys.nT], 
-        [zeros(sys.ndev) for ii in 1:sys.nT], 
-        [zeros(sys.ndev) for ii in 1:sys.nT], 
-        [zeros(sys.ndev) for ii in 1:sys.nT], 
-        [zeros(sys.ndev) for ii in 1:sys.nT], 
-        [zeros(sys.ndev) for ii in 1:sys.nT], 
-        [zeros(sys.ndev) for ii in 1:sys.nT], 
-        [zeros(sys.ndev) for ii in 1:sys.nT])
+        [zeros(sys.nb)   for tii in prm.ts.time_keys],       
+        [zeros(sys.nb)   for tii in prm.ts.time_keys],         
+        [zeros(sys.nx)   for tii in prm.ts.time_keys],         
+        [zeros(sys.nx)   for tii in prm.ts.time_keys], 
+        [zeros(sys.nldc) for tii in prm.ts.time_keys], 
+        [zeros(sys.nldc) for tii in prm.ts.time_keys], 
+        [zeros(sys.nldc) for tii in prm.ts.time_keys], 
+        [zeros(sys.nl)   for tii in prm.ts.time_keys],  
+        [zeros(sys.nx)   for tii in prm.ts.time_keys],  
+        [zeros(sys.nsh)  for tii in prm.ts.time_keys],
+        [zeros(sys.ndev) for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev) for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev) for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev) for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev) for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev) for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev) for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev) for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev) for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev) for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev) for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev) for tii in prm.ts.time_keys], 
+        [zeros(sys.ndev) for tii in prm.ts.time_keys])
     
     # output
     return mgd
 end
 
-function build_grad(sys::quasiGrad.System)
+function build_grad(prm::quasiGrad.Param, sys::quasiGrad.System)
 
     # first, build the mini component dicts
     acline_pfr = quasiGrad.Acline_pfr(
-        [zeros(sys.nl) for ii in 1:sys.nT],
-        [zeros(sys.nl) for ii in 1:sys.nT], 
-        [zeros(sys.nl) for ii in 1:sys.nT], 
-        [zeros(sys.nl) for ii in 1:sys.nT], 
-        [zeros(sys.nl) for ii in 1:sys.nT])
+        [zeros(sys.nl) for tii in prm.ts.time_keys],
+        [zeros(sys.nl) for tii in prm.ts.time_keys], 
+        [zeros(sys.nl) for tii in prm.ts.time_keys], 
+        [zeros(sys.nl) for tii in prm.ts.time_keys], 
+        [zeros(sys.nl) for tii in prm.ts.time_keys])
 
     acline_qfr = quasiGrad.Acline_qfr(
-        [zeros(sys.nl) for ii in 1:sys.nT],
-        [zeros(sys.nl) for ii in 1:sys.nT], 
-        [zeros(sys.nl) for ii in 1:sys.nT], 
-        [zeros(sys.nl) for ii in 1:sys.nT], 
-        [zeros(sys.nl) for ii in 1:sys.nT])
+        [zeros(sys.nl) for tii in prm.ts.time_keys],
+        [zeros(sys.nl) for tii in prm.ts.time_keys], 
+        [zeros(sys.nl) for tii in prm.ts.time_keys], 
+        [zeros(sys.nl) for tii in prm.ts.time_keys], 
+        [zeros(sys.nl) for tii in prm.ts.time_keys])
     
     acline_pto = quasiGrad.Acline_pto(
-        [zeros(sys.nl) for ii in 1:sys.nT],
-        [zeros(sys.nl) for ii in 1:sys.nT], 
-        [zeros(sys.nl) for ii in 1:sys.nT], 
-        [zeros(sys.nl) for ii in 1:sys.nT], 
-        [zeros(sys.nl) for ii in 1:sys.nT])
+        [zeros(sys.nl) for tii in prm.ts.time_keys],
+        [zeros(sys.nl) for tii in prm.ts.time_keys], 
+        [zeros(sys.nl) for tii in prm.ts.time_keys], 
+        [zeros(sys.nl) for tii in prm.ts.time_keys], 
+        [zeros(sys.nl) for tii in prm.ts.time_keys])
     
     acline_qto = quasiGrad.Acline_qto(
-        [zeros(sys.nl) for ii in 1:sys.nT],
-        [zeros(sys.nl) for ii in 1:sys.nT], 
-        [zeros(sys.nl) for ii in 1:sys.nT], 
-        [zeros(sys.nl) for ii in 1:sys.nT], 
-        [zeros(sys.nl) for ii in 1:sys.nT])
+        [zeros(sys.nl) for tii in prm.ts.time_keys],
+        [zeros(sys.nl) for tii in prm.ts.time_keys], 
+        [zeros(sys.nl) for tii in prm.ts.time_keys], 
+        [zeros(sys.nl) for tii in prm.ts.time_keys], 
+        [zeros(sys.nl) for tii in prm.ts.time_keys])
     
     zs_acline = quasiGrad.Zs_acline(
-        [zeros(sys.nl) for ii in 1:sys.nT],
-        [zeros(sys.nl) for ii in 1:sys.nT], 
-        [zeros(sys.nl) for ii in 1:sys.nT], 
-        [zeros(sys.nl) for ii in 1:sys.nT])
+        [zeros(sys.nl) for tii in prm.ts.time_keys],
+        [zeros(sys.nl) for tii in prm.ts.time_keys], 
+        [zeros(sys.nl) for tii in prm.ts.time_keys], 
+        [zeros(sys.nl) for tii in prm.ts.time_keys])
     
     xfm_pfr = quasiGrad.Xfm_pfr(
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT], 
-        [zeros(sys.nx) for ii in 1:sys.nT], 
-        [zeros(sys.nx) for ii in 1:sys.nT], 
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT])
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys], 
+        [zeros(sys.nx) for tii in prm.ts.time_keys], 
+        [zeros(sys.nx) for tii in prm.ts.time_keys], 
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys])
     
     xfm_qfr = quasiGrad.Xfm_qfr(
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT], 
-        [zeros(sys.nx) for ii in 1:sys.nT], 
-        [zeros(sys.nx) for ii in 1:sys.nT], 
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT])
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys], 
+        [zeros(sys.nx) for tii in prm.ts.time_keys], 
+        [zeros(sys.nx) for tii in prm.ts.time_keys], 
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys])
     
     xfm_pto = quasiGrad.Xfm_pto(
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT], 
-        [zeros(sys.nx) for ii in 1:sys.nT], 
-        [zeros(sys.nx) for ii in 1:sys.nT], 
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT])
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys], 
+        [zeros(sys.nx) for tii in prm.ts.time_keys], 
+        [zeros(sys.nx) for tii in prm.ts.time_keys], 
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys])
     
     xfm_qto = quasiGrad.Xfm_qto(
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT], 
-        [zeros(sys.nx) for ii in 1:sys.nT], 
-        [zeros(sys.nx) for ii in 1:sys.nT], 
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT])
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys], 
+        [zeros(sys.nx) for tii in prm.ts.time_keys], 
+        [zeros(sys.nx) for tii in prm.ts.time_keys], 
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys])
     
     zs_xfm = quasiGrad.Zs_xfm(
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT])
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys])
     
     sh_p = quasiGrad.Sh_p(
-        [zeros(sys.nsh) for ii in 1:sys.nT],
-        [zeros(sys.nsh) for ii in 1:sys.nT])
+        [zeros(sys.nsh) for tii in prm.ts.time_keys],
+        [zeros(sys.nsh) for tii in prm.ts.time_keys])
     
     sh_q = quasiGrad.Sh_q(
-        [zeros(sys.nsh) for ii in 1:sys.nT],
-        [zeros(sys.nsh) for ii in 1:sys.nT])
+        [zeros(sys.nsh) for tii in prm.ts.time_keys],
+        [zeros(sys.nsh) for tii in prm.ts.time_keys])
     
     zp = quasiGrad.Zp(
-        [zeros(sys.nb) for ii in 1:sys.nT])
+        [zeros(sys.nb) for tii in prm.ts.time_keys])
     
     zq = quasiGrad.Zq(
-        [zeros(sys.nb) for ii in 1:sys.nT])
+        [zeros(sys.nb) for tii in prm.ts.time_keys])
     
     zen_dev = quasiGrad.Zen_dev(
-        [zeros(sys.ndev) for ii in 1:sys.nT])
+        [zeros(sys.ndev) for tii in prm.ts.time_keys])
     
     u_su_dev = quasiGrad.U_su_dev(
-        [zeros(sys.ndev) for ii in 1:sys.nT],
-        [zeros(sys.ndev) for ii in 1:sys.nT])
+        [zeros(sys.ndev) for tii in prm.ts.time_keys],
+        [zeros(sys.ndev) for tii in prm.ts.time_keys])
     
     u_sd_dev = quasiGrad.U_sd_dev(
-        [zeros(sys.ndev) for ii in 1:sys.nT],
-        [zeros(sys.ndev) for ii in 1:sys.nT])
+        [zeros(sys.ndev) for tii in prm.ts.time_keys],
+        [zeros(sys.ndev) for tii in prm.ts.time_keys])
     
     u_su_acline = quasiGrad.U_su_acline(
-        [zeros(sys.nl) for ii in 1:sys.nT],
-        [zeros(sys.nl) for ii in 1:sys.nT])
+        [zeros(sys.nl) for tii in prm.ts.time_keys],
+        [zeros(sys.nl) for tii in prm.ts.time_keys])
     
     u_sd_acline = quasiGrad.U_sd_acline(
-        [zeros(sys.nl) for ii in 1:sys.nT],
-        [zeros(sys.nl) for ii in 1:sys.nT])
+        [zeros(sys.nl) for tii in prm.ts.time_keys],
+        [zeros(sys.nl) for tii in prm.ts.time_keys])
     
     u_su_xfm = quasiGrad.U_su_xfm(
-        [zeros(sys.nx) for ii in 1:sys.nT],
-        [zeros(sys.nx) for ii in 1:sys.nT])
+        [zeros(sys.nx) for tii in prm.ts.time_keys],
+        [zeros(sys.nx) for tii in prm.ts.time_keys])
     
     u_sd_xfm = quasiGrad.U_sd_xfm(
-        [zeros(sys.nl) for ii in 1:sys.nT],
-        [zeros(sys.nl) for ii in 1:sys.nT])
+        [zeros(sys.nl) for tii in prm.ts.time_keys],
+        [zeros(sys.nl) for tii in prm.ts.time_keys])
 
     # these two following elements are unique -- they serve to collect all of the 
     # coefficients applied to the same partial derivatives (e.g.,
     # a1*dxdp, a2*dxdp, a3*dxdp => dxdp[tii][dev] = a1+a2+a3)
     dx = quasiGrad.Dx(
-        [zeros(sys.ndev) for ii in 1:sys.nT],
-        [zeros(sys.ndev) for ii in 1:sys.nT])
+        [zeros(sys.ndev) for tii in prm.ts.time_keys],
+        [zeros(sys.ndev) for tii in prm.ts.time_keys])
 
     # now, assemble the full grd struct
     grd = quasiGrad.Grad(
@@ -2156,17 +2230,23 @@ function perturb_states!(pert_size::Float64, prm::quasiGrad.Param, stt::quasiGra
     end
 end
 
-function build_constant_gradient(idx::quasiGrad.Index, prm::quasiGrad.Param, sys::quasiGrad.System)
+function build_constant_gradient(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System)
     # build a structure which hold constant gradient information
-    #
-    tkeys = prm.ts.time_keys
+    # 
+    # how many ctg states do we need?
+    num_wrst = Int64(ceil(qG.frac_ctg_keep*sys.nctg/2))  # in case n_ctg is odd, and we want to keep all!
+    num_rnd  = Int64(floor(qG.frac_ctg_keep*sys.nctg/2)) # in case n_ctg is odd, and we want to keep all!
+    num_ctg  = num_wrst + num_rnd
 
     # contingency costs
-    ctg_avg = [prm.ts.duration[ii]*prm.vio.s_flow/sys.nctg for ii in 1:sys.nT]
-    ctg_min = [prm.ts.duration[ii]*prm.vio.s_flow          for ii in 1:sys.nT]
+    if num_ctg < sys.nctg
+        @info "Note: scaling average contingency violation grads via $num_ctg instead of $(sys.nctg)."
+    end
+    ctg_avg = [prm.ts.duration[tii]*prm.vio.s_flow/num_ctg for tii in prm.ts.time_keys]
+    ctg_min = [prm.ts.duration[tii]*prm.vio.s_flow         for tii in prm.ts.time_keys]
 
     # device on costs
-    dzon_dev_du_on_dev = [prm.ts.duration[ii]*prm.dev.on_cost for ii in 1:sys.nT]
+    dzon_dev_du_on_dev = [prm.ts.duration[tii]*prm.dev.on_cost for tii in prm.ts.time_keys]
 
     # device energy costs
     dzt_dzen              = zeros(sys.ndev)
@@ -2174,26 +2254,26 @@ function build_constant_gradient(idx::quasiGrad.Index, prm::quasiGrad.Param, sys
     dzt_dzen[idx.pr_devs] = -ones(sys.npr)
 
     # device reserve gradients
-    dzrgu_dp_rgu     = [prm.ts.duration[ii]*getindex.(prm.dev.p_reg_res_up_cost,ii)            for ii in 1:sys.nT]
-    dzrgd_dp_rgd     = [prm.ts.duration[ii]*getindex.(prm.dev.p_reg_res_down_cost,ii)          for ii in 1:sys.nT]
-    dzscr_dp_scr     = [prm.ts.duration[ii]*getindex.(prm.dev.p_syn_res_cost,ii)               for ii in 1:sys.nT]
-    dznsc_dp_nsc     = [prm.ts.duration[ii]*getindex.(prm.dev.p_nsyn_res_cost,ii)              for ii in 1:sys.nT]
-    dzrru_dp_rru_on  = [prm.ts.duration[ii]*getindex.(prm.dev.p_ramp_res_up_online_cost,ii)    for ii in 1:sys.nT]
-    dzrru_dp_rru_off = [prm.ts.duration[ii]*getindex.(prm.dev.p_ramp_res_up_offline_cost,ii)   for ii in 1:sys.nT]
-    dzrrd_dp_rrd_on  = [prm.ts.duration[ii]*getindex.(prm.dev.p_ramp_res_down_online_cost,ii)  for ii in 1:sys.nT]
-    dzrrd_dp_rrd_off = [prm.ts.duration[ii]*getindex.(prm.dev.p_ramp_res_down_offline_cost,ii) for ii in 1:sys.nT]
-    dzqru_dq_qru     = [prm.ts.duration[ii]*getindex.(prm.dev.q_res_up_cost,ii)                for ii in 1:sys.nT]
-    dzqrd_dq_qrd     = [prm.ts.duration[ii]*getindex.(prm.dev.q_res_down_cost,ii)              for ii in 1:sys.nT]
+    dzrgu_dp_rgu     = [prm.ts.duration[tii]*getindex.(prm.dev.p_reg_res_up_cost,tii)            for tii in prm.ts.time_keys]
+    dzrgd_dp_rgd     = [prm.ts.duration[tii]*getindex.(prm.dev.p_reg_res_down_cost,tii)          for tii in prm.ts.time_keys]
+    dzscr_dp_scr     = [prm.ts.duration[tii]*getindex.(prm.dev.p_syn_res_cost,tii)               for tii in prm.ts.time_keys]
+    dznsc_dp_nsc     = [prm.ts.duration[tii]*getindex.(prm.dev.p_nsyn_res_cost,tii)              for tii in prm.ts.time_keys]
+    dzrru_dp_rru_on  = [prm.ts.duration[tii]*getindex.(prm.dev.p_ramp_res_up_online_cost,tii)    for tii in prm.ts.time_keys]
+    dzrru_dp_rru_off = [prm.ts.duration[tii]*getindex.(prm.dev.p_ramp_res_up_offline_cost,tii)   for tii in prm.ts.time_keys]
+    dzrrd_dp_rrd_on  = [prm.ts.duration[tii]*getindex.(prm.dev.p_ramp_res_down_online_cost,tii)  for tii in prm.ts.time_keys]
+    dzrrd_dp_rrd_off = [prm.ts.duration[tii]*getindex.(prm.dev.p_ramp_res_down_offline_cost,tii) for tii in prm.ts.time_keys]
+    dzqru_dq_qru     = [prm.ts.duration[tii]*getindex.(prm.dev.q_res_up_cost,tii)                for tii in prm.ts.time_keys]
+    dzqrd_dq_qrd     = [prm.ts.duration[tii]*getindex.(prm.dev.q_res_down_cost,tii)              for tii in prm.ts.time_keys]
     
     # zonal gradients
-    dzrgu_zonal_dp_rgu_zonal_penalty = [prm.ts.duration[ii]*prm.vio.rgu_zonal for ii in 1:sys.nT]
-    dzrgd_zonal_dp_rgd_zonal_penalty = [prm.ts.duration[ii]*prm.vio.rgd_zonal for ii in 1:sys.nT]
-    dzscr_zonal_dp_scr_zonal_penalty = [prm.ts.duration[ii]*prm.vio.scr_zonal for ii in 1:sys.nT]
-    dznsc_zonal_dp_nsc_zonal_penalty = [prm.ts.duration[ii]*prm.vio.nsc_zonal for ii in 1:sys.nT]
-    dzrru_zonal_dp_rru_zonal_penalty = [prm.ts.duration[ii]*prm.vio.rru_zonal for ii in 1:sys.nT]
-    dzrrd_zonal_dp_rrd_zonal_penalty = [prm.ts.duration[ii]*prm.vio.rrd_zonal for ii in 1:sys.nT]
-    dzqru_zonal_dq_qru_zonal_penalty = [prm.ts.duration[ii]*prm.vio.qru_zonal for ii in 1:sys.nT]
-    dzqrd_zonal_dq_qrd_zonal_penalty = [prm.ts.duration[ii]*prm.vio.qrd_zonal for ii in 1:sys.nT]
+    dzrgu_zonal_dp_rgu_zonal_penalty = [prm.ts.duration[tii]*prm.vio.rgu_zonal for tii in prm.ts.time_keys]
+    dzrgd_zonal_dp_rgd_zonal_penalty = [prm.ts.duration[tii]*prm.vio.rgd_zonal for tii in prm.ts.time_keys]
+    dzscr_zonal_dp_scr_zonal_penalty = [prm.ts.duration[tii]*prm.vio.scr_zonal for tii in prm.ts.time_keys]
+    dznsc_zonal_dp_nsc_zonal_penalty = [prm.ts.duration[tii]*prm.vio.nsc_zonal for tii in prm.ts.time_keys]
+    dzrru_zonal_dp_rru_zonal_penalty = [prm.ts.duration[tii]*prm.vio.rru_zonal for tii in prm.ts.time_keys]
+    dzrrd_zonal_dp_rrd_zonal_penalty = [prm.ts.duration[tii]*prm.vio.rrd_zonal for tii in prm.ts.time_keys]
+    dzqru_zonal_dq_qru_zonal_penalty = [prm.ts.duration[tii]*prm.vio.qru_zonal for tii in prm.ts.time_keys]
+    dzqrd_zonal_dq_qrd_zonal_penalty = [prm.ts.duration[tii]*prm.vio.qrd_zonal for tii in prm.ts.time_keys]
     
     # build the cgd
     cgd = ConstantGrad(

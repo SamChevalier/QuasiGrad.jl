@@ -19,9 +19,9 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 jsn = quasiGrad.load_json(path)
 
 # initialize
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=false);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=false);
 
-quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %% Timing tests
 #qG.skip_ctg_eval = true
@@ -36,13 +36,13 @@ quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, n
 #
 ## %% ====
 #adm_step += 1
-#quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
-#quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+#quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+#quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
 ## %% Timing tests
 #
 qG.skip_ctg_eval = true
 qG.num_threads = 8
-@btime quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+@btime quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %% choose step sizes
 vmva_scale    = 1e-5
@@ -95,7 +95,7 @@ qG.beta2                       = 0.99
 qG.pqbal_grad_eps2             = 1e-8
 
 qG.adam_max_time = 250.0
-quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %%
 
@@ -109,19 +109,19 @@ print("t2: ")
 @btime quasiGrad.clip_all!(prm, qG, stt)
 
 print("t3: ")
-@btime quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
 
 print("t4: ")
-@btime quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.xfm_flows!(grd, idx, prm, qG, stt, sys)
 
 print("t5: ")
-@btime quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
+@btime quasiGrad.shunts!(grd, idx, prm, qG, stt)
 
 print("t6: ")
 @btime quasiGrad.all_device_statuses_and_costs!(grd, prm, qG, stt)
 
 print("t7: ")
-@btime quasiGrad.device_startup_states!(grd, idx, mgd, msc, prm, qG, stt, sys)
+@btime quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
 
 print("t8a: ")
 @btime quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
@@ -133,16 +133,16 @@ print("t9: ")
 @btime quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
 
 print("t10: ")
-@btime quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
+@btime quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
 
 print("t11: ")
-@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, msc, prm, qG, scr, stt, sys)
+@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
 
 print("t12: ")
 @btime quasiGrad.device_reserve_costs!(prm, qG, stt)
 
 print("t13: ")
-@btime quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
 
 print("t14: ")
 @btime quasiGrad.reserve_balance!(idx, prm, qG, stt, sys)
@@ -160,7 +160,7 @@ print("t18: ")
 @btime quasiGrad.score_zms!(scr)
 
 print("t19: ")
-@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
+@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 println("")
 
 print("t20: ")
@@ -169,7 +169,7 @@ println("")
 
 # %% ===========================
 print("t20: ")
-@btime quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys);
+@btime quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys);
 
 
 # %%
@@ -186,27 +186,27 @@ run_adam    = true
 alpha       = copy(qG.alpha_0)
 
 # %%
-@btime quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+@btime quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
 
 # %%
-ProfileView.@profview quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+ProfileView.@profview quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
 
 
 # %%
 qG.adam_max_time = 2.0
 
-ProfileView.@profview quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+ProfileView.@profview quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %% ------------------------------
 # @code_warntype quasiGrad.energy_penalties!(grd, prm, qG, scr, stt, sys)
-# @code_warntype quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
+# @code_warntype quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 
 
 # %% --- write
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
 quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %% write a solution :)
 soln_dict = quasiGrad.prepare_solution(prm, stt, sys)
@@ -214,7 +214,7 @@ quasiGrad.write_solution(data_dir*file_name, qG, soln_dict, scr)
 
 # %% ===================
 # using ProfileView
-# ProfileView.@profview quasiGrad.penalized_device_constraints!(grd, idx, mgd, msc, prm, qG, scr, stt, sys)
+# ProfileView.@profview quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
 ProfileView.@profview quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %%
@@ -350,8 +350,8 @@ f2(v1, v2) = v1 .+ v2
 
 # %%
 
-@time quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
-@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
+@time quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
+@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 
 # %%
 line = 1

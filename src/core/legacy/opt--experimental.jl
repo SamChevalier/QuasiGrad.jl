@@ -88,7 +88,7 @@ function adam_with_ls!(adm::quasiGrad.Adam, alpha::Float64, beta1::Float64, beta
     while run_ls
         z_0 = copy(scr[:zms_penalized])
         qG.eval_grad = false
-        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
         qG.eval_grad = true
         z_new = copy(scr[:zms_penalized])
         if z_new > z0

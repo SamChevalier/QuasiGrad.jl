@@ -8,10 +8,10 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 jsn = quasiGrad.load_json(path)
 
 # %% init
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, false, 1.0);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # solve
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # run an ED
 ED = quasiGrad.solve_economic_dispatch(GRB, idx, prm, qG, scr, stt, sys, upd);
@@ -19,18 +19,18 @@ quasiGrad.apply_economic_dispatch_projection!(ED, idx, prm, qG, stt, sys);
 
 # recompute the state
 qG.eval_grad = false
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 qG.eval_grad = true
 
 # ===== new score?
-quasiGrad.dcpf_initialization!(flw, idx, msc, ntk, prm, qG, stt, sys)
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # intialize lbfgs
 dpf0, pf_lbfgs, pf_lbfgs_diff, pf_lbfgs_idx, pf_lbfgs_map, pf_lbfgs_step, zpf = quasiGrad.initialize_pf_lbfgs(mgd, prm, stt, sys, upd);
 
 # %% score
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, msc, prm, qG, stt, sys)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
 zp1 = sum(sum([zpf[:zp][tii] for tii in prm.ts.time_keys]))
 zq1 = sum(sum([zpf[:zq][tii] for tii in prm.ts.time_keys]))
 
@@ -38,7 +38,7 @@ zq1 = sum(sum([zpf[:zq][tii] for tii in prm.ts.time_keys]))
 quasiGrad.correct_reactive_injections!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
 
 # rescore :)
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(dpf0, grd, idx, mgd, msc, prm, qG, stt, sys, zpf)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(dpf0, grd, idx, mgd, prm, qG, stt, sys, zpf)
 zp2 = sum([zpf[:zp][tii] for tii in prm.ts.time_keys])
 zq2 = sum([zpf[:zq][tii] for tii in prm.ts.time_keys])
 
@@ -65,7 +65,7 @@ for ii in 1:1500
     end
 
     # compute all states and grads
-    quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, msc, prm, qG, stt, sys)
+    quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
 
     # print
     zp = round(sum(sum([zpf[:zp][tii] for tii in prm.ts.time_keys])); sigdigits = 3)
@@ -82,7 +82,7 @@ quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
 
 # one last clip + state computation -- no grad needed!
 qG.eval_grad = false
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # write the final solution
 soln_dict = quasiGrad.prepare_solution(prm, stt, sys)

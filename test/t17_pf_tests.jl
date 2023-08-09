@@ -6,16 +6,16 @@ InFile1 = path
 jsn     = quasiGrad.load_json(InFile1)
 
 # initialize
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=false, pert_size=1.0)
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=false, pert_size=1.0)
 
-quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
 
 # %%
 
 qG.initial_pf_lbfgs_step = 0.05
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, msc, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
 # ^ grb off
 stt0 = deepcopy(stt)
 
@@ -23,12 +23,12 @@ stt0 = deepcopy(stt)
 stt = deepcopy(stt0)
 
 # %% solve pf with GRB
-quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
+quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
 
 
 # %% basically, lower the active power weight, so power moves more
 
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 scr[:encs]
 scr[:enpr]

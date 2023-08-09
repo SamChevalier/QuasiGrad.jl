@@ -13,7 +13,7 @@ AllowSwitching        = 0
 jsn                   = quasiGrad.load_json(path)
     
 # I2. initialize the system
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states = true);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states = true);
 
 # %% solve the ctgs
 qG.num_threads = 6
@@ -21,7 +21,7 @@ qG.num_threads = 6
 
 # test the solution
 qG.eval_grad = false
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 qG.eval_grad = true
 println(scr[:zctg_avg])
 

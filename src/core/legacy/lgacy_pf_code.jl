@@ -61,12 +61,12 @@ function get_injection_bounds!(idx::quasiGrad.Index, Dict{Symbol, Dict{Symbol, V
         dcto_Qub = sum(dcto_qub[idx.bus_is_dc_tos[bus]]; init=0.0) 
 
         # total: lb < -pb_slack < ub
-        msc.pub[bus] = pr_Pub - (cs_Plb + dcfr_Plb + dcto_Plb)
-        msc.plb[bus] = pr_Plb - (cs_Pub + dcfr_Pub + dcto_Pub)
+        stt.pub[bus] = pr_Pub - (cs_Plb + dcfr_Plb + dcto_Plb)
+        stt.plb[bus] = pr_Plb - (cs_Pub + dcfr_Pub + dcto_Pub)
         
         # total: lb < -qb_slack < ub
-        msc.qub[bus] = pr_Qub - (cs_Qlb + dcfr_Qlb + dcto_Qlb)
-        msc.qlb[bus] = pr_Qlb - (cs_Qub + dcfr_Qub + dcto_Qub)
+        stt.qub[bus] = pr_Qub - (cs_Qlb + dcfr_Qlb + dcto_Qlb)
+        stt.qlb[bus] = pr_Qlb - (cs_Qub + dcfr_Qub + dcto_Qub)
     end
 end
 
@@ -606,8 +606,8 @@ function update_states_for_distributed_slack_pf!(bit::quasiGrad.Bit, grd::quasiG
 
     # compute network flows and injections
     qG.eval_grad = false
-    quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
-    quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
-    quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
+    quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
+    quasiGrad.xfm_flows!(grd, idx, prm, qG, stt, sys)
+    quasiGrad.shunts!(grd, idx, prm, qG, stt)
     qG.eval_grad = true
 end

@@ -31,16 +31,18 @@ function clip_dc!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     @batch per=thread for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
 
-        # clip all flows
-            # stt.dc_qfr[tii] = min.(max.(stt.dc_qfr[tii],  prm.dc.qdc_fr_lb), prm.dc.qdc_fr_ub)
-            # stt.dc_qto[tii] = min.(max.(stt.dc_qto[tii],  prm.dc.qdc_to_lb), prm.dc.qdc_to_ub)
-            # stt.dc_qto[tii] = min.(max.(stt.dc_qto[tii], -prm.dc.pdc_ub ),    prm.dc.pdc_ub )
-        stt.dc_qfr[tii] .= clamp.(stt.dc_qfr[tii],  prm.dc.qdc_fr_lb, prm.dc.qdc_fr_ub)
-        stt.dc_qto[tii] .= clamp.(stt.dc_qto[tii],  prm.dc.qdc_to_lb, prm.dc.qdc_to_ub)
-        stt.dc_pfr[tii] .= clamp.(stt.dc_pfr[tii], .-prm.dc.pdc_ub,    prm.dc.pdc_ub )
+        if ~isempty(stt.dc_qfr[tii])
+            # clip all flows
+                # stt.dc_qfr[tii] = min.(max.(stt.dc_qfr[tii],  prm.dc.qdc_fr_lb), prm.dc.qdc_fr_ub)
+                # stt.dc_qto[tii] = min.(max.(stt.dc_qto[tii],  prm.dc.qdc_to_lb), prm.dc.qdc_to_ub)
+                # stt.dc_qto[tii] = min.(max.(stt.dc_qto[tii], -prm.dc.pdc_ub ),    prm.dc.pdc_ub )
+            stt.dc_qfr[tii] .= clamp.(stt.dc_qfr[tii],  prm.dc.qdc_fr_lb, prm.dc.qdc_fr_ub)
+            stt.dc_qto[tii] .= clamp.(stt.dc_qto[tii],  prm.dc.qdc_to_lb, prm.dc.qdc_to_ub)
+            stt.dc_pfr[tii] .= clamp.(stt.dc_pfr[tii], .-prm.dc.pdc_ub,    prm.dc.pdc_ub )
 
-        # equate from and to end powers -- dc_pfr is the reference, or default
-        stt.dc_pto[tii] .= .-stt.dc_pfr[tii]
+            # equate from and to end powers -- dc_pfr is the reference, or default
+            stt.dc_pto[tii] .= .-stt.dc_pfr[tii]
+        end
     end
 end
 
@@ -77,16 +79,16 @@ end
 function clip_reserves!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     @batch per=thread for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
-        stt.p_rgu[tii]     .= max.(stt.p_rgu[tii],0.0)
-        stt.p_rgd[tii]     .= max.(stt.p_rgd[tii],0.0)
-        stt.p_scr[tii]     .= max.(stt.p_scr[tii],0.0)
-        stt.p_nsc[tii]     .= max.(stt.p_nsc[tii],0.0)
-        stt.p_rru_on[tii]  .= max.(stt.p_rru_on[tii],0.0)
-        stt.p_rru_off[tii] .= max.(stt.p_rru_off[tii],0.0)
-        stt.p_rrd_on[tii]  .= max.(stt.p_rrd_on[tii],0.0)
-        stt.p_rrd_off[tii] .= max.(stt.p_rrd_off[tii],0.0)
-        stt.q_qru[tii]     .= max.(stt.q_qru[tii],0.0)
-        stt.q_qrd[tii]     .= max.(stt.q_qrd[tii],0.0)
+        @turbo stt.p_rgu[tii]     .= max.(stt.p_rgu[tii],0.0)
+        @turbo stt.p_rgd[tii]     .= max.(stt.p_rgd[tii],0.0)
+        @turbo stt.p_scr[tii]     .= max.(stt.p_scr[tii],0.0)
+        @turbo stt.p_nsc[tii]     .= max.(stt.p_nsc[tii],0.0)
+        @turbo stt.p_rru_on[tii]  .= max.(stt.p_rru_on[tii],0.0)
+        @turbo stt.p_rru_off[tii] .= max.(stt.p_rru_off[tii],0.0)
+        @turbo stt.p_rrd_on[tii]  .= max.(stt.p_rrd_on[tii],0.0)
+        @turbo stt.p_rrd_off[tii] .= max.(stt.p_rrd_off[tii],0.0)
+        @turbo stt.q_qru[tii]     .= max.(stt.q_qru[tii],0.0)
+        @turbo stt.q_qrd[tii]     .= max.(stt.q_qrd[tii],0.0)
     end
 end
 
@@ -133,27 +135,27 @@ function clip_pq!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
             # note: stt.u_on_dev[tii].*prm.dev.p_lb_tmdv[tii] \ge 0, since p_lb \ge 0
             # we also clip p_on to its maximum value (see 109)
         if qG.clip_pq_based_on_bins == true
-            stt.p_on[tii] .= max.(stt.p_on[tii], stt.u_on_dev[tii].*prm.dev.p_lb_tmdv[tii])
-            stt.p_on[tii] .= min.(stt.p_on[tii], stt.u_on_dev[tii].*prm.dev.p_ub_tmdv[tii])
+            @turbo stt.p_on[tii] .= max.(stt.p_on[tii], stt.u_on_dev[tii].*prm.dev.p_lb_tmdv[tii])
+            @turbo stt.p_on[tii] .= min.(stt.p_on[tii], stt.u_on_dev[tii].*prm.dev.p_ub_tmdv[tii])
         else
             # watch out!! 
             # => the absolute bounds are given by 0 < p < p_ub, so this is how we clip!
-            stt.p_on[tii] .= max.(stt.p_on[tii], 0.0)
-            stt.p_on[tii] .= min.(stt.p_on[tii], prm.dev.p_ub_tmdv[tii])
+            @turbo stt.p_on[tii] .= max.(stt.p_on[tii], 0.0)
+            @turbo stt.p_on[tii] .= min.(stt.p_on[tii], prm.dev.p_ub_tmdv[tii])
         end
 
         # clip q -- we clip very simply based on (112), (113), (122), (123), where q_qru is negelcted!
         #
         if qG.clip_pq_based_on_bins == true
-            stt.dev_q[tii] .= max.(stt.dev_q[tii], stt.u_sum[tii].*prm.dev.q_lb_tmdv[tii])
-            stt.dev_q[tii] .= min.(stt.dev_q[tii], stt.u_sum[tii].*prm.dev.q_ub_tmdv[tii])
+            @turbo stt.dev_q[tii] .= max.(stt.dev_q[tii], stt.u_sum[tii].*prm.dev.q_lb_tmdv[tii])
+            @turbo stt.dev_q[tii] .= min.(stt.dev_q[tii], stt.u_sum[tii].*prm.dev.q_ub_tmdv[tii])
         else
             # watch out!! 
             # => the absolute bounds are given by q_lb < q < q_ub, but
             # we don't know if q_lb is positive or negative, so to include 0,
             # we take min.(q_lb, 0.0). same for upper bound -- I think :)
-            stt.dev_q[tii] .= max.(stt.dev_q[tii], min.(prm.dev.q_lb_tmdv[tii], 0.0))
-            stt.dev_q[tii] .= min.(stt.dev_q[tii], max.(prm.dev.q_ub_tmdv[tii], 0.0))
+            @turbo stt.dev_q[tii] .= max.(stt.dev_q[tii], min.(prm.dev.q_lb_tmdv[tii], 0.0))
+            @turbo stt.dev_q[tii] .= min.(stt.dev_q[tii], max.(prm.dev.q_ub_tmdv[tii], 0.0))
         end
     end
 end
@@ -171,7 +173,7 @@ function transpose_binaries!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiG
     # across all devices and all times, compute the transposed on, su, sd and u_sum variables
     @batch per=thread for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
-        for dev in prm.dev.dev_keys
+        @inbounds @simd for dev in prm.dev.dev_keys
             stt.u_on_dev_Trx[dev][tii] = stt.u_on_dev[tii][dev]
             stt.u_su_dev_Trx[dev][tii] = stt.u_su_dev[tii][dev]
             stt.u_sd_dev_Trx[dev][tii] = stt.u_sd_dev[tii][dev]

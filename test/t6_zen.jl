@@ -13,13 +13,13 @@ file_name = "scenario_002_zen_min_mod.json"
 jsn = quasiGrad.load_json(data_path*file_name);
 
 # %% initialize
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, false, 1.0);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # compute states
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
 quasiGrad.apply_Gurobi_projection!(idx, prm, qG, stt, sys)
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # print the solution zen_costs
 zenmax  = sum(values(scr[:z_enmax]), init=0.0)
@@ -32,7 +32,7 @@ epsilon = 1e-3
 tii = :t1
 ind = 2
 quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
-quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
+quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
 for dev in 1:sys.ndev
     scr[:z_enmax][dev] = -sum(stt[:zw_enmax][dev]; init=0.0)
     scr[:z_enmin][dev] = -sum(stt[:zw_enmin][dev]; init=0.0)
@@ -50,7 +50,7 @@ dzdx = copy(mgd.p_on[tii][ind])
 # update device power
 stt.p_on[tii][ind] += epsilon
 stt.dev_p[tii] = stt.p_on[tii] + stt.p_su[tii] + stt.p_sd[tii]
-quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
+quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
 for dev in 1:sys.ndev
     scr[:z_enmax][dev] = -sum(stt[:zw_enmax][dev]; init=0.0)
     scr[:z_enmin][dev] = -sum(stt[:zw_enmin][dev]; init=0.0)

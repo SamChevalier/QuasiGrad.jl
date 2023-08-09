@@ -43,6 +43,7 @@ function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Index, 
     # loop over all devices
     Threads.@threads for dev in prm.dev.dev_keys
         # try projecting a second time if the first one fails!
+        #t1 = time()
         solve_projection = true
         first_solve      = true
 
@@ -447,7 +448,9 @@ function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Index, 
             @objective(model, Min, obj)
 
             # solve
+            #println(time() - t1)
             optimize!(model)
+            
 
             # test solution!
             soln_valid = solution_status(model)

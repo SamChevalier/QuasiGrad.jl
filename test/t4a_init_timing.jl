@@ -14,7 +14,7 @@ path = "../GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
 print("jsn: ")
 json_data = quasiGrad.load_json(path);
 
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, false, 1.0);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # %% build the system struct
 print("sys: ")
@@ -91,7 +91,7 @@ Ts_en_min, Ts_su_max = quasiGrad.build_time_sets(prm, sys);
 @btime ntk, flw = quasiGrad.initialize_ctg(sys, prm, qG, idx);
 
 # %% initialize
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, false, 1.0);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, false, 1.0);
 
 # %% note, the reference bus is always bus #1
 #

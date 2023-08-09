@@ -9,15 +9,15 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 jsn  = quasiGrad.load_json(path)
 
 # initialize
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
 
 # %% ================
 qG.skip_ctg_eval = true
 qG.num_threads   = 10
-@btime quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+@btime quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %% run copper plate ED
-quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 
 # %% ===
@@ -253,7 +253,7 @@ end
 @time hh(ctg, ntk, flw, ctg_ii, thrID)
 
 # %% run copper plate ED
-quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %%
 qG.score_all_ctgs = true
@@ -288,7 +288,7 @@ end
 
 # %% ======
 qG.skip_ctg_eval               = true
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %% compute all states and grads
 qG.skip_ctg_eval = true
@@ -352,7 +352,7 @@ h()
 @btime quasiGrad.clip_all!(prm, qG, stt)
 # %%
 
-@benchmark quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+@benchmark quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 # @btime 
 
 # %% ====================== 
@@ -362,28 +362,28 @@ qG.num_threads = 10
 
 @btime quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 @btime quasiGrad.clip_all!(prm, qG, stt)
-@btime quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
-@btime quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
-@btime quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
+@btime quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
+@btime quasiGrad.xfm_flows!(grd, idx, prm, qG, stt, sys)
+@btime quasiGrad.shunts!(grd, idx, prm, qG, stt)
 @btime quasiGrad.all_device_statuses_and_costs!(grd, prm, qG, stt)
-@btime quasiGrad.device_startup_states!(grd, idx, mgd, msc, prm, qG, stt, sys)
+@btime quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
 @btime quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
 @btime quasiGrad.device_reactive_powers!(idx, prm, qG, stt)
 @btime quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
-@btime quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
-@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, msc, prm, qG, scr, stt, sys)
+@btime quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
+@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
 @btime quasiGrad.device_reserve_costs!(prm, qG, stt)
-@btime quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
 @btime quasiGrad.reserve_balance!(idx, prm, qG, stt, sys)
 # @time quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 @btime quasiGrad.score_zt!(idx, prm, qG, scr, stt) 
 @btime quasiGrad.score_zbase!(qG, scr)
 @btime quasiGrad.score_zms!(scr)
 # @btime quasiGrad.print_zms(qG, scr)
-@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
+@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 
 # %%
-@time quasiGrad.device_startup_states!(grd, idx, mgd, msc, prm, qG, stt, sys)
+@time quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
 
 # %%
 qG.num_threads = 1
@@ -398,11 +398,11 @@ end
 # %%
 qG.num_threads = 6
 
-@btime quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
 
 # %%
 
-@btime quasiGrad.acline_flows_poly!(grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.acline_flows_poly!(grd, idx, prm, qG, stt, sys)
 
 # %%
 v = randn(1000)
@@ -422,14 +422,14 @@ qG.reserve_grad_is_soft_abs    = false
 
 
 qG.skip_ctg_eval               = true
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 qG.adam_max_time = 60.0
 qG.num_threads   = 10
 
 # %%
 qG.num_threads = 1
-@btime quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
 
 # %% ========================
 qG.num_threads = 6
@@ -450,22 +450,22 @@ for ii in 1:1000
     quasiGrad.clip_all!(prm, qG, stt)
     
     # compute network flows and injections
-    quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
-    quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
-    quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
+    quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
+    quasiGrad.xfm_flows!(grd, idx, prm, qG, stt, sys)
+    quasiGrad.shunts!(grd, idx, prm, qG, stt)
 
     # device powers
     quasiGrad.all_device_statuses_and_costs!(grd, prm, qG, stt)
-    quasiGrad.device_startup_states!(grd, idx, mgd, msc, prm, qG, stt, sys)
+    quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
     quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
     quasiGrad.device_reactive_powers!(idx, prm, qG, stt)
     quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
-    quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
-    quasiGrad.penalized_device_constraints!(grd, idx, mgd, msc, prm, qG, scr, stt, sys)
+    quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
+    quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
     quasiGrad.device_reserve_costs!(prm, qG, stt)
 
     # now, we can compute the power balances
-    quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
+    quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
 
     # compute reserve margins and penalties (no grads here)
     quasiGrad.reserve_balance!(idx, prm, qG, stt, sys)
@@ -486,13 +486,13 @@ for ii in 1:1000
 
     # compute the master grad
     #GC.safepoint()
-    #quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
+    #quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 
     # print the market surplus function value
     #quasiGrad.print_zms(qG, scr)
 
     # compute the master grad
-    # quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
+    # quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
     if mod(ii,1) == 0
         println(ii)
     end
@@ -503,19 +503,19 @@ qG.skip_ctg_eval = true
 qG.num_threads   = 10
 t1 = time()
 for ii in 1:250
-    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 end
 tend = time() - t1
 
 # %%
 tii = Int8(1)
-@btime quasiGrad.master_grad_zs_acline!(tii, idx, grd, mgd, msc, qG, sys)
+@btime quasiGrad.master_grad_zs_acline!(tii, idx, grd, mgd, qG, stt, sys)
 
-@btime quasiGrad.master_grad_zs_xfm!(tii, idx, grd, mgd, msc, qG, sys)
+@btime quasiGrad.master_grad_zs_xfm!(tii, idx, grd, mgd, qG, stt, sys)
 
 
 # %%
-@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
+@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 
 # %%
 @time idx.pr_pzone[zone][argmax(@view stt.dev_p[tii][idx.pr_pzone[zone]])];
@@ -581,7 +581,7 @@ Plots.plot(1:1000, time_vec, yaxis = :log, xlabel = "outer loop iteration", ylab
 qG.num_threads  = 10
 num_outer_loops = 5000
 for ii in 1:num_outer_loops
-    quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
+    quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
     println(ii)
 end
 
@@ -606,7 +606,7 @@ for ii in 1:1000
     println(ii)
 end
     #@floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
-    #    quasiGrad.master_grad_zs_xfm!(tii, idx, grd, mgd, qG, sys)
+    #    quasiGrad.master_grad_zs_xfm!(tii, idx, grd, mgd, qG, stt, sys)
     #end
 
         # g15 (zp): nzms => zbase => zt => zp => (all p injection variables)
@@ -623,7 +623,7 @@ end
 end
 
 # %%
-quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %% ====================
 using FLoops
@@ -748,17 +748,17 @@ beta2_decay = beta2_decay*beta2
 # %% compute all states and grads
 qG.skip_ctg_eval = true
 qG.num_threads   = 10
-@btime quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+@btime quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %%
-quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
+quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
 
 # %% take an adam step 
 qG.num_threads = 1
 
 #ProfileView.@profview 
 
-@btime quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+@btime quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
 
 # %%
 

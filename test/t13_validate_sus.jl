@@ -32,24 +32,24 @@ start_time = time()
 jsn = quasiGrad.load_json(InFile1)
 
 # I2. initialize the system
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, false, 1.0);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, false, 1.0);
 
 qG.apply_grad_weight_homotopy = false
 
 # I3. run an economic dispatch and update the states
-quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd, final_projection = true)
 
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
 # %% 
 qG.max_pf_dx = 1e-2
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, msc, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
 
 # %%
 qG.IntFeasTol = 1e-9
@@ -57,7 +57,7 @@ qG.FeasibilityTol = 1e-9
 qG.time_lim = 15.0
 quasiGrad.solve_Gurobi_projection!(idx, prm, qG, stt, sys, upd, final_projection = true)
 
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
@@ -487,7 +487,7 @@ value(    dev_p[tii] - dev_p_previous
 +     prm.dev.p_startup_ramp_ub[dev]*(u_su_dev[tii] + 1.0 - u_on_dev[tii])))
 
 # %%
-@btime quasiGrad.device_startup_states!(grd, idx, mgd, msc, prm, qG, stt, sys)
+@btime quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
 sum(sum(stt.zsus_dev[tii]    for tii in prm.ts.time_keys))
 
 # %% timing
@@ -649,4 +649,4 @@ f5() = sum(p_supc_set[ii]*arr_dict[:var1][tii_inst][dev] for (ii,tii_inst) in en
 @btime @view prm.xfm.g_sr
 
 # %%
-@btime msc.acline_sto .= sqrt.(stt.acline_pto[tii].^2 + stt.acline_qto[tii].^2);
+@btime stt.acline_sto .= sqrt.(stt.acline_pto[tii].^2 + stt.acline_qto[tii].^2);

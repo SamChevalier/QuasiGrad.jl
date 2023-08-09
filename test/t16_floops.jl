@@ -8,8 +8,8 @@ InFile1 = path
 jsn     = quasiGrad.load_json(InFile1)
 
 # initialize
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=true, pert_size=1.0);
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=true, pert_size=1.0);
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %% ===
 qG.num_threads = 1
@@ -20,8 +20,8 @@ qG.num_threads = 12
 @time quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %% test solution
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=true, pert_size=1.0);
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=true, pert_size=1.0);
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
@@ -37,7 +37,7 @@ quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
 # %% 0)
 qG.num_threads = 12
-@time quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+@time quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %% 1)
 @btime quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
@@ -49,24 +49,24 @@ qG.num_threads = 12
 
 # %% 3)
 qG.num_threads = 1
-@btime quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
 
 qG.num_threads = 12
-@btime quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
 
 # %% 4)
 qG.num_threads = 1
-@btime quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.xfm_flows!(grd, idx, prm, qG, stt, sys)
 
 qG.num_threads = 12
-@btime quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.xfm_flows!(grd, idx, prm, qG, stt, sys)
 
 # %% 5)
 qG.num_threads = 1
-@btime quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
+@btime quasiGrad.shunts!(grd, idx, prm, qG, stt)
 
 qG.num_threads = 12
-@btime quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
+@btime quasiGrad.shunts!(grd, idx, prm, qG, stt)
 
 # %% 6)
 qG.num_threads = 1
@@ -77,10 +77,10 @@ qG.num_threads = 12
 
 # %% 7)
 qG.num_threads = 1
-@btime quasiGrad.device_startup_states!(grd, idx, mgd, msc, prm, qG, stt, sys)
+@btime quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
 
 qG.num_threads = 12
-@btime quasiGrad.device_startup_states!(grd, idx, mgd, msc, prm, qG, stt, sys)
+@btime quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
 
 # %% 8)
 qG.num_threads = 1
@@ -105,17 +105,17 @@ qG.num_threads = 12
 
 # %% 11)
 qG.num_threads = 1
-@btime quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
+@btime quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
 
 qG.num_threads = 12
-@btime quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
+@btime quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
 
 # %% 12)
 qG.num_threads = 1
-@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, msc, prm, qG, scr, stt, sys)
+@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
 
 qG.num_threads = 12
-@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, msc, prm, qG, scr, stt, sys)
+@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
 
 # %% 13)
 qG.num_threads = 1
@@ -126,10 +126,10 @@ qG.num_threads = 12
 
 # %% 13)
 qG.num_threads = 1
-@btime quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
 
 qG.num_threads = 12
-@btime quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
 
 # %% 14)
 qG.num_threads = 1
@@ -147,10 +147,10 @@ qG.num_threads = 12
 
 # %% compute the master grad
 qG.num_threads = 1
-@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
+@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 
 qG.num_threads = 12
-@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, msc, prm, qG, stt, sys)
+@btime quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 
 # %% 16)
 qG.num_threads = 1
@@ -174,10 +174,10 @@ InFile1  = path
 jsn      = quasiGrad.load_json(InFile1)
 Division = 1
 
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, Div=Division);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, Div=Division);
 
 # %% I3. run an economic dispatch and update the states
-# @time quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+# @time quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %% ===
 qG.print_projection_success = false
@@ -190,7 +190,7 @@ final_projection = false
 @time quasiGrad.solve_Gurobi_projection_parallel!(final_projection, idx, prm, qG, stt, sys, upd)
 
 # %%
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, Div=Division);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, Div=Division);
 
 qG.print_projection_success = false
 final_projection = false
@@ -218,16 +218,16 @@ gurobi_env = Gurobi.Env()
 model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(gurobi_env), "Threads" => 1, "OutputFlag" => 0))
 
 # %% solve lbfgs pf
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, msc, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
 
 # %% Test 1: benchmark
-@time quasiGrad.solve_linear_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
+@time quasiGrad.solve_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
 
 # %% Test 2: all threads!
-@time quasiGrad.solve_linear_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
+@time quasiGrad.solve_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
 
 # %% Test 3: multi-threading
-@time quasiGrad.solve_linear_pf_with_Gurobi_parallel!(idx, msc, ntk, prm, qG, stt, sys)
+@time quasiGrad.solve_linear_pf_with_Gurobi_parallel!(idx, ntk, prm, qG, stt, sys)
 
 # %%
 tii = :t1

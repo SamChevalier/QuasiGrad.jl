@@ -102,7 +102,7 @@ function post_process_stats(
     grd::quasiGrad.Grad, 
     idx::quasiGrad.Index, 
     mgd::quasiGrad.MasterGrad, 
-    msc::quasiGrad.Msc, 
+    
     ntk::quasiGrad.Network, 
     prm::quasiGrad.Param, 
     qG::quasiGrad.QG, 
@@ -115,7 +115,7 @@ function post_process_stats(
         # update the state vector
         qG.eval_grad      = false
         qG.score_all_ctgs = true
-        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
         
         # flop, just in case
         qG.eval_grad         = true

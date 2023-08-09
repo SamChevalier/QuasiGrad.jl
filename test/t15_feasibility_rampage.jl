@@ -63,7 +63,7 @@ path  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases
 
 InFile1 = path
 jsn = quasiGrad.load_json(InFile1)
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
 
 # %% ======= Fix zsus
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S3.1_20230606/C3S3N01576D1/scenario_007.json"
@@ -71,15 +71,15 @@ InFile1 = path
 jsn = quasiGrad.load_json(InFile1)
 
 # initialize
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
 
 # %% solve
 fix       = true
 pct_round = 100.0
-quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, msc, ntk, prm, qG, stt, sys, upd)
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %% =============
 adm_step    = 0
@@ -101,15 +101,15 @@ beta1_decay = beta1_decay*beta1
 beta2_decay = beta2_decay*beta2
 
 # compute all states and grads
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # take an adam step
 
-quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
 # %% ==============
 
 qG.adam_max_time = 10.0
-@time quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+@time quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %% ==============
 
@@ -119,7 +119,7 @@ quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 # %%
 
-quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 
 # %% == 
@@ -134,8 +134,8 @@ for tii in prm.ts.time_keys
 
         # loop over sus (i.e., f in F)
         if prm.dev.num_sus[dev] > 0
-            # before looping over the startup states, flush msc and sus_bnds
-            msc.zsus_dev[tii] .= 0.0
+            # before looping over the startup states, flush stt and sus_bnds
+            stt.zsus_dev[tii] .= 0.0
 
             for ii in 1:prm.dev.num_sus[dev] # 1:min(prm.dev.num_sus[dev],1)
                 if prm.dev.startup_states[dev][ii][1] < 0.0 # skip if 0! why are these even here?
@@ -175,7 +175,7 @@ for tii in prm.ts.time_keys
 
                     # now, compute the discount/cost ==> this is "+=", since it is over all (f in F) states
                     if u_sus_bnd > 0.0
-                        msc.zsus_dev[tii][ii] = prm.dev.startup_states[dev][ii][1]*min(stt.u_su_dev[tii][dev],u_sus_bnd)
+                        stt.zsus_dev[tii][ii] = prm.dev.startup_states[dev][ii][1]*min(stt.u_su_dev[tii][dev],u_sus_bnd)
 
                         #stt.zsus_dev[tii][dev] += prm.dev.startup_states[dev][ii][1]*min(stt.u_su_dev[tii][dev],u_sus_bnd)
                     end
@@ -183,10 +183,10 @@ for tii in prm.ts.time_keys
             end
 
             # now, we score, and then take a gradient
-            ii = argmin(msc.zsus_dev[tii])
-            if msc.zsus_dev[tii][ii] < 0.0
+            ii = argmin(stt.zsus_dev[tii])
+            if stt.zsus_dev[tii][ii] < 0.0
                 # update the score and take the gradient
-                stt.zsus_dev[tii][dev] += msc.zsus_dev[tii][ii]
+                stt.zsus_dev[tii][dev] += stt.zsus_dev[tii][ii]
 
                 # this is all pretty expensive, so let's take the gradient right here
                 #
@@ -241,16 +241,16 @@ println(-scr[:zsus])
 # %% Test injections!!
 tii = :t1
 
-quasiGrad.ideal_dispatch!(idx, msc, stt, sys, tii)
+quasiGrad.ideal_dispatch!(idx, stt, sys, tii)
 
 Ybus_real, Ybus_imag = quasiGrad.update_Ybus(idx, ntk, prm, stt, sys, tii);
-Jac = quasiGrad.build_acpf_Jac_and_pq0(msc, qG, stt, sys, tii, Ybus_real, Ybus_imag);
+Jac = quasiGrad.build_acpf_Jac_and_pq0(qG, stt, sys, tii, Ybus_real, Ybus_imag);
 
-msc.pinj_ideal[tii]
-msc.qinj_ideal[tii]
+stt.pinj_ideal[tii]
+stt.qinj_ideal[tii]
 
-msc.pinj0[tii]
-msc.qinj0[tii]
+stt.pinj0[tii]
+stt.qinj0[tii]
 
 
 # %% ============== zsus :) ===========
@@ -263,12 +263,12 @@ InFile1 = path
 jsn     = quasiGrad.load_json(InFile1)
 
 # initialize
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=true, pert_size=1.0)
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=true, pert_size=1.0)
 
 # %% solve
 fix       = true
 pct_round = 100.0
-quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
 quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
 
@@ -280,11 +280,11 @@ quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 # %%
 quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
-quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %% ======================= 
-quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
-quasiGrad.acline_flows_parallel!(bit, grd, idx, msc, prm, qG, stt, sys)
+quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
+quasiGrad.acline_flows_parallel!(bit, grd, idx, prm, qG, stt, sys)
 
 # %% ===
 @time quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
@@ -292,7 +292,7 @@ quasiGrad.acline_flows_parallel!(bit, grd, idx, msc, prm, qG, stt, sys)
 @time quasiGrad.solve_ctgs_parallel!(bit, cgd, ctb, ctd, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, wct)
 
 # %% =====================:
-quasiGrad.device_startup_states!(grd, idx, mgd, msc, prm, qG, stt, sys)
+quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
 scr[:zsus] = -sum(sum(stt.zsus_dev[tii] for tii in prm.ts.time_keys))
 println(-scr[:zsus])
 

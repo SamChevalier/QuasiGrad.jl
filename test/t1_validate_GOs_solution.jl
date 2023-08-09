@@ -106,15 +106,15 @@ end
 include("../src/quasiGrad_dual.jl")
 sys = quasiGrad.build_sys(jsn)
 
-quasiGrad.acline_flows!(grd, idx, msc, prm, qG, stt, sys)
-quasiGrad.xfm_flows!(grd, idx, msc, prm, qG, stt, sys)
-quasiGrad.shunts!(grd, idx, msc, prm, qG, stt)
+quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
+quasiGrad.xfm_flows!(grd, idx, prm, qG, stt, sys)
+quasiGrad.shunts!(grd, idx, prm, qG, stt)
 quasiGrad.all_device_statuses_and_costs!(grd, prm, qG, stt)
 quasiGrad.device_startup_states!(prm, idx, stt, grd, qG, sys)
 quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
 quasiGrad.device_reactive_powers!(idx, prm, qG, stt)
 quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
-quasiGrad.energy_penalties!(grd, idx, msc, prm, qG, scr, stt, sys)
+quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
 quasiGrad.penalized_device_constraints!(prm, idx, stt, grd, qG, sys)
 
 # %% issues!

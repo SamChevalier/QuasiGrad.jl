@@ -102,8 +102,8 @@ function master_grad!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::qua
                 # => taken in device_startup_states!()
 
             # g6 (zs): nzms => zbase => zt => => zs => (all line and xfm variables)
-            master_grad_zs_acline!(tii, idx, grd, mgd, qG, sys)
-            master_grad_zs_xfm!(tii, idx, grd, mgd, qG, sys)
+            master_grad_zs_acline!(tii, idx, grd, mgd, qG, stt, sys)
+            master_grad_zs_xfm!(tii, idx, grd, mgd, qG, stt, sys)
 
             # g7 (zrgu):  nzms => zbase => zt => zrgu => p_rgu
             # OG => grd[:nzms][:zbase] * grd[:zbase][:zt] * grd[:zt][:zrgu] * cgd.dzrgu_dp_rgu[tii] #grd[:zrgu][:p_rgu][tii]

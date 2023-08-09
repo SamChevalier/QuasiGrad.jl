@@ -573,11 +573,11 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
     end
 end
 
-function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, msc::quasiGrad.Msc, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # apply dcpf to the economic dispatch solution
     #
     # NOTE -- I have commented out the linearized voltage solver -- it doesn't really work.
-    # => msc.pinj_dc   = zeros(sys.nb)   # this will be overwritten
+    # => stt.pinj_dc   = zeros(sys.nb)   # this will be overwritten
     # => qinj            = zeros(sys.nb)   # this will be overwritten
     thetar = zeros(sys.nb-1) # this will be overwritten -- we leave it, since cg writes to it!!
     # => vmr    = zeros(sys.nb-1) # this will be overwritten
@@ -590,7 +590,7 @@ function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, msc::qu
             # active power balance -- just devices
             # !! don't include shunt or dc constributions, 
             #    since power might not balance !!
-            msc.pinj_dc[tii][bus] = 
+            stt.pinj_dc[tii][bus] = 
                 sum(stt.dev_p[tii][pr] for pr in idx.pr[bus]; init=0.0) - 
                 sum(stt.dev_p[tii][cs] for cs in idx.cs[bus]; init=0.0)
 
@@ -606,7 +606,7 @@ function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, msc::qu
         # now, we need to solve Yb*theta = pinj, but we need to 
         # take phase shifters into account first:
         bt = -flw.ac_phi[tii].*ntk.b
-        c  = msc.pinj_dc[tii][2:end] - ntk.Er'*bt
+        c  = stt.pinj_dc[tii][2:end] - ntk.Er'*bt
         # now, we need to solve Yb_r*theta_r = c via pcg
 
         if sys.nb <= qG.min_buses_for_krylov
@@ -649,15 +649,15 @@ function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, msc::qu
     end
 end
 
-function economic_dispatch_initialization!(bit::quasiGrad.Bit, cgd::quasiGrad.ConstantGrad, ctb::Vector{Vector{Float64}}, ctd::Vector{Vector{Float64}}, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, msc::quasiGrad.Msc, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}, wct::Vector{Vector{Int64}})
+function economic_dispatch_initialization!(bit::quasiGrad.Bit, cgd::quasiGrad.ConstantGrad, ctb::Vector{Vector{Float64}}, ctd::Vector{Vector{Float64}}, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}, wct::Vector{Vector{Int64}})
     # 1. run ED (global upper bound)
     quasiGrad.solve_economic_dispatch!(idx, prm, qG, scr, stt, sys, upd)
 
     # 2. solve a dc power flow
-    quasiGrad.dcpf_initialization!(flw, idx, msc, ntk, prm, qG, stt, sys)
+    quasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys)
 
     # 3. update the states -- this is needed for power flow to converge
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     qG.eval_grad = true
 end

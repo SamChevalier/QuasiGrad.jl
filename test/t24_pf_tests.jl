@@ -6,21 +6,68 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 jsn  = quasiGrad.load_json(path)
 
 # initialize
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
 
 qG.num_threads = 10
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
-quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+
+# %% =================
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
+
+# %%
+# stt0 = deepcopy(stt)
+# %%
+stt = deepcopy(stt0);
+qG.max_linear_pfs = 6
+qG.max_linear_pfs_total = 6
+qG.max_pf_dx = 1e-3
+
+qG.Gurobi_pf_obj = "test_quad"
+# %%
+stt = deepcopy(stt0);
+qG.max_linear_pfs = 3
+qG.max_linear_pfs_total = 3
+qG.max_pf_dx = 1e-3
+qG.Gurobi_pf_obj = "test_quad"
+@time quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
+
+# %% = score!
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
+quasiGrad.score_solve_pf!(lbf, prm, stt)
+zp = sum(lbf.zpf[:zp][tii] for tii in 1:2)
+zq = sum(lbf.zpf[:zq][tii] for tii in 1:2)
+println(zq + zp)
+
+
+# %% ==========================
+tii = Int8(1)
+@time Ybus_real, Ybus_imag = quasiGrad.update_Ybus(idx, ntk, prm, stt, sys, tii);
+@time Jac = quasiGrad.build_acpf_Jac_and_pq0(qG, stt, sys, tii, Ybus_real, Ybus_imag);
+
+
+# %%
+
+A = randn(50,50)
+B = randn(50,50)
+
+@time C = A.+B;
+@time D = A+B;
+# %%
+@time gg[1] .= 2*Ybus_real;
+@time gg[1] = 2*Ybus_real;
 
 # %% ==
 # stt0 = deepcopy(stt);
 stt = deepcopy(stt0);
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %%
 stt = deepcopy(stt0);
 
-# quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
+# quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
 
 
 qG.initial_pf_lbfgs_step = 1e-3
@@ -29,23 +76,23 @@ qG.num_lbfgs_to_keep     = 10
 qG.num_lbfgs_steps       = 1000
 #qG.pqbal_grad_eps2       = 1e-2
 
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, msc, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
 
 # %% apply reactive power
 stt = deepcopy(stt0);
 for tii in prm.ts.time_keys
-    quasiGrad.apply_q_injections!(idx, msc, prm, qG, stt, sys)
+    quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
 end
 
 # %% ============= 
 stt = deepcopy(stt0);
 
-@btime quasiGrad.apply_q_injections!(idx, msc, prm, qG, stt, sys)
+@btime quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
 
 # %%
-stt = deepcopy(stt0);
-quasiGrad.apply_q_injections!(idx, msc, prm, qG, stt, sys)
-quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
+#stt = deepcopy(stt0);
+#quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
+quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
 quasiGrad.score_solve_pf!(lbf, prm, stt)
 zp = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys)
 zq = sum(lbf.zpf[:zq][tii] for tii in prm.ts.time_keys)
@@ -71,7 +118,7 @@ zt0       = 0.0
 quasiGrad.flush_lbfgs!(lbf, prm, qG, stt)
 
 # initialize: compute all states and grads
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, msc, prm, qG, stt, sys)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
 
 # %% ==========================
 emergency_stop = quasiGrad.solve_pf_lbfgs!(lbf, mgd, prm, qG, stt, upd)
@@ -82,7 +129,7 @@ for tii in prm.ts.time_keys
 end
 
 # %% compute all states and grads
-quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, msc, prm, qG, stt, sys)
+quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
 
 # increment
 lbfgs_cnt += 1
@@ -90,7 +137,7 @@ lbfgs_cnt += 1
 
 
 # %%
-quasiGrad.power_balance!(grd, idx, msc, prm, qG, stt, sys)
+quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
 quasiGrad.score_solve_pf!(lbf, prm, stt)
 zp = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys)
 zq = sum(lbf.zpf[:zq][tii] for tii in prm.ts.time_keys)
@@ -109,7 +156,7 @@ while run_lbfgs == true
     end
 
     # compute all states and grads
-    quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, msc, prm, qG, stt, sys)
+    quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
 
     # store the first value
     zp = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys)
@@ -137,3 +184,8 @@ while run_lbfgs == true
         run_lbfgs = false
     end
 end
+
+# %% ==========================
+model = Model(Gurobi.Optimizer)
+@variable(model, x[1:10])
+@constraint(model, x[dd] <= 0 for dd in 1:3)

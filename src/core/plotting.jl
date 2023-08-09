@@ -5,10 +5,9 @@ function run_adam_with_plotting!(
     ctg::quasiGrad.Contingency,
     fig::quasiGrad.Makie.Figure,
     flw::quasiGrad.Flow,
-    grd::quasiGrad.Grad, 
+    grd::quasiGrad.Grad,
     idx::quasiGrad.Index,
     mgd::quasiGrad.MasterGrad,
-    msc::quasiGrad.Msc,
     ntk::quasiGrad.Network,
     plt::Dict{Symbol, Integer},
     prm::quasiGrad.Param,
@@ -19,18 +18,17 @@ function run_adam_with_plotting!(
     upd::Dict{Symbol, Vector{Vector{Int64}}},
     z_plt::Dict{Symbol, Dict{Symbol, Float64}})
 
-    # initialize
-    adm_step    = 0
-    beta1       = qG.beta1
-    beta2       = qG.beta2
-    beta1_decay = 1.0
-    beta2_decay = 1.0
-    run_adam    = true
+    # re-initialize
+    qG.adm_step      = 0
+    qG.beta1_decay   = 1.0
+    qG.beta2_decay   = 1.0
+    qG.one_min_beta1 = 1.0 - qG.beta1 # here for testing, in case beta1 is changed
+    qG.one_min_beta2 = 1.0 - qG.beta2 # here for testing, in case beta1 is changed
+    run_adam         = true
 
     @info "Running adam for $(qG.adam_max_time) seconds!"
 
     # flush adam at each restart ?
-    # println("adam NOT flushed")
     quasiGrad.flush_adam!(adm, prm, upd)
 
     # add Gurobi Projection line?
@@ -45,55 +43,60 @@ function run_adam_with_plotting!(
     # loop over adam steps
     while run_adam
         # increment
-        adm_step += 1
+        qG.adm_step += 1
         plt[:global_adm_step] += 1 # for plotting
 
         # step decay
-        # alpha = step_decay(adm_step, qG)
+        if qG.decay_adam_step == true
+            quasiGrad.adam_step_decay!(qG, time(), adam_start, adam_start+qG.adam_max_time)
+        end
 
-        # decay beta
-        beta1_decay = beta1_decay*beta1
-        beta2_decay = beta2_decay*beta2
+        # decay beta and pre-compute
+        qG.beta1_decay         = qG.beta1_decay*qG.beta1
+        qG.beta2_decay         = qG.beta2_decay*qG.beta2
+        qG.one_min_beta1_decay = (1.0-qG.beta1_decay)
+        qG.one_min_beta2_decay = (1.0-qG.beta2_decay)
 
         # update weight parameters?
         if qG.apply_grad_weight_homotopy == true
-            update_penalties!(prm, qG, time(), adam_start, adam_start+qG.adam_max_time)
+            quasiGrad.update_penalties!(prm, qG, time(), adam_start, adam_start+qG.adam_max_time)
         end
 
         # compute all states and grads
-        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
-
-        # println(stt.vm[1][1])
+        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
         # take an adam step
-        quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+        quasiGrad.simple_adam!(adm, mgd, prm, qG, stt, upd)
+        # 2. quasiGrad.adam_dp!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+        # 3. quasiGrad.adam_dp_sqrt!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+        
         GC.safepoint()
         # experiments!
             # => quasiGrad.adaGrad!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
             # => quasiGrad.the_quasiGrad!(adm, mgd, prm, qG, stt, upd)
-            # => quasiGrad.adam_with_ls!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd, cgd, ctb, ctd, flw, grd, idx, msc, ntk, scr, sys, wct)
+            # => quasiGrad.adam_with_ls!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd, cgd, ctb, ctd, flw, grd, idx, ntk, scr, sys, wct)
 
         # take intermediate pf steps?
         if qG.take_adam_pf_steps == true
             for _ in 1:qG.num_adam_pf_step
                 # update the power injection-associated gradients
-                quasiGrad.update_states_and_grads_for_adam_pf!(grd, idx, mgd, msc, prm, qG, stt, sys)
+                quasiGrad.update_states_and_grads_for_adam_pf!(grd, idx, mgd, prm, qG, stt, sys)
 
                 # take an adam pf step (standard_adam=false)
-                quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd, standard_adam = false)
+                quasiGrad.adam!(adm, mgd, prm, qG, stt, upd, standard_adam = false)
             end
         end
 
-        quasiGrad.update_plot!(adm_step, ax, fig, plt, qG, scr, z_plt)
+        quasiGrad.update_plot!(ax, fig, plt, qG, scr, z_plt)
         display(fig)
 
         # stop?
-        run_adam = adam_termination(adam_start, adm_step, qG, run_adam)
+        run_adam = quasiGrad.adam_termination(adam_start, qG, run_adam)
     end
 
     # one last clip + state computation -- no grad needed!
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     qG.eval_grad = true
 end
 
@@ -108,7 +111,6 @@ end
 #        grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, 
 #        idx::quasiGrad.Index,
 #        mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
-#        msc::Dict{Symbol, Vector{Float64}},
 #        ntk::quasiGrad.Network,
 #        plt::Dict{Symbol, Integer},
 #        prm::quasiGrad.Param,
@@ -163,10 +165,10 @@ end
 #        beta2_decay = beta2_decay*beta2
 #
 #        # compute all states and grads
-#        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+#        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 #
 #        # take an adam step
-#        quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+#        quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
 #
 #        # stopping criteria
 #        if qG.adam_stopper == "time"
@@ -188,7 +190,7 @@ end
 #
 #    # one last clip + state computation -- no grad needed!
 #    qG.eval_grad = false
-#    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+#    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 #
 #    # turn it back on
 #    qG.eval_grad = true
@@ -202,7 +204,7 @@ function initialize_plot(
     grd::quasiGrad.Grad, 
     idx::quasiGrad.Index, 
     mgd::quasiGrad.MasterGrad, 
-    msc::quasiGrad.Msc, 
+    
     ntk::quasiGrad.Network,
     plt::Dict{Symbol, Integer}, 
     prm::quasiGrad.Param, 
@@ -213,7 +215,7 @@ function initialize_plot(
     
     # first, make sure scores are updated!
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     qG.eval_grad = true
 
     # now, initialize
@@ -284,10 +286,10 @@ function initialize_plot(
 end
 
 # update the plot
-function update_plot!(adm_step::Int64, ax::quasiGrad.Makie.Axis, fig::quasiGrad.Makie.Figure, plt::Dict{Symbol, Integer}, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, z_plt::Dict{Symbol, Dict{Symbol, Float64}})
+function update_plot!(ax::quasiGrad.Makie.Axis, fig::quasiGrad.Makie.Figure, plt::Dict{Symbol, Integer}, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, z_plt::Dict{Symbol, Dict{Symbol, Float64}})
     #
     # is this the first plot? if adm_step == 1, then we don't plot (just update)
-    if adm_step > 1 # !(plt[:first_plot] || adm_step == 1)
+    if qG.adm_step > 1 # !(plt[:first_plot] || adm_step == 1)
         # first, set the current values
         z_plt[:now][:zms]  = scale_z(scr[:zms])
         z_plt[:now][:pzms] = scale_z(scr[:zms_penalized])      
@@ -369,7 +371,7 @@ function update_plot!(adm_step::Int64, ax::quasiGrad.Makie.Axis, fig::quasiGrad.
         end
 
         # display the figure
-        if mod(adm_step,plt[:disp_freq]) == 0
+        if mod(qG.adm_step,plt[:disp_freq]) == 0
             # display(fig) => this does nothing!!
             sleep(1e-10) # I don't know why this needs to be here..
         end

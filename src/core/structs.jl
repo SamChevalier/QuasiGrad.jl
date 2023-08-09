@@ -61,15 +61,24 @@ mutable struct QG
     ctg_solver::String
     build_ctg_full::Bool
     build_ctg_lowrank::Bool
+    ctg_adam_counter::Int64   
+    ctg_solve_frequency::Int64
+    always_solve_ctg::Bool
+    decay_adam_step::Bool
+    homotopy_with_cos_decay::Bool
+    adm_step::Int64
     eps::Float64
     beta1::Float64
     beta2::Float64
-    alpha_0::Dict{Symbol, Float64}
-    alpha_min::Float64
-    alpha_max::Float64
-    Ti::Int64
-    step_decay::Float64
-    decay_type::String
+    beta1_decay::Float64
+    beta2_decay::Float64
+    one_min_beta1::Float64
+    one_min_beta2::Float64
+    one_min_beta1_decay::Float64
+    one_min_beta2_decay::Float64
+    alpha_tf::Dict{Symbol, Float64}
+    alpha_t0::Dict{Symbol, Float64}
+    alpha_tnow::Dict{Symbol, Float64}
     plot_scale_up::Float64 
     plot_scale_dn::Float64
     adam_max_time::Float64 
@@ -80,6 +89,8 @@ mutable struct QG
     pqbal_grad_weight_p::Float64
     pqbal_grad_weight_q::Float64
     pqbal_grad_eps2::Float64
+    pqbal_quadratic_grad_weight_p::Float64
+    pqbal_quadratic_grad_weight_q::Float64
     constraint_grad_is_soft_abs::Bool 
     constraint_grad_weight::Float64
     constraint_grad_eps2::Float64
@@ -89,6 +100,8 @@ mutable struct QG
     ctg_grad_is_soft_abs::Bool
     ctg_grad_weight::Float64
     ctg_grad_eps2::Float64
+    ctg_memory::Float64        
+    one_min_ctg_memory::Float64
     reserve_grad_is_soft_abs::Bool
     reserve_grad_eps2::Float64
     compute_pf_injs_with_Jac::Bool
@@ -425,6 +438,8 @@ end
 struct Network
     s_max::Vector{Float64}
     E::SparseMatrixCSC{Int64, Int64}
+    Efr::SparseMatrixCSC{Int64, Int64}
+    Eto::SparseMatrixCSC{Int64, Int64}
     Er::SparseMatrixCSC{Int64, Int64}
     ErT::SparseMatrixCSC{Int64, Int64}
     Yb::SparseMatrixCSC{Float64, Int64}
@@ -445,8 +460,38 @@ struct Network
     Ybr_ChPr::quasiGrad.Preconditioners.LimitedLDLFactorization{Float64, Int64, Vector{Int64}, Vector{Int64}}# Preconditioners.CholeskyPreconditioner{quasiGrad.Preconditioners.LimitedLDLFactorizations.LimitedLDLFactorization{Float64, Int64, Vector{Int64}, Vector{Int64}}} # Any # quasiGrad.Preconditioners.CholeskyPreconditioner{quasiGrad.Preconditioners.LimitedLDLFactorizations.LimitedLDLFactorization{Float64, Int64}}        
     u_k::Vector{Vector{Float64}} # Dict{Int64, SparseArrays.SparseVector{Float64, Int64}} # Dict{Int64, Vector{Float64}}             
     g_k::Vector{Float64}
+    z_k::Vector{Vector{Float64}}
     Ybus_acline_real::SparseArrays.SparseMatrixCSC{Float64, Int64}
     Ybus_acline_imag::SparseArrays.SparseMatrixCSC{Float64, Int64}
+    Yflow_acline_series_real::SparseArrays.SparseMatrixCSC{Float64, Int64}
+    Yflow_acline_series_imag::SparseArrays.SparseMatrixCSC{Float64, Int64}
+    Yflow_acline_shunt_fr_real::SparseArrays.SparseMatrixCSC{Float64, Int64}
+    Yflow_acline_shunt_fr_imag::SparseArrays.SparseMatrixCSC{Float64, Int64}
+    Yflow_acline_shunt_to_real::SparseArrays.SparseMatrixCSC{Float64, Int64}
+    Yflow_acline_shunt_to_imag::SparseArrays.SparseMatrixCSC{Float64, Int64}
+    Ybus_real::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Ybus_imag::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Ybus_xfm_imag::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Ybus_shunt_imag::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Ybus_xfm_real::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Ybus_shunt_real::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Yflow_xfm_series_fr_real::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Yflow_xfm_series_fr_imag::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Yflow_xfm_series_to_real::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Yflow_xfm_series_to_imag::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Yflow_xfm_shunt_fr_real::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Yflow_xfm_shunt_fr_imag::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Yflow_xfm_shunt_to_real::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Yflow_xfm_shunt_to_imag::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Yflow_fr_real::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Yflow_fr_imag::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Yflow_to_real::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Yflow_to_imag::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Jac::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Jac_pq_flow_fr::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Jac_pq_flow_to::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Jac_sflow_fr::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
+    Jac_sflow_to::Vector{SparseArrays.SparseMatrixCSC{Float64, Int64}}
 end
 
 # base-case flow data
@@ -458,11 +503,15 @@ struct Flow
     qto2::Vector{Vector{Float64}}           
     bt::Vector{Vector{Float64}} 
     dsmax_dqfr_flow_all::Vector{Vector{Float64}}
-    dsmax_dqto_flow_all::Vector{Vector{Float64}}    
+    dsmax_dqto_flow_all::Vector{Vector{Float64}}
+    dsmax_dqfr_flow_rolling::Vector{Vector{Float64}}
+    dsmax_dqto_flow_rolling::Vector{Vector{Float64}}
     p_inj::Vector{Vector{Float64}}
-    dz_dpinj_all::Vector{Vector{Float64}}                              
+    dz_dpinj_all::Vector{Vector{Float64}}    
+    dz_dpinj_rolling::Vector{Vector{Float64}}                          
     c::Vector{Vector{Float64}}
     theta::Vector{Vector{Float64}}
+    pflow::Vector{Vector{Float64}}
     worst_ctg_ids::Vector{Vector{Int64}}
     pf_cg_statevars::Vector{IterativeSolvers.CGStateVariables{Float64, Vector{Float64}}}
 end
@@ -596,12 +645,8 @@ struct State
     zhat_qmax::Vector{Vector{Float64}}          
     zhat_qmin::Vector{Vector{Float64}}          
     zhat_qmax_beta::Vector{Vector{Float64}}     
-    zhat_qmin_beta::Vector{Vector{Float64}}                 
-end
-
-struct Msc
-    pinj_ideal::Vector{Vector{Float64}}      
-    qinj_ideal::Vector{Vector{Float64}}      
+    zhat_qmin_beta::Vector{Vector{Float64}}   
+    # where msc would have started! =================== 
     pb_slack::Vector{Vector{Float64}}        
     qb_slack::Vector{Vector{Float64}}        
     pub::Vector{Vector{Float64}}             
@@ -662,10 +707,10 @@ struct Msc
     pto_x::Vector{Vector{Float64}}           
     qfr_x::Vector{Vector{Float64}}           
     qto_x::Vector{Vector{Float64}}           
-    xfm_sfr_x::Vector{Vector{Float64}}       
-    xfm_sto_x::Vector{Vector{Float64}}       
-    xfm_sfr_plus_x::Vector{Vector{Float64}}  
-    xfm_sto_plus_x::Vector{Vector{Float64}}
+    xfm_sfr::Vector{Vector{Float64}}       
+    xfm_sto::Vector{Vector{Float64}}       
+    xfm_sfr_plus::Vector{Vector{Float64}}  
+    xfm_sto_plus::Vector{Vector{Float64}}
     # begin -- xfm gradients --
     vmfrpfr_x::Vector{Vector{Float64}}
     vmtopfr_x::Vector{Vector{Float64}}
@@ -700,12 +745,36 @@ struct Msc
     g_tv_shunt::Vector{Vector{Float64}}      
     b_tv_shunt::Vector{Vector{Float64}}      
     u_sus_bnd::Vector{Vector{Vector{Float64}}}
-    zsus_dev::Vector{Vector{Vector{Float64}}}
+    zsus_dev_local::Vector{Vector{Vector{Float64}}}
     zhat_mxst_scr::Vector{Float64}
     z_enmax_scr::Vector{Float64}
     z_enmin_scr::Vector{Float64}
+    dev_plb::Vector{Vector{Float64}} 
+    dev_pub::Vector{Vector{Float64}}
     dev_qlb::Vector{Vector{Float64}} 
-    dev_qub::Vector{Vector{Float64}} 
+    dev_qub::Vector{Vector{Float64}}
+    cva::Vector{Vector{Float64}}
+    sva::Vector{Vector{Float64}}
+    vr::Vector{Vector{Float64}}
+    vi::Vector{Vector{Float64}}
+    Ir::Vector{Vector{Float64}}
+    Ii::Vector{Vector{Float64}}
+    Ir_flow_fr::Vector{Vector{Float64}}
+    Ii_flow_fr::Vector{Vector{Float64}}
+    Ir_flow_to::Vector{Vector{Float64}}
+    Ii_flow_to::Vector{Vector{Float64}}
+    pflow_over_sflow_fr::Vector{Vector{Float64}}
+    qflow_over_sflow_fr::Vector{Vector{Float64}}
+    pflow_over_sflow_to::Vector{Vector{Float64}}
+    qflow_over_sflow_to::Vector{Vector{Float64}}     
+    vm_fr::Vector{Vector{Float64}}  
+    va_fr::Vector{Vector{Float64}}  
+    vm_to::Vector{Vector{Float64}}  
+    va_to::Vector{Vector{Float64}}  
+    vm_fr_x::Vector{Vector{Float64}}  
+    va_fr_x::Vector{Vector{Float64}}  
+    vm_to_x::Vector{Vector{Float64}}  
+    va_to_x::Vector{Vector{Float64}}
 end
 
 # mini gradient structs

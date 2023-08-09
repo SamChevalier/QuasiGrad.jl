@@ -29,13 +29,13 @@ start_time = time()
 jsn = quasiGrad.load_json(InFile1)
 
 # I2. initialize the system
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, Div=Division);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, Div=Division);
 
 @warn "homotopy ON"
 qG.apply_grad_weight_homotopy = true
 
 # %% I3. run an economic dispatch and update the states
-quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %%
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
@@ -53,40 +53,40 @@ quasiGrad.manage_time!(time_left, qG)
 qG.adam_max_time = 60.0
 
 # L1. run power flow
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, msc, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
 
 # %% L2. clean-up reserves by solving softly constrained LP
 quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 
 # %% L3. run adam
 qG.adam_max_time = 60.0
-quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %%
 quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
 
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
-quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %%
-# quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, msc, ntk, prm, qG, stt, sys)
+# quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
 
 
 # %%
 tii = :t1
 
-quasiGrad.ideal_dispatch!(idx, msc, stt, sys, tii)
+quasiGrad.ideal_dispatch!(idx, stt, sys, tii)
 
 Ybus_real, Ybus_imag = quasiGrad.update_Ybus(idx, ntk, prm, stt, sys, tii);
-Jac = quasiGrad.build_acpf_Jac_and_pq0(msc, qG, stt, sys, tii, Ybus_real, Ybus_imag);
+Jac = quasiGrad.build_acpf_Jac_and_pq0(qG, stt, sys, tii, Ybus_real, Ybus_imag);
 
 # %%
-msc.pinj_ideal[tii]
-msc.qinj_ideal[tii]
+stt.pinj_ideal[tii]
+stt.qinj_ideal[tii]
 
-msc.pinj0[tii]
-msc.qinj0[tii]
+stt.pinj0[tii]
+stt.qinj0[tii]
 
 # %% =====================
 qG.num_threads = 6
@@ -161,11 +161,11 @@ beta2_decay = beta2_decay*beta2
 #end
 
 # compute all states and grads
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %% take an adam step
-quasiGrad.adam!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
 
 # %% ==
-quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 println(scr[:zms])

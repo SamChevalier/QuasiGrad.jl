@@ -6,10 +6,10 @@ path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/
 jsn  = quasiGrad.load_json(path)
 
 # %% initialize
-adm, cgd, ctg, flw, grd, idx, lbf, mgd, msc, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=false);
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=false);
 
 # run copper plate ED
-quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, msc, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # initialize plot
 plt = Dict(:plot            => false,
@@ -19,7 +19,7 @@ plt = Dict(:plot            => false,
            :disp_freq       => 5)
 
 # initialize
-ax, fig, z_plt  = quasiGrad.initialize_plot(cgd, ctg, flw, grd, idx, mgd, msc, ntk, plt, prm, qG, scr, stt, sys)
+ax, fig, z_plt  = quasiGrad.initialize_plot(cgd, ctg, flw, grd, idx, mgd, ntk, plt, prm, qG, scr, stt, sys)
 
 # run adam with plotting
 vmva_scale    = 1e-4
@@ -72,7 +72,7 @@ qG.skip_ctg_eval               = true
 qG.beta1                       = 0.9
 qG.beta2                       = 0.99
 qG.pqbal_grad_eps2             = 1e-8
-qG.adam_max_time               = 100.0
+qG.adam_max_time               = 60.0
 
-quasiGrad.run_adam_with_plotting!(adm, ax, cgd, ctg, fig, flw, grd, idx, mgd, msc, 
+quasiGrad.run_adam_with_plotting!(adm, ax, cgd, ctg, fig, flw, grd, idx, mgd, 
                                   ntk, plt, prm, qG, scr, stt, sys, upd, z_plt)
