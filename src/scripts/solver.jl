@@ -333,3 +333,106 @@ function compute_quasiGrad_solution_timed(InFile1::String, NewTimeLimitInSeconds
     # E8. post process
     quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 end
+
+function compute_quasiGrad_solution_diagnostics(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
+
+    v = VERSION
+    println(v)
+
+    st = Sys.CPU_THREADS
+    nt = Threads.nthreads()  
+
+    println("system threads: $st")
+    println("number threads: $nt")
+
+    # load
+    t = time()
+    jsn = quasiGrad.load_json(InFile1)
+    load_time = time() - t
+    println("loadtime1: $load_time")
+
+    t = time()
+    jsn = quasiGrad.load_json(InFile1)
+    load_time = time() - t
+    println("loadtime2: $load_time")
+
+    t = time()
+    jsn = quasiGrad.load_json(InFile1)
+    load_time = time() - t
+    println("loadtime3: $load_time")
+
+    # initialize
+    t = time()
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
+    init_time = time() - t
+    println("init time1: $init_time")
+
+    t = time()
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
+    init_time = time() - t
+    println("init time2: $init_time")
+
+    t = time()
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
+    init_time = time() - t
+    println("init time3: $init_time")
+
+    qG.skip_ctg_eval = true
+
+    # ed
+    t = time()
+    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    ed_time = time() - t
+    println("ed time1: $ed_time")
+
+    t = time()
+    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    ed_time = time() - t
+    println("ed time2: $ed_time")
+
+    t = time()
+    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    ed_time = time() - t
+    println("ed time3: $ed_time")
+
+    # update
+    t = time()
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time1: $up_time")
+
+    t = time()
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time2: $up_time")
+
+    t = time()
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time3: $up_time")
+
+    # ctg
+    qG.skip_ctg_eval    = false
+    qG.always_solve_ctg = true
+    t = time()
+    quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    ctg_time = time() - t
+    println("ctg time1: $ctg_time")
+
+    t = time()
+    quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    ctg_time = time() - t
+    println("ctg time2: $ctg_time")
+
+    t = time()
+    quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    ctg_time = time() - t
+    println("ctg time3: $ctg_time")
+
+    # print all thread ids :)
+    Threads.@threads for i = 1:250
+        tt = Threads.threadid()
+        println("tt, ")
+        sleep(0.1)
+    end
+end
