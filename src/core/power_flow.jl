@@ -1,3 +1,76 @@
+function solve_power_flow!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::quasiGrad.Index, lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+    # Note -- this is run *after* DCPF and q/v corrections
+    # 
+    # 1. fire up lbfgs, as controlled by adam, WITH regularization + OPF
+    # 2. after a short period, use Gurobi to solve successive power flows
+    # 
+    # step 1: lbfgs power flow
+    #
+    # turn on extra influence
+    qG.include_energy_costs_lbfgs      = true
+    qG.include_lbfgs_p0_regularization = true
+
+    # set the loss function to quadratic -- low gradient factor
+    tmp_pb_grad_type   = deepcopy(qG.pqbal_grad_type)
+    qG.pqbal_grad_type = "soft_abs"
+
+    # loop -- lbfgs
+    run_lbfgs = true
+    lbfgs_cnt = 0
+    zt0       = 0.0
+
+    # re-initialize the lbf(gs) struct
+    quasiGrad.flush_lbfgs!(lbf, prm, qG, stt)
+
+    # initialize: compute all states and grads
+    quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
+
+    # store the first value
+    zt0 = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys) + sum(lbf.zpf[:zq][tii] for tii in prm.ts.time_keys)
+
+    # loop -- lbfgs
+    while run_lbfgs == true
+        # take an lbfgs step
+        emergency_stop = quasiGrad.solve_pf_lbfgs!(lbf, mgd, prm, qG, stt, upd)
+
+        # save zpf BEFORE updating with the new state -- don't track bias terms
+        for tii in prm.ts.time_keys
+            lbf.step[:zpf_prev][tii] = (lbf.zpf[:zp][tii]+lbf.zpf[:zq][tii]) 
+        end
+
+        # compute all states and grads
+        quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
+
+        # store the first value
+        zp = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys)
+        zq = sum(lbf.zpf[:zq][tii] for tii in prm.ts.time_keys)
+        zt = zp + zq
+
+        # print
+        if qG.print_lbfgs_iterations == true
+            ztr = round(zt; sigdigits = 3)
+            zpr = round(zp; sigdigits = 3)
+            zqr = round(zq; sigdigits = 3)
+            stp = round(sum(lbf.step[:step][tii] for tii in prm.ts.time_keys)/sys.nT; sigdigits = 3)
+            println("Total: $(ztr), P penalty: $(zpr), Q penalty: $(zqr), avg adam step: $(stp)!")
+        end
+
+        # increment
+        lbfgs_cnt += 1
+
+        # quit if the error gets too large relative to the first error
+        if (lbfgs_cnt > qG.num_lbfgs_steps) || (zt > 10.0*zt0) || (emergency_stop == true)
+            run_lbfgs = false
+        end
+    end
+
+    # step 2: Gurobi linear solve (projection)
+    quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
+
+    # change the gradient type back to whatever it was
+    qG.pqbal_grad_type = tmp_pb_grad_type
+end
+
 # correct the reactive power injections into the network
 function apply_q_injections!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # note -- this is a fairly approximate function
@@ -123,7 +196,7 @@ function flush_lbfgs!(lbf::quasiGrad.LBFGS, prm::quasiGrad.Param, qG::quasiGrad.
         lbf.step[:v][tii]           = 0.0      
         lbf.step[:mhat][tii]        = 0.0      
         lbf.step[:vhat][tii]        = 0.0      
-        lbf.step[:step][tii]        = 0.0   
+        lbf.step[:step][tii]        = 1e-5   
         lbf.step[:alpha_0][tii]     = qG.lbfgs_adam_alpha_0
     end
 
@@ -159,7 +232,8 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
 
     @info "Running parallel linearized power flows across $(sys.nT) time periods."
     # loop over time
-    Threads.@threads for tii in prm.ts.time_keys
+    #Threads.@threads 
+    for tii in prm.ts.time_keys
 
         # initialize
         run_pf    = true
@@ -190,7 +264,7 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
                 # => quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", 1e-3)
                 # => quasiGrad.set_optimizer_attribute(model, "OptimalityTol",  1e-3)
 
-            # safety margins should NEVER be 0
+            # safety margins should NEVER be less than 0
             q_margin = max(q_margin, 0.0)
             v_margin = max(v_margin, 0.0)
 
@@ -333,8 +407,8 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
             JacSfr_acl_noref = @view ntk.Jac_sflow_fr[tii][1:sys.nl,       [1:sys.nb; (sys.nb+2):end]]
             JacSfr_xfm_noref = @view ntk.Jac_sflow_fr[tii][(sys.nl+1):end, [1:sys.nb; (sys.nb+2):end]]
             
-            @constraint(model, JacSfr_acl_noref*x_in + stt.acline_sfr[tii] .<= 1.05 .* prm.acline.mva_ub_nom)
-            @constraint(model, JacSfr_xfm_noref*x_in + stt.xfm_sfr[tii]    .<= 1.05 .* prm.xfm.mva_ub_nom)
+            @constraint(model, JacSfr_acl_noref*x_in + stt.acline_sfr[tii] .<= 1.25 .* prm.acline.mva_ub_nom)
+            @constraint(model, JacSfr_xfm_noref*x_in + stt.xfm_sfr[tii]    .<= 1.25 .* prm.xfm.mva_ub_nom)
 
             # objective: hold p (and v?) close to initial value
             if qG.Gurobi_pf_obj == "min_dispatch_distance"
@@ -465,7 +539,7 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
 
             # print time stats
             if qG.print_linear_pf_iterations == true
-                println("build time: ", round(build_time, sigdigits = 4), ". solve time: ", round(solve_time, sigdigits = 4))
+                # println("build time: ", round(build_time, sigdigits = 4), ". solve time: ", round(solve_time, sigdigits = 4))
             end
 
             # test solution!
@@ -694,6 +768,7 @@ function solve_pf_lbfgs!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::q
 
             # lbfgs step
             lbf.state[:x_new][tii] .= lbf.state[:x_now][tii] .- lbf.step[:step][tii].*lbf.state[:r][tii]
+            #lbf.state[:x_new][tii] .= lbf.state[:x_now][tii] .- 0.5.*lbf.state[:r][tii]
         end
 
         # pass x back into the state vector
@@ -1026,79 +1101,4 @@ function power_flow_residual!(idx::quasiGrad.Index, residual::Vector{Float64}, s
             # producer (negative)
             -sum(stt.dev_q[tii][idx.pr[bus]]; init=0.0)
     end
-end
-
-function solve_power_flow!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::quasiGrad.Index, lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
-    # 1. correct reactive power injection
-    # 2. fire up lbfgs, as controlled by adam, WITH regularization + OPF
-    # 3. after a short period, use Gurobi to solve successive power flows
-    # 
-    # step 1: correct q injection
-    quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
-
-    # step 2: lbfgs power flow
-    #
-    # turn on extra influence
-    qG.include_energy_costs_lbfgs      = true
-    qG.include_lbfgs_p0_regularization = true
-
-    # set the loss function to quadratic -- low gradient factor
-    tmp_pb_grad_type   = deepcopy(qG.pqbal_grad_type)
-    qG.pqbal_grad_type = "quadratic_for_lbfgs"
-
-    # loop -- lbfgs
-    run_lbfgs = true
-    lbfgs_cnt = 0
-    zt0       = 0.0
-
-    # re-initialize the lbf(gs) struct
-    quasiGrad.flush_lbfgs!(lbf, prm, qG, stt)
-
-    # initialize: compute all states and grads
-    quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
-
-    # store the first value
-    zt0 = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys) + sum(lbf.zpf[:zq][tii] for tii in prm.ts.time_keys)
-
-    # loop -- lbfgs
-    while run_lbfgs == true
-        # take an lbfgs step
-        emergency_stop = quasiGrad.solve_pf_lbfgs!(lbf, mgd, prm, qG, stt, upd)
-
-        # save zpf BEFORE updating with the new state -- don't track bias terms
-        for tii in prm.ts.time_keys
-            lbf.step[:zpf_prev][tii] = (lbf.zpf[:zp][tii]+lbf.zpf[:zq][tii]) 
-        end
-
-        # compute all states and grads
-        quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
-
-        # store the first value
-        zp = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys)
-        zq = sum(lbf.zpf[:zq][tii] for tii in prm.ts.time_keys)
-        zt = zp + zq
-
-        # print
-        if qG.print_lbfgs_iterations == true
-            ztr = round(zt; sigdigits = 3)
-            zpr = round(zp; sigdigits = 3)
-            zqr = round(zq; sigdigits = 3)
-            stp = round(sum(lbf.step[:step][tii] for tii in prm.ts.time_keys)/sys.nT; sigdigits = 3)
-            println("Total: $(ztr), P penalty: $(zpr), Q penalty: $(zqr), avg adam step: $(stp)!")
-        end
-
-        # increment
-        lbfgs_cnt += 1
-
-        # quit if the error gets too large relative to the first error
-        if (lbfgs_cnt > qG.num_lbfgs_steps) || (zt > 10.0*zt0) || (emergency_stop == true)
-            run_lbfgs = false
-        end
-    end
-
-    # step 3: Gurobi linear solve (projection)
-    quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
-
-    # change the gradient type back to whatever it was
-    qG.pqbal_grad_type = tmp_pb_grad_type
 end

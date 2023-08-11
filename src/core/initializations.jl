@@ -185,9 +185,9 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # choose adam step sizes (initial)
     vmva_scale_t0    = 1e-3
     xfm_scale_t0     = 1e-3
-    dc_scale_t0      = 1e-2
-    power_scale_t0   = 1e-2
-    reserve_scale_t0 = 1e-2
+    dc_scale_t0      = 1e-1
+    power_scale_t0   = 1e-1
+    reserve_scale_t0 = 1e-1
     bin_scale_t0     = 1e-2 # bullish!!!
     alpha_t0 = Dict(:vm    => vmva_scale_t0,
                    :va     => vmva_scale_t0,
@@ -221,9 +221,9 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
         # choose adam step sizes (final)
         vmva_scale_tf    = 1e-5
         xfm_scale_tf     = 1e-5
-        dc_scale_tf      = 1e-4
-        power_scale_tf   = 1e-4
-        reserve_scale_tf = 1e-4
+        dc_scale_tf      = 1e-3
+        power_scale_tf   = 1e-3
+        reserve_scale_tf = 1e-3
         bin_scale_tf     = 1e-4 # bullish!!!
         alpha_tf = Dict(:vm    => vmva_scale_tf,
                        :va     => vmva_scale_tf,
@@ -278,8 +278,8 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # in the following, we tune the weight so that the quadratic power balance gradients
     # match the standard gradients (in terms of magnitude) when p/q_error = 0.05 -- after
     # that point, they get weaker; before that, they get stronger
-    pqbal_quadratic_grad_weight_p = prm.vio.p_bus/(2.0*0.05)
-    pqbal_quadratic_grad_weight_q = prm.vio.q_bus/(2.0*0.05)
+    pqbal_quadratic_grad_weight_p = 100.0*prm.vio.p_bus/(2.0*0.05)
+    pqbal_quadratic_grad_weight_q = 100.0*prm.vio.q_bus/(2.0*0.05)
 
     # gradient modification for constraints
     constraint_grad_is_soft_abs = true # "standard"

@@ -12,21 +12,9 @@ quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, p
 stt0 = deepcopy(stt)
 qG.num_threads = 10
 
-# %% ===
-@btime quasiGrad.clip_dc!(prm, qG, stt)
-@btime quasiGrad.clip_xfm!(prm, qG, stt)
-@btime quasiGrad.clip_shunts!(prm, qG, stt)
-@btime quasiGrad.clip_voltage!(prm, qG, stt)
-@btime quasiGrad.clip_onoff_binaries!(prm, qG, stt)
-@btime quasiGrad.transpose_binaries!(prm, qG, stt)
-@btime quasiGrad.clip_reserves!(prm, qG, stt)
-# %%
-@btime quasiGrad.clip_pq!(prm, qG, stt)
-
-# %%
-@btime quasiGrad.transpose_binaries!(prm, qG, stt)
-
 # %% ==========================
+GC.gc()
+
 print("t1: ")
 @btime quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 
@@ -73,7 +61,8 @@ print("t14: ")
 @btime quasiGrad.reserve_balance!(idx, prm, qG, stt, sys)
 
 print("t15: ")
-    # @time quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+ntk.s_max .= 1.0
+@time quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 print("t16: ")
 @btime quasiGrad.score_zt!(idx, prm, qG, scr, stt)
@@ -88,13 +77,14 @@ print("t19: ")
 @btime quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 println("")
 
+# %%
 print("t20: ")
 @btime quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
 println("")
 
 # %% === === 
 ntk.s_max .= 1.0
-qG.eval_grad = false
+qG.eval_grad = true
 GC.gc()
 
 @btime quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)

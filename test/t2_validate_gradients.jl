@@ -16,9 +16,9 @@ adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasi
 
 # %% reset -- to help with numerical conditioning of the market surplus function 
 # (so that we can take its derivative numerically)
-qG.scale_c_pbus_testing  = 0.00001 #1.0 #
-qG.scale_c_qbus_testing  = 0.00001 #1.0 #
-qG.scale_c_sflow_testing = 1.0     #1.0 #
+qG.scale_c_pbus_testing  = 1.0 #1.0 #
+qG.scale_c_qbus_testing  = 1.0 #1.0 #
+qG.scale_c_sflow_testing = 1.0 #1.0 #
 
 # test
 #
@@ -216,8 +216,8 @@ include("./test_functions.jl")
 qG.pg_tol = 0.0
 qG.constraint_grad_weight = 1e-6
 
-qG.scale_c_pbus_testing  = 1e-6
-qG.scale_c_qbus_testing  = 1e-6
+qG.scale_c_pbus_testing  = 1.0
+qG.scale_c_qbus_testing  = 1.0
 qG.scale_c_sflow_testing = 1.0 #1e-4
 
 qG.pqbal_grad_type  = "standard"
@@ -231,16 +231,18 @@ qG.reserve_grad_is_soft_abs    = false
 
 #              1         2      3       4       5       6      7        8          9          10           11        12      13
 var     = [:u_on_dev, :dev_q, :p_on, :p_rgu, :p_rgd, :p_scr, :p_nsc, :p_rru_on, :p_rrd_on, :p_rru_off, :p_rrd_off, :q_qru, :q_qrd]    
-vii     = 3
+vii     = 1
 tii     = Int8(round(rand(1)[1]*sys.nT)); (tii == 0 ? tii = Int8(1) : tii = tii)
 ind     = Int64(round(rand(1)[1]*sys.ndev)); (ind == 0 ? ind = 1 : ind = ind)
 
 epsilon = 1e-5
 z0      = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-dzdx    = copy(mgd[var[vii]][tii][ind])
+mgd_v   = getfield(mgd, var[vii])
+stt_v   = getfield(stt, var[vii])
+dzdx    = copy(mgd_v[tii][ind])
 
 # perturb and test
-stt[var[vii]][tii][ind] += epsilon 
+stt_v[tii][ind] += epsilon 
 zp = calc_nzms(cgd, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 dzdx_num = (zp - z0)/epsilon
 println(dzdx)

@@ -90,13 +90,14 @@ stt = deepcopy(stt0);
 @btime quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
 
 # %%
-#stt = deepcopy(stt0);
-#quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
+stt = deepcopy(stt0);
+
+quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
 quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
 quasiGrad.score_solve_pf!(lbf, prm, stt)
 zp = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys)
 zq = sum(lbf.zpf[:zq][tii] for tii in prm.ts.time_keys)
-println(zq)
+println(zp)
 
 
 # %% ==========***

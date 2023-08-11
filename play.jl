@@ -1,3 +1,11 @@
+#‘include(“MyJulia1.jl"); MyJulia1(InFile1, TimeLimitInSeconds, 
+#Division, NetworkModel, AllowSwitching)'
+
+
+#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N01576D1/scenario_001.json"
+
+# julia -e 'include("MyJulia1.jl"); MyJulia1("C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N01576D1/scenario_001.json", 1, 1, "test", 1)'
+# %% =================
 
 function f(g::Vector{Float64}, th::Int64)
     @floop ThreadedEx(basesize = 1000000 ÷ th) for x in 1:1000000

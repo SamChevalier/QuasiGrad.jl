@@ -592,6 +592,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
         # update the u_sum and powers (used in clipping, so must be correct!)
         qG.run_susd_updates = true
         quasiGrad.simple_device_statuses!(idx, prm, qG, stt)
+        quasiGrad.transpose_binaries!(prm, qG, stt)             # huge error: was missing this!!
         quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
 
         # update the objective value score
@@ -600,8 +601,6 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
         # warn!
         @warn "Copper plate economic dispatch (LP) failed -- skip initialization!"
     end
-
-    return value.(u_su_dev[5])
 end
 
 function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
@@ -687,8 +686,17 @@ function economic_dispatch_initialization!(cgd::quasiGrad.ConstantGrad, ctg::qua
     # 2. solve a dc power flow
     quasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys)
 
-    # 3. update the states -- this is needed for power flow to converge
-    qG.eval_grad = false
+    # 3. update the states
+    tmp = copy(qG.skip_ctg_eval)
+    qG.skip_ctg_eval = true
+    qG.eval_grad     = false
     quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-    qG.eval_grad = true
+
+    # 4. take a guess at q injections, based on given voltages -- this is fairly arbitrary, but fast!!
+    quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
+
+    # 5. update the states again
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    qG.eval_grad     = true
+    qG.skip_ctg_eval = tmp
 end

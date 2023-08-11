@@ -14,30 +14,19 @@ function adam!(adm::quasiGrad.Adam, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Pa
             for tii in prm.ts.time_keys
                 if var_key in keys(upd)
                     if !isempty(upd[var_key][tii])
-                        @inbounds @fastmath @simd for updates in upd[var_key][tii]
+                        @inbounds @fastmath for updates in upd[var_key][tii]
                             adam_states.m[tii][updates] = qG.beta1*adam_states.m[tii][updates] + qG.one_min_beta1*grad[tii][updates]
                             adam_states.v[tii][updates] = qG.beta2*adam_states.v[tii][updates] + qG.one_min_beta2*(grad[tii][updates]^2.0)
                             state[tii][updates]         = state[tii][updates]  - qG.alpha_tnow[var_key]*(adam_states.m[tii][updates]/qG.one_min_beta1_decay)/(sqrt(adam_states.v[tii][updates]/qG.one_min_beta2_decay) + qG.eps)
                         end
                     end
-
-                    # vectorized version => 
-                        # note -- it isn't clear how best to use @view -- it seems to be helpful when calling
-                        # an array subset when adding/subtracting, but now when taking products, etc.
-                        # 
-                        # update adam moments
-                            # => clipped_grad, if helpful! = clamp.(mgd[var_key][tii][update_subset], -qG.grad_max, qG.grad_max)
-                            # => update_subset = upd[var_key][tii]
-                            # => adam_states.m[tii][update_subset] .= qG.beta1.*(@view adam_states.m[tii][update_subset]) .+ qG.one_min_beta1.*(@view grad[tii][update_subset])
-                            # => adam_states.v[tii][update_subset] .= qG.beta2.*(@view adam_states.v[tii][update_subset]) .+ qG.one_min_beta2.*((@view grad[tii][update_subset]).^2.0)
-                            # => state[tii][update_subset]         .= (@view state[tii][update_subset]) .- qG.alpha_tnow[var_key].*(adam_states.m[tii][update_subset]./qG.one_min_beta1_decay)./(sqrt.(adam_states.v[tii][update_subset]./qG.one_min_beta2_decay) .+ qG.eps)
                 else 
                     if !isempty(adam_states.m[tii])
                         # update adam moments
                             # => clipped_grad, if helpful!  = clamp.(mgd[var_key][tii], -qG.grad_max, qG.grad_max)
                         @turbo adam_states.m[tii] .= qG.beta1.*adam_states.m[tii] .+ qG.one_min_beta1.*grad[tii]
-                        @turbo adam_states.v[tii] .= qG.beta2.*adam_states.v[tii] .+ qG.one_min_beta2.*quasiGrad.LoopVectorization.pow_fast.(grad[tii],2.0)
-                        @turbo state[tii]         .= state[tii] .- qG.alpha_tnow[var_key].*(adam_states.m[tii]./qG.one_min_beta1_decay)./(quasiGrad.LoopVectorization.sqrt_fast.(adam_states.v[tii]./qG.one_min_beta2_decay) .+ qG.eps)
+                        adam_states.v[tii] .= qG.beta2.*adam_states.v[tii] .+ qG.one_min_beta2.*quasiGrad.LoopVectorization.pow_fast.(grad[tii],2.0)
+                        state[tii]         .= state[tii] .- qG.alpha_tnow[var_key].*(adam_states.m[tii]./qG.one_min_beta1_decay)./(quasiGrad.LoopVectorization.sqrt_fast.(adam_states.v[tii]./qG.one_min_beta2_decay) .+ qG.eps)
                     end
                 end
             end
@@ -242,11 +231,17 @@ function run_adam!(
 
     # start the timer!
     adam_start = time()
-
+    #ta = time()
     # loop over adam steps
     while run_adam
+
         # increment
-        adm_step += 1
+        qG.adm_step += 1
+
+        #if mod(qG.adm_step,100) == 0
+        #    ta = time()
+        #    qG.adm_step = 0
+        #end
 
         # step decay
         if qG.decay_adam_step == true
@@ -285,6 +280,11 @@ function run_adam!(
                 quasiGrad.adam!(adm, mgd, prm, qG, stt, upd, standard_adam = false)
             end
         end
+
+        #if qG.adm_step == 99
+        #    tb = time() - ta
+        #    println("time: $tb")
+        #end
 
         # stop?
         run_adam = quasiGrad.adam_termination(adam_start, qG, run_adam)
@@ -345,21 +345,15 @@ function update_states_and_grads!(
     quasiGrad.reserve_balance!(idx, prm, qG, stt, sys)
 
     # score the contingencies and take the gradients
-    if qG.skip_ctg_eval
-        # => println("Skipping ctg evaluation!")
-    else
-        if qG.ctg_adam_counter == qG.ctg_solve_frequency
-            quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-            qG.ctg_adam_counter = 0
-        end
-    end
+    quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+
     # score the market surplus function
     quasiGrad.score_zt!(idx, prm, qG, scr, stt) 
     quasiGrad.score_zbase!(qG, scr)
     quasiGrad.score_zms!(scr)
 
     # print the market surplus function value
-        # quasiGrad.print_zms(qG, scr)
+    quasiGrad.print_zms(qG, scr)
 
     # compute the master grad
     quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
