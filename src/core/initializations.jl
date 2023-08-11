@@ -1033,8 +1033,9 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
         z_k = [zeros(sys.nac) for ctg_ii in 1:sys.nctg]
         # if the "w_k" formulation is wanted => w_k = Dict(ctg_ii => quasiGrad.spzeros(sys.nb-1) for ctg_ii in 1:sys.nctg)
     else
-        v_k = 0
-        b_k = 0
+        u_k = [zeros(sys.nb-1) for ctg_ii in 1:sys.nctg]
+        g_k = zeros(sys.nctg)
+        z_k = [zeros(sys.nac) for ctg_ii in 1:sys.nctg]
     end
 
     # loop over components (see below for comments!!!)
@@ -1050,12 +1051,12 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     # => @info "Solving $(sys.nctg) wmi factors..."
     FLoops.assistant(false)
     # => @batch per=thread for ctg_ii in 1:sys.nctg (slightly slower)
-    @floop ThreadedEx(basesize = sys.nctg ÷ qG.num_threads) for ctg_ii in 1:sys.nctg
-        # this code is optimized -- see above for comments!!!
-        u_k[ctg_ii] .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
-        @turbo g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
-        @turbo mul!(z_k[ctg_ii], Yfr, u_k[ctg_ii])
-    end
+    #@floop ThreadedEx(basesize = sys.nctg ÷ qG.num_threads) for ctg_ii in 1:sys.nctg
+    #    # this code is optimized -- see above for comments!!!
+    #    u_k[ctg_ii] .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
+    #    @turbo g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
+    #    @turbo mul!(z_k[ctg_ii], Yfr, u_k[ctg_ii])
+    #end
     FLoops.assistant(true)
     # => @info "Done."
 
