@@ -432,7 +432,7 @@ function compute_quasiGrad_solution_diagnostics(InFile1::String, NewTimeLimitInS
     # print all thread ids :)
     Threads.@threads for i = 1:250
         tt = Threads.threadid()
-        println("tt, ")
+        print("$tt, ")
         sleep(0.1)
     end
 end
