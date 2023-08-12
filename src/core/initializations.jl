@@ -524,6 +524,7 @@ function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::B
 
     # shall we randomly perutb the states?
     if perturb_states == true
+        quasiGrad.Random.seed!(1)
         @info "applying perturbation of size $pert_size with random device binaries"
         perturb_states!(pert_size, prm, stt, sys)
 

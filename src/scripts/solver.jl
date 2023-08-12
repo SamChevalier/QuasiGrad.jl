@@ -436,3 +436,33 @@ function compute_quasiGrad_solution_diagnostics(InFile1::String, NewTimeLimitInS
     ctg_time = time() - t
     println("ctg time3: $ctg_time")
 end
+
+function compute_quasiGrad_solution_diagnostics_loop(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
+
+    v = VERSION
+    println(v)
+
+    st = Sys.CPU_THREADS
+    nt = Threads.nthreads()  
+
+    println("system threads: $st")
+    println("number threads: $nt")
+
+    println()
+    jsn = quasiGrad.load_json(InFile1)
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states = true)
+
+    ntk.s_max           = 0.15
+    qG.skip_ctg_eval    = false
+    qG.always_solve_ctg = true
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+
+    # loop!
+    t1 = time()
+    for ii in 1:1000
+        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    end
+
+    lt = time() - t1
+    println("loop time: $lt")
+end
