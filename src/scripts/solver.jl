@@ -349,8 +349,10 @@ function compute_quasiGrad_solution_diagnostics(InFile1::String, NewTimeLimitInS
     Threads.@threads for i = 1:200
         tt = Threads.threadid()
         print("$tt, ")
-        sleep(0.1)
+        sleep(0.25)
     end
+
+    println()
 
     # load
     t = time()
