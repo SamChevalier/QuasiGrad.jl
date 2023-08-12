@@ -452,7 +452,7 @@ function compute_quasiGrad_solution_diagnostics_loop(InFile1::String, NewTimeLim
     jsn = quasiGrad.load_json(InFile1)
     adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states = true)
 
-    ntk.s_max           = 0.15
+    ntk.s_max          .= 0.25
     qG.skip_ctg_eval    = false
     qG.always_solve_ctg = true
     quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
