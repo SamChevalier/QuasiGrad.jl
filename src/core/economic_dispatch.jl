@@ -6,12 +6,13 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
 
     # build and empty the model!
     tstart = time()
-    model = Model(Gurobi.Optimizer; add_bridges = false)
-    set_optimizer_attribute(model, "Threads", qG.num_threads)
+    model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => qG.num_threads))
     set_string_names_on_creation(model, false)
-    set_silent(model)
 
     # set model properties => let this run until it finishes
+        # model = Model(Gurobi.Optimizer; add_bridges = false)
+        # set_silent(model)
+        # set_optimizer_attribute(model, "Threads", qG.num_threads)
         # quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
         # quasiGrad.set_optimizer_attribute(model, "MIPGap",         qG.mip_gap)
         # quasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
@@ -551,7 +552,6 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
     # include startup states?
     if include_sus_in_ed == true
         add_to_expression!(zms, -sum(z_sus))
-        println("added")
     end
 
     # set the final objective
