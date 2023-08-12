@@ -651,7 +651,8 @@ end
 function energy_penalties!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
     # loop over devices, not time
     # => @batch per=thread for dev in prm.dev.dev_keys
-    @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
+    # @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
+    Threads.@threads for dev in prm.dev.dev_keys
         Wub = prm.dev.energy_req_ub[dev]
         Wlb = prm.dev.energy_req_lb[dev]
         stt.z_enmax_scr[dev] = 0
