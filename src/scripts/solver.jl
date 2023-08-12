@@ -345,6 +345,13 @@ function compute_quasiGrad_solution_diagnostics(InFile1::String, NewTimeLimitInS
     println("system threads: $st")
     println("number threads: $nt")
 
+    # print all thread ids :)
+    Threads.@threads for i = 1:200
+        tt = Threads.threadid()
+        print("$tt, ")
+        sleep(0.1)
+    end
+
     # load
     t = time()
     jsn = quasiGrad.load_json(InFile1)
