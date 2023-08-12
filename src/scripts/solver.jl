@@ -386,8 +386,6 @@ function compute_quasiGrad_solution_diagnostics(InFile1::String, NewTimeLimitInS
     init_time = time() - t
     println("init time3: $init_time")
 
-    qG.skip_ctg_eval = true
-
     # ed
     t = time()
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
@@ -437,11 +435,4 @@ function compute_quasiGrad_solution_diagnostics(InFile1::String, NewTimeLimitInS
     quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     ctg_time = time() - t
     println("ctg time3: $ctg_time")
-
-    # print all thread ids :)
-    Threads.@threads for i = 1:250
-        tt = Threads.threadid()
-        print("$tt, ")
-        sleep(0.1)
-    end
 end

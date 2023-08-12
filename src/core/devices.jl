@@ -4,8 +4,9 @@ function penalized_device_constraints!(grd::quasiGrad.Grad, idx::quasiGrad.Index
     # Note -- delta penalty (qG.constraint_grad_weight) applied later in the scoring
     #         function, but it is applied to the gradient here!
     # => @batch per=thread for dev in prm.dev.dev_keys
-    @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
-        # for now, we use "del" thing in the scoring function to penalize all
+    # => @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) 
+    Threads.@threads for dev in prm.dev.dev_keys
+        # for now, we use the "del" thing in the scoring function to penalize all
         # constraint violations -- thus, don't call the "c_hat" constants
         for tii in prm.ts.time_keys
             # duration
@@ -651,7 +652,7 @@ end
 function energy_penalties!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
     # loop over devices, not time
     # => @batch per=thread for dev in prm.dev.dev_keys
-    # @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
+    # => @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
     Threads.@threads for dev in prm.dev.dev_keys
         Wub = prm.dev.energy_req_ub[dev]
         Wlb = prm.dev.energy_req_lb[dev]

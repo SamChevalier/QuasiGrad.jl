@@ -31,7 +31,8 @@ function master_grad!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::qua
         ######################### ################### ###########################
         # start by looping over the terms which can be safely looped over in time
         # => @batch per=thread for tii in prm.ts.time_keys
-        @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+        # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+        Threads.@threads for tii in prm.ts.time_keys
             # g1 (zen): nzms => zbase => zt => => zen => (dev_p, u_on_dev)
             #
             # all devices
@@ -277,22 +278,22 @@ function master_grad!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::qua
         # considers the previous time (t = t_prev), but updating this gradient isn't 
         # "safe" if we're also updating the t = t_now gradient!
         # => @batch per=thread for tii in prm.ts.time_keys
-        @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
-            # include previous times?
-            if tii != 1
-                # g2 (zsu)
-                @turbo mgd.u_on_dev[prm.ts.tmin1[tii]]        .+= prm.dev.startup_cost       .* grd.u_su_dev.u_on_dev_prev[tii]
-                if qG.update_acline_xfm_bins
-                    @turbo mgd.u_on_acline[prm.ts.tmin1[tii]] .+= prm.acline.connection_cost .* grd.u_su_acline.u_on_acline_prev[tii]
-                    @turbo mgd.u_on_xfm[prm.ts.tmin1[tii]]    .+= prm.xfm.connection_cost    .* grd.u_su_xfm.u_on_xfm_prev[tii]
-                end
+        # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+        Threads.@threads for tii in @view prm.ts.time_keys[2:end]
+            # include previous time only if tii != 1
+            #
+            # g2 (zsu)
+            @turbo mgd.u_on_dev[prm.ts.tmin1[tii]]        .+= prm.dev.startup_cost       .* grd.u_su_dev.u_on_dev_prev[tii]
+            if qG.update_acline_xfm_bins
+                @turbo mgd.u_on_acline[prm.ts.tmin1[tii]] .+= prm.acline.connection_cost .* grd.u_su_acline.u_on_acline_prev[tii]
+                @turbo mgd.u_on_xfm[prm.ts.tmin1[tii]]    .+= prm.xfm.connection_cost    .* grd.u_su_xfm.u_on_xfm_prev[tii]
+            end
 
-                # g3 (zsd) 
-                @turbo mgd.u_on_dev[prm.ts.tmin1[tii]]        .+= prm.dev.shutdown_cost         .* grd.u_sd_dev.u_on_dev_prev[tii]
-                if qG.update_acline_xfm_bins
-                    @turbo mgd.u_on_acline[prm.ts.tmin1[tii]] .+= prm.acline.disconnection_cost .* grd.u_sd_acline.u_on_acline_prev[tii]
-                    @turbo mgd.u_on_xfm[prm.ts.tmin1[tii]]    .+= prm.xfm.disconnection_cost    .* grd.u_sd_xfm.u_on_xfm_prev[tii]
-                end
+            # g3 (zsd) 
+            @turbo mgd.u_on_dev[prm.ts.tmin1[tii]]        .+= prm.dev.shutdown_cost         .* grd.u_sd_dev.u_on_dev_prev[tii]
+            if qG.update_acline_xfm_bins
+                @turbo mgd.u_on_acline[prm.ts.tmin1[tii]] .+= prm.acline.disconnection_cost .* grd.u_sd_acline.u_on_acline_prev[tii]
+                @turbo mgd.u_on_xfm[prm.ts.tmin1[tii]]    .+= prm.xfm.disconnection_cost    .* grd.u_sd_xfm.u_on_xfm_prev[tii]
             end
         end
 
@@ -304,7 +305,8 @@ function master_grad!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::qua
         # loop over devices because of the su/sd index sets (among other things..)
         # 
         # => @batch per=thread for dev in prm.dev.dev_keys
-        @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
+        # => @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
+        Threads.@threads for dev in prm.dev.dev_keys
             # => # loop over time -- compute the partial derivative contributions
             # => for tii in prm.ts.time_keys
             # loop over devices -- compute the partial derivative contributions
@@ -326,7 +328,8 @@ function master_grad_solve_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad,
     # problems, we can still use this case exactly, since:
     # dzms_dv => dpftii_dv maps without any issue
     # => turbo :) @batch per=thread for tii in prm.ts.time_keys
-    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
         # g1 (zen): nzms => zbase => zt => => zen => (dev_p, u_on_dev)
         #
         # all devices
@@ -365,7 +368,8 @@ function master_grad_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::qu
     # problems, we can still use this case exactly, since:
     # dzms_dv => dpftii_dv maps without any issue
     # => turbo :) @batch per=thread for tii in prm.ts.time_keys
-    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
 
         # g6 (zs): nzms => zbase => zt => => zs => (all line and xfm variables)
         quasiGrad.master_grad_zs_acline!(tii, idx, grd, mgd, qG, stt, sys)

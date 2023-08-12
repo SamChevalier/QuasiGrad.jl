@@ -38,7 +38,8 @@ function solve_ctgs!(
             ############################################################
             #  Step 1: Parellelize loop over time to solve base case!  #
             ############################################################
-            @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+            # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+            Threads.@threads for tii in prm.ts.time_keys
                 # get the slack at this time
                 @fastmath p_slack = 
                     sum(@inbounds stt.dev_p[tii][pr] for pr in idx.pr_devs) -
@@ -150,7 +151,8 @@ function solve_ctgs!(
                     ###########################################################
                     # => up above: @info "Warning -- scoring all contingencies! No gradients."
                     ###########################################################
-                    @floop ThreadedEx(basesize = sys.nctg ÷ qG.num_threads) for ctg_ii in 1:sys.nctg
+                    # => @floop ThreadedEx(basesize = sys.nctg ÷ qG.num_threads) for ctg_ii in 1:sys.nctg
+                    Threads.@threads for ctg_ii in 1:sys.nctg
                         # use a custom "thread ID" -- three indices: tii, ctg_ii, and thrID
                         thrID = Int16(1)
                         Threads.lock(lck)
@@ -195,7 +197,8 @@ function solve_ctgs!(
                     quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 
                     # loop over contingency subset
-                    @floop ThreadedEx(basesize = num_ctg ÷ qG.num_threads) for ctg_ii in @view flw.worst_ctg_ids[tii][1:num_ctg] # first is worst!!
+                    # => @floop ThreadedEx(basesize = num_ctg ÷ qG.num_threads) for ctg_ii in @view flw.worst_ctg_ids[tii][1:num_ctg] # first is worst!!
+                    Threads.@threads for ctg_ii in @view flw.worst_ctg_ids[tii][1:num_ctg] # first is worst!!
                         # use a custom "thread ID"
                         thrID = Int16(1)
                         Threads.lock(lck)
@@ -336,7 +339,8 @@ function solve_ctgs!(
             ########################################################
             if qG.eval_grad && (~qG.score_all_ctgs)
                 # parallel loop over time
-                @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+                # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+                Threads.@threads for tii in prm.ts.time_keys
                     # A. active power injections
                     quasiGrad.zctgs_grad_pinj!(flw, grd, idx, mgd, ntk, prm, sys, tii)
 
@@ -364,7 +368,8 @@ function solve_ctgs!(
             # in this case, just apply the previous gradients!
             if qG.eval_grad && (~qG.score_all_ctgs)
                 # parallel loop over time
-                @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+                # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+                Threads.@threads for tii in prm.ts.time_keys
                     # A. active power injections
                     quasiGrad.zctgs_grad_pinj!(flw, grd, idx, mgd, ntk, prm, sys, tii)
 

@@ -74,7 +74,8 @@ end
 # correct the reactive power injections into the network
 function apply_q_injections!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # note -- this is a fairly approximate function
-    @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
         # at this time, compute the pr and cs upper and lower bounds across all devices
         stt.dev_qlb[tii] .= stt.u_sum[tii].*prm.dev.q_lb_tmdv[tii]
         stt.dev_qub[tii] .= stt.u_sum[tii].*prm.dev.q_ub_tmdv[tii]

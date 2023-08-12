@@ -11089,3 +11089,114 @@ sum(dt*prm.vio.rrd_zonal.*p_rrd_zonal_penalty[tii]) -
 # zonal reserve penalties (Q)
 sum(dt*prm.vio.qru_zonal.*q_qru_zonal_penalty[tii]) -
 sum(dt*prm.vio.qrd_zonal.*q_qrd_zonal_penalty[tii]))
+
+#=
+# adam -- direction preserving!
+function adam_dp!(adm::quasiGrad.Adam, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}}; standard_adam = true)
+    #
+    # note: for "adam_pf", just set standard_adam = false
+    #
+    # loop over the keys in mgd
+    for var_key in adm.keys
+        # so, only progress if, either, this is standard adam (not in the pf stepper),
+        # or the variable is a power flow variable!
+        if (var_key in qG.adam_pf_variables) || standard_adam
+            # call states and gradients
+            adam_states = getfield(adm, var_key)     
+            state       = getfield(stt, var_key)
+            grad        = getfield(mgd, var_key)
+            for tii in prm.ts.time_keys
+                if var_key in keys(upd)
+                    if !isempty(upd[var_key][tii])
+
+                        for updates in upd[var_key][tii]
+                            @inbounds adam_states.m[tii][updates] = beta1*adam_states.m[tii][updates] + (1.0-beta1)*grad[tii][updates]
+                        end
+                        
+                        # get the largest
+                        lrgst = maximum(abs.(adam_states.m[tii][upd[var_key][tii]]))
+                        if lrgst < 1e-6
+                            lrgst = 1.0
+                        end
+
+                        for updates in upd[var_key][tii]
+                            @inbounds adam_states.v[tii][updates] = beta2*adam_states.v[tii][updates] + (1.0-beta2)*(grad[tii][updates]^2.0)
+                            @inbounds state[tii][updates]         = state[tii][updates]  - (adam_states.m[tii][updates]/lrgst)*qG.alpha_tnow[var_key]*(adam_states.m[tii][updates]/(1.0-beta1_decay))/(sqrt(adam_states.v[tii][updates]/(1.0-beta2_decay)) + qG.eps)
+                        end
+                    end
+                else 
+                    if !isempty(adam_states.m[tii])
+                        @inbounds adam_states.m[tii] .= beta1.*adam_states.m[tii] .+ (1.0-beta1).*grad[tii]
+
+                        # get the largest
+                        lrgst = maximum(abs.(adam_states.m[tii]))
+                        if lrgst < 1e-6
+                            lrgst = 1.0
+                        end
+
+                        @inbounds adam_states.v[tii] .= beta2.*adam_states.v[tii] .+ (1.0-beta2).*(grad[tii].^2.0)
+                        @inbounds state[tii]         .= state[tii] .- (abs.(adam_states.m[tii])./lrgst).*qG.alpha_tnow[var_key].*(adam_states.m[tii]./(1.0-beta1_decay))./(sqrt.(adam_states.v[tii]./(1.0-beta2_decay)) .+ qG.eps)
+                    end
+                end
+            end
+        end
+    end
+end
+
+# adam -- direction preserving!
+function adam_dp_sqrt!(adm::quasiGrad.Adam, beta1::Float64, beta2::Float64, beta1_decay::Float64, beta2_decay::Float64, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}}; standard_adam = true)
+    #
+    # note: for "adam_pf", just set standard_adam = false
+    #
+    # loop over the keys in mgd
+    for var_key in adm.keys
+        # so, only progress if, either, this is standard adam (not in the pf stepper),
+        # or the variable is a power flow variable!
+        if (var_key in qG.adam_pf_variables) || standard_adam
+            # call states and gradients
+            nn = 10.0
+
+            adam_states = getfield(adm, var_key)     
+            state       = getfield(stt, var_key)
+            grad        = getfield(mgd, var_key)
+            for tii in prm.ts.time_keys
+                if var_key in keys(upd)
+                    if !isempty(upd[var_key][tii])
+
+                        for updates in upd[var_key][tii]
+                            @inbounds adam_states.m[tii][updates] = beta1*adam_states.m[tii][updates] + (1.0-beta1)*grad[tii][updates]
+                        end
+
+                        max_val = 1.0
+                        if maximum((abs.(adam_states.m[tii][upd[var_key][tii]])).^(1/nn)) > 1e-6
+                            max_val = maximum((abs.(adam_states.m[tii][upd[var_key][tii]])).^(1/nn))
+                        end
+
+                        for updates in upd[var_key][tii]
+                            @inbounds adam_states.v[tii][updates] = beta2*adam_states.v[tii][updates] + (1.0-beta2)*(grad[tii][updates]^2.0)
+                            @inbounds state[tii][updates]         = state[tii][updates]  - (((abs.(adam_states.m[tii][updates])).^(1/nn))/max_val)*qG.alpha_tnow[var_key]*(adam_states.m[tii][updates]/(1.0-beta1_decay))/(sqrt(adam_states.v[tii][updates]/(1.0-beta2_decay)) + qG.eps)
+                            #@inbounds state[tii][updates]         = state[tii][updates]  - qG.alpha_tnow[var_key]*(adam_states.m[tii][updates]/(1.0-beta1_decay))/(sqrt(adam_states.v[tii][updates]/(1.0-beta2_decay)) + qG.eps)
+                        end
+                    end
+                else 
+                    if !isempty(adam_states.m[tii])
+                        @inbounds adam_states.m[tii] .= beta1.*adam_states.m[tii] .+ (1.0-beta1).*grad[tii]
+
+                        # get the largest
+                        scale = (abs.(adam_states.m[tii])).^(1/nn)
+                        if maximum((abs.(adam_states.m[tii])).^(1/nn)) < 1e-6
+                            scale = scale
+                        else
+                            scale = scale./maximum((abs.(adam_states.m[tii])).^(1/nn))
+                        end
+
+                        @inbounds adam_states.v[tii] .= beta2.*adam_states.v[tii] .+ (1.0-beta2).*(grad[tii].^2.0)
+                        #@inbounds state[tii]         .= state[tii] .- qG.alpha_tnow[var_key].*(adam_states.m[tii]./(1.0-beta1_decay))./(sqrt.(adam_states.v[tii]./(1.0-beta2_decay)) .+ qG.eps)
+                        @inbounds state[tii]         .= state[tii] .- scale.*qG.alpha_tnow[var_key].*(adam_states.m[tii]./(1.0-beta1_decay))./(sqrt.(adam_states.v[tii]./(1.0-beta2_decay)) .+ qG.eps)
+                    end
+                end
+            end
+        end
+    end
+end
+=#

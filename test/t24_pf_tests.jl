@@ -8,6 +8,9 @@ jsn  = quasiGrad.load_json(path)
 # initialize
 adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
 
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+
+# %%
 qG.num_threads = 10
 quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
@@ -16,7 +19,21 @@ quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, p
 quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
 
-# %%
+
+# %% ============
+qG.skip_ctg_eval = true
+
+@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
+@btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
+
+# %% ============
+qG.skip_ctg_eval = false
+
+@btime quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+@btime quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+
+# %% ===========
+
 # stt0 = deepcopy(stt)
 # %%
 stt = deepcopy(stt0);
