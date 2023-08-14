@@ -7,17 +7,25 @@ function solve_power_flow!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx
     # step 1: lbfgs power flow
     #
     # turn on extra influence
+    qG.eval_grad                       = true
     qG.include_energy_costs_lbfgs      = true
     qG.include_lbfgs_p0_regularization = true
 
     # set the loss function to quadratic -- low gradient factor
     tmp_pb_grad_type   = deepcopy(qG.pqbal_grad_type)
     qG.pqbal_grad_type = "soft_abs"
+    qG.pqbal_grad_eps2 = 1e-3
 
     # loop -- lbfgs
     run_lbfgs = true
     lbfgs_cnt = 0
     zt0       = 0.0
+
+    # make a few copies, just in case
+    stt.vm_copy    .= deepcopy.(stt.vm)
+    stt.va_copy    .= deepcopy.(stt.va)
+    stt.p_on_copy  .= deepcopy.(stt.p_on)
+    stt.dev_q_copy .= deepcopy.(stt.dev_q)
 
     # re-initialize the lbf(gs) struct
     quasiGrad.flush_lbfgs!(lbf, prm, qG, stt)
@@ -59,8 +67,17 @@ function solve_power_flow!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx
         lbfgs_cnt += 1
 
         # quit if the error gets too large relative to the first error
-        if (lbfgs_cnt > qG.num_lbfgs_steps) || (zt > 10.0*zt0) || (emergency_stop == true)
+        if (lbfgs_cnt > qG.num_lbfgs_steps) || (zt > 1.25*zt0) || (emergency_stop == true)
             run_lbfgs = false
+            if (emergency_stop == true) || (zt > 1.25*zt0)
+                @info "LBFGS failed -- error too high. Snapping state back!"
+
+                # update the copies of vm, va, p, and q
+                stt.vm    = deepcopy(stt.vm_copy)
+                stt.va    = deepcopy(stt.va_copy)
+                stt.p_on  = deepcopy(stt.p_on_copy)
+                stt.dev_q = deepcopy(stt.dev_q_copy)
+            end
         end
     end
 
@@ -106,7 +123,7 @@ function apply_q_injections!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::qua
             # reactive power balance
             qb_slack = 
                     # shunt        
-                    sum(stt.sh_q[tii][sh] for sh in idx.sh[bus]; init=0.0)
+                    sum(stt.sh_q[tii][sh] for sh in idx.sh[bus]; init=0.0) +
                     # acline
                     sum(stt.acline_qfr[tii][ln] for ln in idx.bus_is_acline_frs[bus]; init=0.0) + 
                     sum(stt.acline_qto[tii][ln] for ln in idx.bus_is_acline_tos[bus]; init=0.0) +
@@ -197,7 +214,7 @@ function flush_lbfgs!(lbf::quasiGrad.LBFGS, prm::quasiGrad.Param, qG::quasiGrad.
         lbf.step[:v][tii]           = 0.0      
         lbf.step[:mhat][tii]        = 0.0      
         lbf.step[:vhat][tii]        = 0.0      
-        lbf.step[:step][tii]        = 1e-5   
+        lbf.step[:step][tii]        = 0.0 # this is reset at the first itertation!   
         lbf.step[:alpha_0][tii]     = qG.lbfgs_adam_alpha_0
     end
 
@@ -232,19 +249,14 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
     qG.compute_pf_injs_with_Jac = true
 
     @info "Running parallel linearized power flows across $(sys.nT) time periods."
+    
     # loop over time
-    #Threads.@threads 
-    for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
 
         # initialize
+        first_run = true
         run_pf    = true
         pf_cnt    = 0  # successes
-        total_pfs = 0  # successes AND fails
-
-        # set a q_margin and a v_margin to make convergence easier (0.0 is nominal)
-        first_fail = true
-        q_margin   = 0.0
-        v_margin   = 0.0
 
         # update y_bus -- this only needs to be done once per time, 
         # since xfm/shunt values are not changing between iterations
@@ -265,13 +277,8 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
                 # => quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", 1e-3)
                 # => quasiGrad.set_optimizer_attribute(model, "OptimalityTol",  1e-3)
 
-            # safety margins should NEVER be less than 0
-            q_margin = max(q_margin, 0.0)
-            v_margin = max(v_margin, 0.0)
-
             # increment
-            total_pfs += 1
-            pf_cnt    += 1
+            pf_cnt += 1
 
             # first, rebuild jacobian, and update base points: stt.pinj0, stt.qinj0
             quasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
@@ -285,6 +292,9 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
             dva = @view x_in[(sys.nb+1):end]
             set_start_value.(dvm, stt.vm[tii])
             set_start_value.(dva, @view stt.va[tii][2:end])
+
+            # voltage penalty -- penalizes voltages out-of-bounds
+            @variable(model, vm_penalty[1:sys.nb])
 
             # note:
             # vm   = vm0   + dvm
@@ -347,25 +357,29 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
             # next, deal with devices
             @variable(model, dev_p_vars[1:sys.ndev])
             @variable(model, dev_q_vars[1:sys.ndev])
-  
             set_start_value.(dev_p_vars, stt.dev_p[tii])
             set_start_value.(dev_q_vars, stt.dev_q[tii])
 
             # call the bounds -- note: this is fairly approximate,
             # since these bounds do not include, e.g., ramp rate constraints
             # between the various time windows -- this will be addressed in the
-            # final, constrained power flow solve                          # => ignore binaries?
-            stt.dev_plb[tii] .= stt.u_on_dev[tii].*prm.dev.p_lb_tmdv[tii]    # => dev_plb = prm.dev.p_lb_tmdv[tii]
-            stt.dev_pub[tii] .= stt.u_on_dev[tii].*prm.dev.p_ub_tmdv[tii]    # => dev_pub = prm.dev.p_ub_tmdv[tii]
-            stt.dev_qlb[tii] .= stt.u_sum[tii].*prm.dev.q_lb_tmdv[tii]       # => dev_qlb = prm.dev.q_lb_tmdv[tii]
-            stt.dev_qub[tii] .= stt.u_sum[tii].*prm.dev.q_ub_tmdv[tii]       # => dev_qub = prm.dev.q_ub_tmdv[tii]
+            # final, constrained power flow solve                            # => ignore binaries?
+                # => stt.dev_plb[tii] .= stt.u_on_dev[tii].*prm.dev.p_lb_tmdv[tii]    # => stt.dev_plb[tii] .= prm.dev.p_lb_tmdv[tii]
+                # => stt.dev_pub[tii] .= stt.u_on_dev[tii].*prm.dev.p_ub_tmdv[tii]    # => stt.dev_pub[tii] .= prm.dev.p_ub_tmdv[tii]
+                # => stt.dev_qlb[tii] .= stt.u_sum[tii].*prm.dev.q_lb_tmdv[tii]       # => stt.dev_qlb[tii] .= prm.dev.q_lb_tmdv[tii]
+                # => stt.dev_qub[tii] .= stt.u_sum[tii].*prm.dev.q_ub_tmdv[tii]       # => stt.dev_qub[tii] .= prm.dev.q_ub_tmdv[tii]
+
+            # ignore binaries
+            stt.dev_plb[tii] .= 0.0
+            stt.dev_pub[tii] .= prm.dev.p_ub_tmdv[tii]
+            stt.dev_qlb[tii] .= min.(0.0, prm.dev.q_lb_tmdv[tii])
+            stt.dev_qub[tii] .= max.(0.0, prm.dev.q_ub_tmdv[tii])
 
             # first, define p_on at this time
                 # => p_on = dev_p_vars - stt.p_su[tii] - stt.p_sd[tii]
-            # bound
             @constraint(model, stt.dev_plb[tii] .+ stt.p_su[tii] .+ stt.p_sd[tii] .<= dev_p_vars .<= stt.dev_pub[tii] .+ stt.p_su[tii] .+ stt.p_sd[tii])
             # alternative: => @constraint(model, dev_plb .<= dev_p_vars - stt.p_su[tii] - stt.p_sd[tii] .<= dev_pub)
-            @constraint(model, (stt.dev_qlb[tii] .- q_margin) .<= dev_q_vars .<= (stt.dev_qub[tii] .+ q_margin))
+            @constraint(model, stt.dev_qlb[tii] .<= dev_q_vars .<= stt.dev_qub[tii])
 
             # apply additional bounds: J_pqe (equality constraints)
             for dev in idx.J_pqe
@@ -395,138 +409,40 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
             # bound system variables ==============================================
             #
             # bound variables -- voltage
-            @constraint(model, (prm.bus.vm_lb .- v_margin) - stt.vm[tii] .<= dvm .<= (prm.bus.vm_ub .+ v_margin) - stt.vm[tii])
-            # alternative: => @constraint(model, prm.bus.vm_lb .<= stt.vm[tii] + dvm .<= prm.bus.vm_ub)
+            @constraint(model, prm.bus.vm_lb .- vm_penalty .<= stt.vm[tii] .+ dvm)
+            @constraint(model,                                 stt.vm[tii] .+ dvm .<= prm.bus.vm_ub .+ vm_penalty)
 
             # mapping
-            JacP_noref = @view ntk.Jac[tii][1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
-            JacQ_noref = @view ntk.Jac[tii][(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
+            JacP_noref      = @view ntk.Jac[tii][1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
+            JacQ_noref      = @view ntk.Jac[tii][(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
             @constraint(model, JacP_noref*x_in .+ stt.pinj0[tii] .== nodal_p)
             @constraint(model, JacQ_noref*x_in .+ stt.qinj0[tii] .== nodal_q)
 
             # finally, bound the apparent power flow in the lines and transformers
             JacSfr_acl_noref = @view ntk.Jac_sflow_fr[tii][1:sys.nl,       [1:sys.nb; (sys.nb+2):end]]
             JacSfr_xfm_noref = @view ntk.Jac_sflow_fr[tii][(sys.nl+1):end, [1:sys.nb; (sys.nb+2):end]]
-            
             @constraint(model, JacSfr_acl_noref*x_in + stt.acline_sfr[tii] .<= 1.25 .* prm.acline.mva_ub_nom)
             @constraint(model, JacSfr_xfm_noref*x_in + stt.xfm_sfr[tii]    .<= 1.25 .* prm.xfm.mva_ub_nom)
-
-            # objective: hold p (and v?) close to initial value
-            if qG.Gurobi_pf_obj == "min_dispatch_distance"
-                # this finds a solution close to the dispatch point -- does not converge without v,a regularization
-                obj = AffExpr(0.0)
-
-                # every 10% of devices, introduce a new slack variable -- limit complexity
-                num_dev_per_slack  = Int(round(0.1*sys.ndev))
-                slack_power_weight = 2.5
-                tmp_devp = @variable(model)
-                add_to_expression!(obj, tmp_devp, slack_power_weight/(sys.nb/num_dev_per_slack))
-                for dev in 1:sys.ndev
-                    if mod(dev,num_dev_per_slack) == 0
-                        tmp_devp = @variable(model)
-                        add_to_expression!(obj, tmp_devp, slack_power_weight/(sys.nb/num_dev_per_slack))
-                    end
-                    @constraint(model, stt.dev_p[tii][dev] - dev_p_vars[dev] <= tmp_devp)
-                    @constraint(model, dev_p_vars[dev] - stt.dev_p[tii][dev] <= tmp_devp)
-                end
-
-                # regularize -- causes convergence
-                tmp_p  = @variable(model)
-                tmp_q  = @variable(model)
-                tmp_vm = @variable(model)
-                tmp_va = @variable(model)
-                add_to_expression!(obj, tmp_p)
-                add_to_expression!(obj, tmp_q)
-                add_to_expression!(obj, tmp_vm)
-                add_to_expression!(obj, tmp_va)
-                for bus in 1:sys.nb
-                    # voltage regularization
-                    @constraint(model, -dvm[bus] <= tmp_vm)
-                    @constraint(model,  dvm[bus] <= tmp_vm)
-
-                    # phase regularization
-                    if bus > 1
-                        @constraint(model, -dva[bus-1] <= tmp_va)
-                        @constraint(model,  dva[bus-1] <= tmp_va)
-                    end
-
-                    # for injections:
-                    @constraint(model, stt.pinj0[tii][bus] - nodal_p[bus] <= tmp_p)
-                    @constraint(model, nodal_p[bus] - stt.pinj0[tii][bus] <= tmp_p)
-                    @constraint(model, stt.qinj0[tii][bus] - nodal_q[bus] <= tmp_q)
-                    @constraint(model, nodal_q[bus] - stt.qinj0[tii][bus] <= tmp_q)
-                end
-
-            elseif qG.Gurobi_pf_obj == "min_dispatch_distance_all"
-                # this finds a solution close to the dispatch point -- does not converge without v,a regularization
-                obj = AffExpr(0.0)
-
-                for dev in 1:sys.ndev
-                    tmp_devp = @variable(model)
-                    @constraint(model, stt.dev_p[tii][dev] - dev_p_vars[dev] <= tmp_devp)
-                    @constraint(model, dev_p_vars[dev] - stt.dev_p[tii][dev] <= tmp_devp)
-                    add_to_expression!(obj, tmp_devp)
-                end
-
-                # regularize
-                for bus in 1:sys.nb
-                    # voltage regularization
-                    tmp_vm = @variable(model)
-                    @constraint(model, -dvm[bus] <= tmp_vm)
-                    @constraint(model,  dvm[bus] <= tmp_vm)
-                    add_to_expression!(obj, tmp_vm)
-
-                    # phase regularization
-                    if bus > 1
-                        tmp_va = @variable(model)
-                        @constraint(model, -dva[bus-1] <= tmp_va)
-                        @constraint(model,  dva[bus-1] <= tmp_va)
-                        add_to_expression!(obj, tmp_va)
-                    end
-
-                    # for injections:
-                    tmp_p = @variable(model)
-                    tmp_q = @variable(model)
-                    @constraint(model, stt.pinj0[tii][bus] - nodal_p[bus] <= tmp_p)
-                    @constraint(model, nodal_p[bus] - stt.pinj0[tii][bus] <= tmp_p)
-                    @constraint(model, stt.qinj0[tii][bus] - nodal_q[bus] <= tmp_q)
-                    @constraint(model, nodal_q[bus] - stt.qinj0[tii][bus] <= tmp_q)
-                    add_to_expression!(obj, tmp_p)
-                    add_to_expression!(obj, tmp_q)
-                end
-
-            elseif qG.Gurobi_pf_obj == "l2_penalties"
-                    # screw it -- l2 norm
-                    obj = @expression(model, 
-                          dvm'*dvm +
-                          dva'*dva +
-                          # => (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
-                          (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
-                          25.0*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
-
-            elseif qG.Gurobi_pf_obj == "min_dispatch_perturbation"
-                # this finds a solution with minimum movement -- not really needed
-                # now that "min_dispatch_distance" converges
-                tmp_p  = @variable(model)
-                tmp_vm = @variable(model)
-                tmp_va = @variable(model)
-                for bus in 1:sys.nb
-                    @constraint(model, -JacP_noref[bus,:]*x_in <= tmp_p)
-                    @constraint(model,  JacP_noref[bus,:]*x_in <= tmp_p)
-
-                    @constraint(model, -dvm[bus] <= tmp_vm)
-                    @constraint(model,  dvm[bus] <= tmp_vm)
-
-                    if bus > 1
-                        @constraint(model, -dva[bus-1] <= tmp_va)
-                        @constraint(model,  dva[bus-1] <= tmp_va)
-                    end
-                end
-                add_to_expression!(obj, tmp_vm)
-                add_to_expression!(obj, tmp_va)
-                add_to_expression!(obj, tmp_p, 100.0)
-            else
-                @warn "pf solver objective not recognized!"
+                        
+            if first_run == true
+                first_run = false # toggle
+                # on the first run, just find a pf solution for active power, and
+                # penalize any voltage violation
+                obj = @expression(model, 
+                        1e3*(vm_penalty'*vm_penalty) + 
+                        x_in'*x_in +
+                        # => (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
+                        # => (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
+                        (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
+                        10.0*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
+            else 
+                obj = @expression(model, 
+                        50.0*(vm_penalty'*vm_penalty) + 
+                        x_in'*x_in +
+                        # => (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
+                        # => (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
+                        (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
+                        10.0*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
             end
 
             # set the objective
@@ -540,21 +456,16 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
 
             # print time stats
             if qG.print_linear_pf_iterations == true
-                # println("build time: ", round(build_time, sigdigits = 4), ". solve time: ", round(solve_time, sigdigits = 4))
+                println("build time: ", round(build_time, sigdigits = 4), ". solve time: ", round(solve_time, sigdigits = 4))
             end
 
             # test solution!
             soln_valid = solution_status(model)
 
-            # if we have reached our max number of tries, jsut quit after this
-            if total_pfs == qG.max_linear_pfs_total
-                run_pf = false
-            end
-
             # test validity
             if soln_valid == true
                 # no matter what, we update the voltage soluion
-                stt.vm[tii] .= stt.vm[tii] .+ value.(dvm)
+                stt.vm[tii]        .= value.(dvm) .+ stt.vm[tii]
                 stt.va[tii][2:end] .= value.(dva) .+ @view stt.va[tii][2:end]
 
                 # now, apply the updated injections to the devices
@@ -568,42 +479,24 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
                     stt.dc_qto[tii] .= value.(qdc_to_vars)
                 end
 
-                if q_margin > 0.0
-                    # Let's update the margins, but this isn't a valid (marginless) solution yet..
-                    if (v_margin > 0.0)
-                        # in this case, let's try again, but without voltage support
-                        v_margin = 0.0
-                        q_margin = 0.01
-                    else
-                        q_margin = 0.01
-                    end
-                else
-                    # valid solution, and no margins needed!
-                    #
-                    # take the norm of dv and da
-                    max_dx = maximum(abs.(value.(x_in)))
-                    
-                    # println("========================================================")
-                    if qG.print_linear_pf_iterations == true
-                        println(termination_status(model), ". time: $(tii). ","objective value: ", round(objective_value(model), sigdigits = 5), ". max dx: ", round(max_dx, sigdigits = 5))
-                    end
-                    # println("========================================================")
-                    #
-                    # shall we terminate?
-                    if (max_dx < qG.max_pf_dx) || (pf_cnt == qG.max_linear_pfs)
-                        run_pf = false
-                    end
+                # take the norm of dv and da
+                max_dx = maximum(abs.(value.(x_in)))
+                
+                # println("========================================================")
+                if qG.print_linear_pf_iterations == true
+                    println(termination_status(model), ". time: $(tii). ","objective value: ", round(objective_value(model), sigdigits = 5), ". max dx: ", round(max_dx, sigdigits = 5))
+                end
+                # println("========================================================")
+                #
+                # shall we terminate?
+                if (max_dx < qG.max_pf_dx) || (pf_cnt == qG.max_linear_pfs)
+                    run_pf = false
                 end
             else
                 # the solution is NOT valid, so we should increase bounds and try again
-                @warn "Linearized power flow failed at time ($tii) -- increasing margins."
-                if first_fail == true
-                    first_fail = false
-                    q_margin = 0.01
-                else
-                    q_margin += 0.025
-                    v_margin += 0.001
-                end
+                @warn "Linearized power flow failed at time ($tii) -- nothing we can do!"
+                @assert 1 == 2
+                run_pf = false
             end
         end
     end
@@ -628,7 +521,7 @@ function update_states_and_grads_for_solve_pf_lbfgs!(cgd::quasiGrad.ConstantGrad
     quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 
     # clip all basic states (i.e., the states which are iterated on)
-    qG.clip_pq_based_on_bins = true
+    qG.clip_pq_based_on_bins = false
     quasiGrad.clip_all!(prm, qG, stt)
     
     # compute network flows and injections
@@ -687,8 +580,11 @@ function solve_pf_lbfgs!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::q
     if sum(lbf.idx) == 0
         # we solve pf at each instant, so loop over all time!
         for tii in prm.ts.time_keys
-            # if this is the very first iteration, just take a gradient step
-            lbf.state[:x_new][tii] .= lbf.state[:x_now][tii] .- 1e-16*lbf.state[:gradf_now][tii]
+            # if this is the very first iteration, just take a tiny gradient step
+            #
+            # want: maximum(grad)*step_size = 1e-4, to, step_size = 1e-4/maximum(grad)
+            step_size = (1e-4)/maximum(lbf.state[:gradf_now][tii])
+            lbf.state[:x_new][tii] .= lbf.state[:x_now][tii] .- step_size*lbf.state[:gradf_now][tii]
         end
 
         # pass x back into the state vector
@@ -714,19 +610,19 @@ function solve_pf_lbfgs!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::q
         lbf.idx[1] = 1
     else
         # we solve pf at each instant, so loop over all time!
-            # => for tii in prm.ts.time_keys
-        @batch per=thread for tii in prm.ts.time_keys
+        # => for tii in prm.ts.time_keys
+        @batch per=core for tii in prm.ts.time_keys
         # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
 
             # udpdate the state difference
-            idx_km1                     = lbf.idx[1]
-            lbf.diff[:s][tii][idx_km1] .= lbf.state[:x_now][tii]     .- lbf.state[:x_prev][tii]
-            lbf.diff[:y][tii][idx_km1] .= lbf.state[:gradf_now][tii] .- lbf.state[:gradf_prev][tii]
-            rho                         = quasiGrad.dot(lbf.diff[:s][tii][idx_km1], lbf.diff[:y][tii][idx_km1])
-            if abs(rho) < 1e-6
+                      idx_km1                     = lbf.idx[1]
+            @turbo    lbf.diff[:s][tii][idx_km1] .= lbf.state[:x_now][tii]     .- lbf.state[:x_prev][tii]
+            @turbo    lbf.diff[:y][tii][idx_km1] .= lbf.state[:gradf_now][tii] .- lbf.state[:gradf_prev][tii]
+            @fastmath rho                         = quasiGrad.dot(lbf.diff[:s][tii][idx_km1], lbf.diff[:y][tii][idx_km1])
+            if abs(rho) < 1e-7
                 # in this case, lbfgs is stalling out and might return a NaN if we're not careful
-                # => emergency_stop = true
-                # => @info "Breaking out of lbfgs loop! s'*y too small. NaN possible."
+                emergency_stop = true
+                @info "Breaking out of lbfgs loop! s'*y too small. NaN possible."
                 break # this breaks from everything 
             end
             
@@ -736,17 +632,17 @@ function solve_pf_lbfgs!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::q
             # now, double-loop and compute lbfgs values
             lbf.state[:q][tii] .= copy.(lbf.state[:gradf_now][tii])
             for ii in lbf.idx[lbf.idx .!= 0] # k-1, k-2, ..., k-m
-                lbf.state[:alpha][tii][ii] = lbf.state[:rho][tii][ii]*quasiGrad.dot(lbf.diff[:s][tii][ii], lbf.state[:q][tii])
-                lbf.state[:q][tii]       .-= lbf.state[:alpha][tii][ii].*lbf.diff[:y][tii][ii]
+                @fastmath lbf.state[:alpha][tii][ii] = lbf.state[:rho][tii][ii]*quasiGrad.dot(lbf.diff[:s][tii][ii], lbf.state[:q][tii])
+                @fastmath lbf.state[:q][tii]       .-= lbf.state[:alpha][tii][ii].*lbf.diff[:y][tii][ii]
             end
             
             # set "r", which will be H*grad
-            lbf.state[:r][tii] .= lbf.state[:q][tii].*(quasiGrad.dot(lbf.diff[:s][tii][idx_km1], lbf.diff[:y][tii][idx_km1])/quasiGrad.dot(lbf.diff[:y][tii][idx_km1], lbf.diff[:y][tii][idx_km1]))
+            @fastmath lbf.state[:r][tii] .= lbf.state[:q][tii].*(quasiGrad.dot(lbf.diff[:s][tii][idx_km1], lbf.diff[:y][tii][idx_km1])/quasiGrad.dot(lbf.diff[:y][tii][idx_km1], lbf.diff[:y][tii][idx_km1]))
             
             # compute H*grad
             for ii in reverse(lbf.idx[lbf.idx .!= 0]) # k-m, k-m+1, ..., k-1
                 # skip beta -- defined implicitly below
-                lbf.state[:r][tii] .+= lbf.diff[:s][tii][ii].*(lbf.state[:alpha][tii][ii] - lbf.state[:rho][tii][ii]*quasiGrad.dot(lbf.diff[:y][tii][ii], lbf.state[:r][tii]))
+                @fastmath lbf.state[:r][tii] .+= lbf.diff[:s][tii][ii].*(lbf.state[:alpha][tii][ii] - lbf.state[:rho][tii][ii]*quasiGrad.dot(lbf.diff[:y][tii][ii], lbf.state[:r][tii]))
             end
 
             # step size: let adam control?
@@ -768,8 +664,7 @@ function solve_pf_lbfgs!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::q
             end
 
             # lbfgs step
-            lbf.state[:x_new][tii] .= lbf.state[:x_now][tii] .- lbf.step[:step][tii].*lbf.state[:r][tii]
-            #lbf.state[:x_new][tii] .= lbf.state[:x_now][tii] .- 0.5.*lbf.state[:r][tii]
+            @turbo lbf.state[:x_new][tii] .= lbf.state[:x_now][tii] .- lbf.step[:step][tii].*lbf.state[:r][tii]
         end
 
         # pass x back into the state vector
@@ -809,10 +704,10 @@ function solve_pf_lbfgs!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::q
         #
         # so, 1 becomes 2, 2 becomes 3, etc. :
         if 0 ∈ lbf.idx
-            circshift!(lbf.idx, -1)
+            circshift!(lbf.idx, 1)
             lbf.idx[1] = lbf.idx[2] + 1
         else
-            circshift!(lbf.idx, -1)
+            circshift!(lbf.idx, 1)
         end
     end
 
@@ -821,7 +716,7 @@ function solve_pf_lbfgs!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::q
 end
 
 function quadratic_distance!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
-    @batch per=thread for tii in prm.ts.time_keys
+    @batch per=core for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # grab the distance between p_on and its initial value -- this is something we 
         # minimize, so the regularization function is positive valued
@@ -1013,7 +908,6 @@ function build_Jac_sto!(ntk::quasiGrad.Network, stt::quasiGrad.State, sys::quasi
                                               stt.qflow_over_sflow_to[tii].*(@view ntk.Jac_pq_flow_to[tii][(sys.nac+1):end, (sys.nb+1):end])
 end
 
-# solve power flow
 function newton_power_flow(grd::quasiGrad.Grad, idx::quasiGrad.Index, KP::Float64, pi_p::Vector{Float64}, prm::quasiGrad.Param, PQidx::Vector{Int64}, qG::quasiGrad.QG, residual::Vector{Float64}, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8, Ybus_real::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, Ybus_imag::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64})
     # initialize
     run_pf = true

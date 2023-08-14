@@ -3,17 +3,41 @@ using Revise
 
 # %% files
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/C3S0N00014/scenario_003.json"
-path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/C3S0N00073/scenario_002.json"
-path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
+#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/C3S0N00073/scenario_002.json"
+#path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N01576D1/scenario_001.json"
+
+tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
+path = tfp*"C3S4X_20230809/D2/C3S4N00073D2/scenario_997.json"
 
 jsn  = quasiGrad.load_json(path)
 
-# %% initialize
+# initialize
+t1 = time()
 adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=false);
+tt = time() - t1
+println(tt)
 
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
+
+# %% -- test 1
+t1 = time()
+quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
+tfl = time() - t1
+println(tfl)
+
+# %% -- test 2
+qG.skip_ctg_eval    = false
+qG.always_solve_ctg = true
+
+t2 = time()
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+tup = time() - t2
+println(tup)
+
+# %%
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 stt0 = deepcopy(stt);
 
 # %% ====================== 
@@ -105,17 +129,17 @@ qG.apply_grad_weight_homotopy  = false
 qG.homotopy_with_cos_decay     = false
 
 qG.pqbal_grad_type     = "soft_abs"
-qG.pqbal_grad_eps2     = 1e-8
+qG.pqbal_grad_eps2     = 1e-7
 
 qG.pqbal_quadratic_grad_weight_p = prm.vio.p_bus/(2.0*0.05)
 qG.pqbal_quadratic_grad_weight_q = prm.vio.q_bus/(2.0*0.05)
 
-vmva_scale_tf    = 1e-8
-xfm_scale_tf     = 1e-8
-dc_scale_tf      = 1e-6
-power_scale_tf   = 1e-6
-reserve_scale_tf = 1e-6
-bin_scale_tf     = 1e-6 # bullish!!!
+vmva_scale_tf    = 1e-5
+xfm_scale_tf     = 1e-5
+dc_scale_tf      = 1e-5
+power_scale_tf   = 1e-5
+reserve_scale_tf = 1e-5
+bin_scale_tf     = 1e-5 # bullish!!!
 
 qG.alpha_tnow[:vm]     = vmva_scale_tf
 qG.alpha_tnow[:va]     = vmva_scale_tf

@@ -3,16 +3,23 @@ using Revise
 
 # files
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N01576D1/scenario_001.json"
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1.1_20230807/D1/C3S1N01576D1/scenario_001.json"
+
 jsn  = quasiGrad.load_json(path)
 
-# initialize
+# %% initialize
+#t1 = time()
 adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
+#t = time() - t1
+#println(t)
 
-# %%
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %%
+t1 = time()
 quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+t = time() - t1
+println(t)
 
 # %%
 qG.num_threads = 10
@@ -84,6 +91,9 @@ B = randn(50,50)
 # stt0 = deepcopy(stt);
 stt = deepcopy(stt0);
 quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+
+# %%
+quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
 
 # %%
 stt = deepcopy(stt0);

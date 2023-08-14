@@ -391,7 +391,7 @@ qG.num_threads = 1
 
 # %%
 v = randn(50)
-@batch per=thread for ii in 1:100
+@batch per=core for ii in 1:100
     t = maximum(v[ij] for ij in 1:5)
 end
 
@@ -929,7 +929,7 @@ function ttb()
             ctg_params[ctg_ii][cmp_ii]  = -ac_b_params[cmp_index]
         end
     end
-    quasiGrad.@batch per=thread for ctg_ii in 1:sys.nctg
+    quasiGrad.@batch per=core for ctg_ii in 1:sys.nctg
     # @floop ThreadedEx(basesize = sys.nctg ÷ qG.num_threads) for ctg_ii in 1:sys.nctg
         # this code is optimized -- see above for comments!!!
         u_k[ctg_ii] .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
@@ -1057,7 +1057,7 @@ function ttf()
             ctg_params[ctg_ii][cmp_ii]  = -ac_b_params[cmp_index]
         end
     end
-    # @batch per=thread for ctg_ii in 1:sys.nctg
+    # @batch per=core for ctg_ii in 1:sys.nctg
     quasiGrad.FLoops.assistant(false)
     quasiGrad.@floop quasiGrad.ThreadedEx(basesize = sys.nctg ÷ qG.num_threads) for ctg_ii in 1:sys.nctg
         # this code is optimized -- see above for comments!!!

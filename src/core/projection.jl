@@ -497,6 +497,7 @@ function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Index, 
 
                     # warn!
                     @warn "Gurobi MILP projection failed (dev ($dev)) -- skip and try again later!"
+                    @assert 1 == 2
                 end
             end
         end

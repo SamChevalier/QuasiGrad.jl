@@ -78,9 +78,27 @@ print("t19: ")
 println("")
 
 # %%
+v1 = randn(10)
+v2 = randn(10)
+v3 = randn(10)
+
+# %%
+quasiGrad.@turbo v1 .= v3.*v3 .+ v2
+
+# %%
+quasiGrad.@turbo stt.cos_ftp[tii] .= 2.2.*quasiGrad.LoopVectorization.pow_fast.(stt.va_fr[tii] .- stt.va_to[tii])
+
+# %%
+
+quasiGrad.@turbo v1 .= 1.1 .* quasiGrad.LoopVectorization.pow_fast.(v3, 2)
+
+# %% ===
 print("t20: ")
 @btime quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
 println("")
+
+# %%
+@code_warntype quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
 
 # %% === === 
 ntk.s_max .= 1.0
@@ -156,7 +174,7 @@ cs = prm.vio.s_flow * qG.scale_c_sflow_testing
 # loop over time
 tii = Int8(1)
 
-#@batch per=thread for tii in prm.ts.time_keys
+#@batch per=core for tii in prm.ts.time_keys
 # = > @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
 
     # duration
@@ -224,7 +242,7 @@ tii = Int8(1)
 quasiGrad.xfm_flows!(grd, idx, prm, qG, stt, sys)
 
 # %%
-quasiGrad.@batch per=thread for tii in prm.ts.time_keys
+quasiGrad.@batch per=core for tii in prm.ts.time_keys
 #quasiGrad.@floop quasiGrad.ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
       println(Threads.threadid())
 end
@@ -368,3 +386,312 @@ y = u_k[1]
 b = Er[ctg_out_ind[1][1],:]
 
 LinearAlgebra.ldiv!(u_k[1], Ybr_Ch, Er[ctg_out_ind[1][1],:])
+
+
+# ================
+path = tfp*"C3S4X_20230809/D2/C3S4N00073D2/scenario_997.json"
+# path = tfp*"C3S4X_20230809/D1/C3S4N00617D1/scenario_963.json"
+InFile1 = path
+jsn = quasiGrad.load_json(InFile1)
+
+# ========
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
+
+for tii in prm.ts.time_keys
+    stt.vm[tii] .= 1.0
+    stt.va[tii] .= 0.0
+    lbf.step[:step][tii] = 0.1
+end
+
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+stt0 = deepcopy(stt);
+
+# %%
+stt = deepcopy(stt0);
+qG.pqbal_grad_eps2 = 1e-2
+qG.eval_grad = true
+
+# %%
+qG.num_lbfgs_steps = 100
+quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+
+# %%
+qG.max_linear_pfs       = 25
+qG.max_linear_pfs_total = 25
+xi, par = quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys);
+
+
+# %%
+@btime emergency_stop = quasiGrad.solve_pf_lbfgs!(lbf, mgd, prm, qG, stt, upd);
+
+# %% quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+stt = deepcopy(stt0);
+
+qG.max_pf_dx            = 1e-4
+qG.max_linear_pfs       = 25
+qG.max_linear_pfs_total = 25
+quasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys)
+
+# %%
+qG.max_linear_pfs       = 25
+qG.max_linear_pfs_total = 25
+xi, par = quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys);
+
+# %%
+stt = deepcopy(stt0);
+qG.num_lbfgs_steps = 250
+
+quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+# %%
+stt0 = deepcopy(stt);
+
+# %%
+stt = deepcopy(stt0);
+
+qG.max_pf_dx            = 1e-4
+qG.max_linear_pfs       = 10
+qG.max_linear_pfs_total = 10
+
+xi, par = quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys);
+
+# %% ==============
+
+
+#include_sus = true
+#quasiGrad.solve_economic_dispatch!(idx, prm, qG, scr, stt, sys, upd, include_sus_in_ed=include_sus)
+#quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys) 
+
+zp = sum(sum(stt.zp[tii]) for tii in prm.ts.time_keys)
+zq = sum(sum(stt.zq[tii]) for tii in prm.ts.time_keys)
+println(zq)
+println(zp)
+# %% ================
+
+quasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys)
+
+# %% 
+quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys) 
+zp = sum(sum(stt.zp[tii]) for tii in prm.ts.time_keys)
+zq = sum(sum(stt.zq[tii]) for tii in prm.ts.time_keys)
+println(zq)
+#println(zp+zq)
+
+# %%
+tii = Int8(1)
+bus = 1
+
+# at this time, compute the pr and cs upper and lower bounds across all devices
+stt.dev_qlb[tii] .= stt.u_sum[tii].*prm.dev.q_lb_tmdv[tii]
+stt.dev_qub[tii] .= stt.u_sum[tii].*prm.dev.q_ub_tmdv[tii]
+
+# for devices with reactive power equality constraints, just
+# set the associated upper and lower bounds to the given production
+for dev in idx.J_pqe
+    stt.dev_qlb[tii][dev] = copy(stt.dev_q[tii][dev])
+    stt.dev_qub[tii][dev] = copy(stt.dev_q[tii][dev])
+end
+
+# note: clipping is based on the upper/lower bounds, and not
+# based on the beta linking equations -- so, we just treat
+# that as a penalty, and not as a power balance factor
+# 
+# also, compute the dc line upper and lower bounds
+dcfr_qlb = prm.dc.qdc_fr_lb
+dcfr_qub = prm.dc.qdc_fr_ub
+dcto_qlb = prm.dc.qdc_to_lb
+dcto_qub = prm.dc.qdc_to_ub
+
+# how does balance work? for reactive power,
+# 0 = qb_slack + (dev_q_cs + dc_qfr + dc_qto - dev_q_pr)
+#
+# so, we take want to set:
+# -qb_slack = (dev_q_cs + dc_qfr + dc_qto - dev_q_pr)
+#for bus in 1:sys.nb
+
+    # reactive power balance
+    qb_slack = 
+            # shunt        
+            sum(stt.sh_q[tii][sh] for sh in idx.sh[bus]; init=0.0) +
+            # acline
+            sum(stt.acline_qfr[tii][ln] for ln in idx.bus_is_acline_frs[bus]; init=0.0) + 
+            sum(stt.acline_qto[tii][ln] for ln in idx.bus_is_acline_tos[bus]; init=0.0) +
+            # xfm
+            sum(stt.xfm_qfr[tii][xfm] for xfm in idx.bus_is_xfm_frs[bus]; init=0.0) + 
+            sum(stt.xfm_qto[tii][xfm] for xfm in idx.bus_is_xfm_tos[bus]; init=0.0)
+            # dcline -- not included
+            # consumers (positive) -- not included
+            # producer (negative) -- not included
+
+    # get limits -- Q
+    pr_Qlb   = sum(stt.dev_qlb[tii][pr] for pr  in idx.pr[bus]; init=0.0)
+    cs_Qlb   = sum(stt.dev_qlb[tii][cs] for cs  in idx.cs[bus]; init=0.0)
+    pr_Qub   = sum(stt.dev_qub[tii][pr] for pr  in idx.pr[bus]; init=0.0) 
+    cs_Qub   = sum(stt.dev_qub[tii][cs] for cs  in idx.cs[bus]; init=0.0)
+    dcfr_Qlb = sum(dcfr_qlb[dcl]        for dcl in idx.bus_is_dc_frs[bus]; init=0.0)
+    dcfr_Qub = sum(dcfr_qub[dcl]        for dcl in idx.bus_is_dc_frs[bus]; init=0.0)
+    dcto_Qlb = sum(dcto_qlb[dcl]        for dcl in idx.bus_is_dc_tos[bus]; init=0.0)
+    dcto_Qub = sum(dcto_qub[dcl]        for dcl in idx.bus_is_dc_tos[bus]; init=0.0) 
+    
+    # total: lb < -qb_slack < ub
+    qub = cs_Qub + dcfr_Qub + dcto_Qub - pr_Qlb
+    qlb = cs_Qlb + dcfr_Qlb + dcto_Qlb - pr_Qub
+
+    # %%
+
+    # now, apply Q
+    if -qb_slack >= qub
+        # => println("ub limit")
+        # max everything out
+        for cs in idx.cs[bus]
+            stt.dev_q[tii][cs] = copy(stt.dev_qub[tii][cs])
+        end
+        for pr in idx.pr[bus]
+            stt.dev_q[tii][pr] = copy(stt.dev_qlb[tii][pr])
+        end
+        for dcl in idx.bus_is_dc_frs[bus]
+            stt.dc_qfr[tii][dcl] = copy(dcfr_qub[dcl])
+        end
+        for dcl in idx.bus_is_dc_tos[bus]
+            stt.dc_qto[tii][dcl] = copy(dcfr_qub[dcl])
+        end
+    elseif -qb_slack < qlb
+        # => println("lb limit")
+
+        # min everything out
+        for cs in idx.cs[bus]
+            stt.dev_q[tii][cs] = copy(stt.dev_qlb[tii][cs])
+        end
+        for pr in idx.pr[bus]
+            stt.dev_q[tii][pr] = copy(stt.dev_qub[tii][pr])
+        end
+        for dcl in idx.bus_is_dc_frs[bus]
+            stt.dc_qfr[tii][dcl] = copy(dcfr_qlb[dcl])
+        end
+        for dcl in idx.bus_is_dc_tos[bus]
+            stt.dc_qto[tii][dcl] = copy(dcfr_qlb[dcl])
+        end
+    else # in the middle -- all good -- no need to copy
+        # => println("middle")
+        lb_dist  = -qb_slack - qlb
+        bnd_dist = qub - qlb
+        scale    = lb_dist/bnd_dist
+
+        # apply
+        for cs in idx.cs[bus]
+            stt.dev_q[tii][cs] = stt.dev_qlb[tii][cs] + scale*(stt.dev_qub[tii][cs] - stt.dev_qlb[tii][cs])
+        end
+        for pr in idx.pr[bus]
+            stt.dev_q[tii][pr] = stt.dev_qub[tii][pr] - scale*(stt.dev_qub[tii][pr] - stt.dev_qlb[tii][pr])
+        end
+        for dcl in idx.bus_is_dc_frs[bus]
+            stt.dc_qfr[tii][dcl] = dcfr_qlb[dcl] + scale*(dcfr_qub[dcl] - dcfr_qlb[dcl])
+        end
+        for dcl in idx.bus_is_dc_tos[bus]
+            stt.dc_qto[tii][dcl] = dcfr_qlb[dcl] + scale*(dcfr_qub[dcl] - dcfr_qlb[dcl])
+        end
+    end
+#end
+
+
+
+
+
+# %% =============
+
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys) 
+
+zp = sum(sum(stt.zp[tii]) for tii in prm.ts.time_keys)
+zq = sum(sum(stt.zq[tii]) for tii in prm.ts.time_keys)
+println(zp+zq)
+
+
+quasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys)
+#quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys) 
+zp = sum(sum(stt.zp[tii]) for tii in prm.ts.time_keys)
+zq = sum(sum(stt.zq[tii]) for tii in prm.ts.time_keys)
+println(zp+zq)
+
+# %% ==================================== C3S4X_20230809 ==================================== #
+#
+#    ====================================       D1       ==================================== #
+path = tfp*"C3S4X_20230809/D1/C3S4N00617D1/scenario_941.json" # first
+solution_file = "C3S4N00617D1_scenario_941"
+load_solve_project_write(path, solution_file::String)
+
+# %%
+path = tfp*"C3S4X_20230809/D1/C3S4N00617D1/scenario_963.json" # last
+solution_file = "C3S4N00617D1_scenario_963"
+load_solve_project_write(path, solution_file::String)
+
+#    ====================================       D2       ==================================== #
+path = tfp*"C3S4X_20230809/D2/C3S4N00073D2/scenario_991.json" # first
+solution_file = "C3S4N00073D2_scenario_991"
+load_solve_project_write(path, solution_file::String)
+
+# %% ===
+
+path = tfp*"C3S4X_20230809/D2/C3S4N00073D2/scenario_997.json" # first
+solution_file = "C3S4N00073D2_scenario_997"
+load_solve_project_write(path, solution_file::String)
+
+# %%
+path = tfp*"C3S4X_20230809/D2/C3S4N00073D2/scenario_997.json"
+
+InFile1 = path
+jsn = quasiGrad.load_json(InFile1)
+
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
+
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys)
+
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys) 
+
+zp = sum(sum(stt.zp[tii]) for tii in prm.ts.time_keys)
+zq = sum(sum(stt.zq[tii]) for tii in prm.ts.time_keys)
+println(zp+zq)
+
+
+quasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys)
+quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys) 
+zp = sum(sum(stt.zp[tii]) for tii in prm.ts.time_keys)
+zq = sum(sum(stt.zq[tii]) for tii in prm.ts.time_keys)
+println(zp+zq)
+
+# %%
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys) 
+
+quasiGrad.score_solve_pf!(lbf, prm, stt)
+zp = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys)
+zq = sum(lbf.zpf[:zq][tii] for tii in prm.ts.time_keys)
+println(zq)
+
+# %% ===
+
+quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
+
+# %%
+quasiGrad.score_solve_pf!(lbf, prm, stt)
+zp = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys)
+zq = sum(lbf.zpf[:zq][tii] for tii in prm.ts.time_keys)
+println(zp+zq)
+
+# %%
+stt = deepcopy(stt0);
+quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
+quasiGrad.score_solve_pf!(lbf, prm, stt)
+zp = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys)
+zq = sum(lbf.zpf[:zq][tii] for tii in prm.ts.time_keys)
+zt = zp + zq
+
+# %% ======== ==============
+qG.num_lbfgs_steps = 10000
+
+quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+
+# %%
+quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)

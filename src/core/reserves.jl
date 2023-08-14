@@ -16,7 +16,7 @@ function reserve_balance!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiG
     cqrd = prm.vio.qrd_zonal
     
     # we need access to the time index itself
-    @batch per=thread for tii in prm.ts.time_keys
+    @batch per=core for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # duration
         dt = prm.ts.duration[tii]

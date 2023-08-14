@@ -187,7 +187,7 @@ function solve_ctgs!(
                     end
                 else
                     # initialize -- redone at each time!
-                    @batch per=thread for thrID in 1:(qG.num_threads+2) # two extra added, for safety
+                    @batch per=core for thrID in 1:(qG.num_threads+2) # two extra added, for safety
                         ctg.dz_dpinj_all_threadsum[thrID]    .= 0.0
                         ctg.dsmax_dqfr_flow_threadsum[thrID] .= 0.0
                         ctg.dsmax_dqto_flow_threadsum[thrID] .= 0.0

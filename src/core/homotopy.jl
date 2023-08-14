@@ -52,25 +52,20 @@ function adam_step_decay!(qG::quasiGrad.QG, tnow::Float64, t0::Float64, tf::Floa
     for stp_key in keys(qG.alpha_tnow)
         qG.alpha_tnow[stp_key] = qG.alpha_t0[stp_key]*(1.0-beta) + qG.alpha_tf[stp_key]*beta
     end
+
+    # for plot testing
+        # => using Plots
+        # => t0    = 1.0
+        # => tf    = 100.04
+        # => tnow  = t0:0.01:tf
+        # => tnorm = 2.0*(tnow .- t0)./(tf - t0) .- 1.0
+        # => beta0 = 1.0 .- exp.(50.0*(tnorm.+0.7))./(0.0001 .+ exp.(50.0*(tnorm.+0.7)))
+        # => beta1 = exp.(12.0*tnorm)./(0.0025 .+ exp.(12.0*tnorm))
+        # => beta2 = exp.(25.0*tnorm)./(0.5 .+ exp.(25.0*tnorm))
+        # => beta3 = exp.(12.0*tnorm)./(50.0 .+ exp.(12.0*tnorm))
+        # => Plots.plot(tnow, beta0)
+        # => Plots.plot!(tnow, beta1)
+        # => Plots.plot!(tnow, beta2)
+        # => Plots.plot!(tnow, beta3)
+        # => Plots.plot(tnow, beta0 + beta1 - beta2 + beta3)
 end
-
-# %%
-using Plots
-
-t0 = 1.0
-tf = 100.04
-tnow = t0:0.01:tf
-tnorm = 2.0*(tnow .- t0)./(tf - t0) .- 1.0
-beta0  = 1.0 .- exp.(50.0*(tnorm.+0.7))./(0.0001 .+ exp.(50.0*(tnorm.+0.7)))
-beta1  = exp.(12.0*tnorm)./(0.0025 .+ exp.(12.0*tnorm))
-beta2  = exp.(25.0*tnorm)./(0.5 .+ exp.(25.0*tnorm))
-beta3  = exp.(12.0*tnorm)./(50.0 .+ exp.(12.0*tnorm))
-
-Plots.plot(tnow, beta0)
-Plots.plot!(tnow, beta1)
-Plots.plot!(tnow, beta2)
-Plots.plot!(tnow, beta3)
-
-Plots.plot(tnow, beta0 + beta1 - beta2 + beta3)
-
-#Plots.plot!(tnow, cos.(4.0*tnorm))

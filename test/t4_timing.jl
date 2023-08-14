@@ -148,7 +148,7 @@ print("t14: ")
 @btime quasiGrad.reserve_balance!(idx, prm, qG, stt, sys)
 
 print("t15: ")
-    # @time quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+@time quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 print("t16: ")
 @btime quasiGrad.score_zt!(idx, prm, qG, scr, stt)

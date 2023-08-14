@@ -746,25 +746,54 @@ function grb_speed_typed(GRB::Dict{Symbol, Dict{Symbol, Vector{Float64}}})
     end
 end
 
-function load_and_project(path::String, solution_file::String)
+function load_solve_project_write(path::String, solution_file::String)
+    
+    # load!
     InFile1 = path
     jsn = quasiGrad.load_json(InFile1)
 
     # initialize
     adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
 
+    # write locally
+    qG.write_location   = "local"
+    qG.eval_grad        = true
+    qG.always_solve_ctg = true
+    qG.skip_ctg_eval    = false
     # solve
-    fix       = true
-    pct_round = 100.0
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
-    quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
     quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
     quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-    quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = true)
-    
+    quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
     quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
     quasiGrad.write_solution(solution_file, prm, qG, stt, sys)
     quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+
+    # write results to file
+    m1 = "zms = $(scr[:zms])"
+    m2 = "penalized zms = $(scr[:zms_penalized])"
+    m3 = "ctg avg = $(scr[:zctg_avg])"
+    m4 = "ctg min = $(scr[:zctg_min])"
+    m5 = "e-min = $(scr[:z_enmin])"
+    m6 = "e-max = $(scr[:z_enmax])"
+
+    txt_file = solution_file*".txt"
+    open(txt_file, "w") do file
+        write(file, m1)
+        write(file, '\n')
+        write(file, m2)
+        write(file, '\n')
+        write(file, '\n')
+        write(file, m3)
+        write(file, '\n')
+        write(file, m4)
+        write(file, '\n')
+        write(file, '\n')
+        write(file, m5)
+        write(file, '\n')
+        write(file, m6)
+    end
 end
 
 ## %% ============

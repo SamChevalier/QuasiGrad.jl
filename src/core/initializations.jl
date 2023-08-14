@@ -152,7 +152,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
                                      #  -- you don't need both ^, unless for testing
     ctg_adam_counter         = 0    # this incremenets each time we take an adam step
     ctg_solve_frequency      = 3    # i.e., how often should we solve ctgs? every "x" adam steps
-    always_solve_ctg         = true # for testing, mainly
+    always_solve_ctg         = false # for testing, mainly
     # for setting cutoff_level = memory, from LimitedLDLFactorizations.lldl:
                                      # `memory::Int=0`: extra amount of memory to allocate for the incomplete factor `L`.
                                      # The total memory allocated is nnz(T) + n * `memory`, where
@@ -173,8 +173,8 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     homotopy_with_cos_decay = true
     adm_step                = 0
     eps                     = 1e-8  # for numerical stability -- keep at 1e-8 (?)
-    beta1                   = 0.75
-    beta2                   = 0.9
+    beta1                   = 0.8
+    beta2                   = 0.88
     beta1_decay             = 1.0
     beta2_decay             = 1.0
     one_min_beta1           = 1.0
@@ -332,7 +332,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
 
     # don't use given initializations
     initialize_shunt_to_given_value = false
-    initialize_vm_to_given_value    = true
+    initialize_vm_to_given_value    = false
 
     # power flow solve parameters ==============================
     #
@@ -345,24 +345,25 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # bias terms of solving bfgs
     include_energy_costs_lbfgs      = false
     include_lbfgs_p0_regularization = false
-    initial_pf_lbfgs_step           = 0.001 # keep this tiny!!
-    lbfgs_adam_alpha_0              = 0.001 # keep this tiny!!
-    lbfgs_map_over_all_time         = false # assume the same set of variables
-                                            # are optimized at each time step
+    initial_pf_lbfgs_step           = 0.0025 # keep this tiny!! a little bigger since the update..
+    lbfgs_adam_alpha_0              = 0.001  # keep this tiny!!
+    lbfgs_map_over_all_time         = false  # assume the same set of variables
+                                             # are optimized at each time step
     # how many historical gradients do we keep? 
     # 2 < n < 21, according to Wright
     num_lbfgs_to_keep = 10
 
     # set the number of lbfgs steps
-    if num_bus < 100
-        num_lbfgs_steps = 400
-    elseif num_bus < 500    
-        num_lbfgs_steps = 350   
-    elseif num_bus < 1000    
-        num_lbfgs_steps = 300
-    else
-        num_lbfgs_steps = 250
-    end
+    num_lbfgs_steps = 500
+    # => if num_bus < 100
+    # =>     num_lbfgs_steps = 400
+    # => elseif num_bus < 500    
+    # =>     num_lbfgs_steps = 350   
+    # => elseif num_bus < 1000    
+    # =>     num_lbfgs_steps = 300
+    # => else
+    # =>     num_lbfgs_steps = 500
+    # => end
 
     # when we clip p/q in bounds, should we clip based on binary values?
     # generally, only do this on the LAST adam iteration,
@@ -956,7 +957,7 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     if qG.base_solver == "pcg"
         if sys.nb <= qG.min_buses_for_krylov
             # too few buses -- use LU
-            @warn "Not enough buses for Krylov! Using LU anyways."
+            @info "Not enough buses for Krylov! Using LU anyways."
         end
 
         # time is short -- let's jsut always use ldl preconditioner -- it's just as fast
@@ -1051,7 +1052,7 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
 
     # => @info "Solving $(sys.nctg) wmi factors..."
     # => FLoops.assistant(false)
-    # => @batch per=thread for ctg_ii in 1:sys.nctg (slightly slower)
+    # => @batch per=core for ctg_ii in 1:sys.nctg (slightly slower)
     # => @floop ThreadedEx(basesize = sys.nctg ÷ qG.num_threads) for ctg_ii in 1:sys.nctg
     # =>     # this code is optimized -- see above for comments!!!
     # =>     u_k[ctg_ii] .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
@@ -1768,7 +1769,9 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
 
     # stt -- use initial values
     stt = quasiGrad.State(
+        [ones(sys.nb)              for tii in prm.ts.time_keys],
         [ones(sys.nb)              for tii in prm.ts.time_keys],         
+        [copy(prm.bus.init_va)     for tii in prm.ts.time_keys],
         [copy(prm.bus.init_va)     for tii in prm.ts.time_keys],
         [zeros(sys.nl)             for tii in prm.ts.time_keys],            
         [zeros(sys.nl)             for tii in prm.ts.time_keys],            
@@ -1797,6 +1800,7 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
         [ones(sys.nT)              for ii in 1:sys.ndev], # u_on_dev_Trx
         [zeros(sys.ndev)           for tii in prm.ts.time_keys],   # dev_p
         [zeros(sys.ndev)           for tii in prm.ts.time_keys],   # dev_q
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys],   # dev_q_copy
         [ones(sys.ndev)            for tii in prm.ts.time_keys],   # u_on_dev_GRB
         [zeros(sys.ndev)           for tii in prm.ts.time_keys],   # u_su_dev
         [zeros(sys.nT)             for ii in 1:sys.ndev], # u_su_dev_Trx
@@ -1804,6 +1808,7 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
         [zeros(sys.nT)             for ii in 1:sys.ndev], # u_sd_dev_Trx
         [zeros(sys.ndev)           for tii in prm.ts.time_keys],   # u_sum
         [zeros(sys.nT)             for ii in 1:sys.ndev], # u_sum_Trx
+        [zeros(sys.ndev)           for tii in prm.ts.time_keys],
         [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
         [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
         [zeros(sys.ndev)           for tii in prm.ts.time_keys], 
@@ -2015,6 +2020,10 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
         if qG.initialize_vm_to_given_value
             for tii in prm.ts.time_keys
                 stt.vm[tii] .= copy.(prm.bus.init_vm)
+            end
+        else
+            for tii in prm.ts.time_keys
+                stt.vm[tii] .= 1.0
             end
         end
 
@@ -2521,9 +2530,4 @@ function initialize_lbfgs(mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::q
     lbfgs = quasiGrad.LBFGS(p0, state, diff, idx, map, step, zpf)
 
     return lbfgs
-end
-
-# print struct fields
-function struct_fields(input_struct)
-    println(fieldnames(typeof(input_struct)))
 end

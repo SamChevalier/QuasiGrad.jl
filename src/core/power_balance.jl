@@ -4,7 +4,7 @@ function power_balance!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGra
     cq = prm.vio.q_bus * qG.scale_c_qbus_testing
 
     # loop over each time period and compute the power balance
-    @batch per=thread for tii in prm.ts.time_keys
+    @batch per=core for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # duration
         dt = prm.ts.duration[tii]

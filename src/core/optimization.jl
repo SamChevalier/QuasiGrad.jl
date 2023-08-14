@@ -1,8 +1,8 @@
 # adam solver -- take steps for every element in master_grad (only two states are tracked: m and v)
-function adam!(adm::quasiGrad.Adam, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}}; standard_adam = true)
+function adam!(adm::quasiGrad.Adam, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}}; standard_adam::Bool = true)
     # note: for "adam_pf", just set standard_adam = false
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for var_key in adm.keys
-    Threads.@threads for var_key in adm.keys
+    for var_key in adm.keys
         # so, only progress if, either, this is standard adam (not in the pf stepper),
         # or the variable is a power flow variable!
         if (var_key in qG.adam_pf_variables) || standard_adam
@@ -12,22 +12,20 @@ function adam!(adm::quasiGrad.Adam, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Pa
             grad        = getfield(mgd, var_key)
 
             # loop over all time
-            for tii in prm.ts.time_keys
+            Threads.@threads for tii in prm.ts.time_keys
                 if var_key in keys(upd)
-                    if !isempty(upd[var_key][tii])
-                        @inbounds @fastmath for updates in upd[var_key][tii]
-                            adam_states.m[tii][updates] = qG.beta1*adam_states.m[tii][updates] + qG.one_min_beta1*grad[tii][updates]
-                            adam_states.v[tii][updates] = qG.beta2*adam_states.v[tii][updates] + qG.one_min_beta2*(grad[tii][updates]^2.0)
-                            state[tii][updates]         = state[tii][updates]  - qG.alpha_tnow[var_key]*(adam_states.m[tii][updates]/qG.one_min_beta1_decay)/(sqrt(adam_states.v[tii][updates]/qG.one_min_beta2_decay) + qG.eps)
-                        end
+                    @inbounds for updates in upd[var_key][tii]
+                        adam_states.m[tii][updates] = qG.beta1*adam_states.m[tii][updates] + qG.one_min_beta1*grad[tii][updates]
+                        adam_states.v[tii][updates] = qG.beta2*adam_states.v[tii][updates] + qG.one_min_beta2*quasiGrad.LoopVectorization.pow_fast.(grad[tii][updates], 2)
+                        state[tii][updates]         = state[tii][updates]  - qG.alpha_tnow[var_key]*(adam_states.m[tii][updates]/qG.one_min_beta1_decay)/(quasiGrad.LoopVectorization.sqrt_fast(adam_states.v[tii][updates]/qG.one_min_beta2_decay) + qG.eps)
                     end
-                else 
+                else
                     if !isempty(adam_states.m[tii])
                         # update adam moments
                             # => clipped_grad, if helpful!  = clamp.(mgd[var_key][tii], -qG.grad_max, qG.grad_max)
                         @turbo adam_states.m[tii] .= qG.beta1.*adam_states.m[tii] .+ qG.one_min_beta1.*grad[tii]
-                        adam_states.v[tii] .= qG.beta2.*adam_states.v[tii] .+ qG.one_min_beta2.*quasiGrad.LoopVectorization.pow_fast.(grad[tii],2.0)
-                        state[tii]         .= state[tii] .- qG.alpha_tnow[var_key].*(adam_states.m[tii]./qG.one_min_beta1_decay)./(quasiGrad.LoopVectorization.sqrt_fast.(adam_states.v[tii]./qG.one_min_beta2_decay) .+ qG.eps)
+                        @turbo adam_states.v[tii] .= qG.beta2.*adam_states.v[tii] .+ qG.one_min_beta2.*quasiGrad.LoopVectorization.pow_fast.(grad[tii], 2)
+                        @turbo state[tii]         .= state[tii] .- qG.alpha_tnow[var_key].*(adam_states.m[tii]./qG.one_min_beta1_decay)./(quasiGrad.LoopVectorization.sqrt_fast.(adam_states.v[tii]./qG.one_min_beta2_decay) .+ qG.eps)
                     end
                 end
             end
@@ -210,7 +208,7 @@ function update_states_and_grads!(
     quasiGrad.score_zms!(scr)
 
     # print the market surplus function value
-    # => quasiGrad.print_zms(qG, scr)
+    quasiGrad.print_zms(qG, scr)
 
     # compute the master grad
     quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)

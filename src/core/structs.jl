@@ -535,8 +535,10 @@ struct Contingency
 end
 
 struct State
-    vm::Vector{Vector{Float64}}            
-    va::Vector{Vector{Float64}}              
+    vm::Vector{Vector{Float64}}
+    vm_copy::Vector{Vector{Float64}}             
+    va::Vector{Vector{Float64}}
+    va_copy::Vector{Vector{Float64}}              
     acline_pfr::Vector{Vector{Float64}}      
     acline_qfr::Vector{Vector{Float64}}      
     acline_pto::Vector{Vector{Float64}}      
@@ -563,7 +565,8 @@ struct State
     u_on_dev::Vector{Vector{Float64}}    
     u_on_dev_Trx::Vector{Vector{Float64}}
     dev_p::Vector{Vector{Float64}}       
-    dev_q::Vector{Vector{Float64}}       
+    dev_q::Vector{Vector{Float64}}
+    dev_q_copy::Vector{Vector{Float64}}       
     u_on_dev_GRB::Vector{Vector{Float64}}  
     u_su_dev::Vector{Vector{Float64}}    
     u_su_dev_Trx::Vector{Vector{Float64}}  
@@ -571,7 +574,8 @@ struct State
     u_sd_dev_Trx::Vector{Vector{Float64}}  
     u_sum::Vector{Vector{Float64}}    
     u_sum_Trx::Vector{Vector{Float64}}
-    p_on::Vector{Vector{Float64}}        
+    p_on::Vector{Vector{Float64}}
+    p_on_copy::Vector{Vector{Float64}}         
     p_su::Vector{Vector{Float64}}        
     p_sd::Vector{Vector{Float64}}        
     p_rgu::Vector{Vector{Float64}}       

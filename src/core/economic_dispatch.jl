@@ -605,13 +605,14 @@ end
 
 function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # apply dcpf to the economic dispatch solution
+
+    # use "flw.theta[tii]" as the phase angle buffer (also used in ctg analysis)
     #
     # NOTE -- I have commented out the linearized voltage solver -- it doesn't really work.
     # => stt.pinj_dc   = zeros(sys.nb)   # this will be overwritten
     # => qinj            = zeros(sys.nb)   # this will be overwritten
-    thetar = zeros(sys.nb-1) # this will be overwritten -- we leave it, since cg writes to it!!
     # => vmr    = zeros(sys.nb-1) # this will be overwritten
-    for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
         # first, update the xfm phase shifters (whatever they may be..)
         flw.ac_phi[tii][idx.ac_phi] .= copy.(stt.phi[tii])
 
@@ -649,17 +650,17 @@ function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::qu
             # stt.vm[tii][1]     = 1.0 # make sure
         else
             # solve with pcg -- va
-            _, ch = quasiGrad.cg!(thetar, ntk.Ybr, c, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
+            _, ch = quasiGrad.cg!(flw.theta[tii], ntk.Ybr, c, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
 
             # test the krylov solution
             if ~(ch.isconverged)
                 # LU backup
                 @info "Krylov failed -- using LU backup (dcpf)!"
-                thetar = ntk.Ybr\c
+                flw.theta[tii] .= ntk.Ybr\c
             end
 
             # update
-            stt.va[tii][2:end] .= copy.(thetar)
+            stt.va[tii][2:end] .= copy.(flw.theta[tii])
             stt.va[tii][1]      = 0.0 # make sure
 
             # solve with pcg -- vm
@@ -691,12 +692,15 @@ function economic_dispatch_initialization!(cgd::quasiGrad.ConstantGrad, ctg::qua
     qG.skip_ctg_eval = true
     qG.eval_grad     = false
     quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-
-    # 4. take a guess at q injections, based on given voltages -- this is fairly arbitrary, but fast!!
-    quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
-
-    # 5. update the states again
-    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    qG.skip_ctg_eval = false
     qG.eval_grad     = true
-    qG.skip_ctg_eval = tmp
+
+    # nice idea in theory, but it throws off the network-wide balance way too much!
+        # => # 4. take a guess at q injections, based on given voltages -- this is fairly arbitrary, but fast!!
+        # => quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
+
+        # => # 5. update the states again
+        # => quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+        # => qG.eval_grad     = true
+        # => qG.skip_ctg_eval = tmp
 end

@@ -30,7 +30,7 @@ function master_grad!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::qua
         ######################### Parallel Time Loops ###########################
         ######################### ################### ###########################
         # start by looping over the terms which can be safely looped over in time
-        # => @batch per=thread for tii in prm.ts.time_keys
+        # => @batch per=core for tii in prm.ts.time_keys
         # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         Threads.@threads for tii in prm.ts.time_keys
             # g1 (zen): nzms => zbase => zt => => zen => (dev_p, u_on_dev)
@@ -277,7 +277,7 @@ function master_grad!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::qua
         # we do this to take the gradients of the su/sd costs! Part of this gradient
         # considers the previous time (t = t_prev), but updating this gradient isn't 
         # "safe" if we're also updating the t = t_now gradient!
-        # => @batch per=thread for tii in prm.ts.time_keys
+        # => @batch per=core for tii in prm.ts.time_keys
         # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         Threads.@threads for tii in @view prm.ts.time_keys[2:end]
             # include previous time only if tii != 1
@@ -304,7 +304,7 @@ function master_grad!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::qua
         # compute the final partial derivative contributions -- we need to parallel
         # loop over devices because of the su/sd index sets (among other things..)
         # 
-        # => @batch per=thread for dev in prm.dev.dev_keys
+        # => @batch per=core for dev in prm.dev.dev_keys
         # => @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
         Threads.@threads for dev in prm.dev.dev_keys
             # => # loop over time -- compute the partial derivative contributions
@@ -327,7 +327,7 @@ function master_grad_solve_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad,
     # Notably, even though we solve time-independent power flow
     # problems, we can still use this case exactly, since:
     # dzms_dv => dpftii_dv maps without any issue
-    # => turbo :) @batch per=thread for tii in prm.ts.time_keys
+    # => turbo :) @batch per=core for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
     Threads.@threads for tii in prm.ts.time_keys
         # g1 (zen): nzms => zbase => zt => => zen => (dev_p, u_on_dev)
@@ -367,7 +367,7 @@ function master_grad_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::qu
     # Notably, even though we solve time-independent power flow
     # problems, we can still use this case exactly, since:
     # dzms_dv => dpftii_dv maps without any issue
-    # => turbo :) @batch per=thread for tii in prm.ts.time_keys
+    # => turbo :) @batch per=core for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
     Threads.@threads for tii in prm.ts.time_keys
 
@@ -583,7 +583,7 @@ function master_grad_zs_xfm!(tii::Int8, idx::quasiGrad.Index, grd::quasiGrad.Gra
     end
 end
 
-function master_grad_zp!(tii::Int8, prm::quasiGrad.Param, idx::quasiGrad.Index, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, sys::quasiGrad.System; run_devs = true)
+function master_grad_zp!(tii::Int8, prm::quasiGrad.Param, idx::quasiGrad.Index, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, sys::quasiGrad.System; run_devs::Bool = true)
     # gradient chain: nzms => zbase => zt => zp => (all p injection variables)
     #
     # note: grd[:pb_slack][...] is negelected here, and all terms are trivially
@@ -753,7 +753,7 @@ function master_grad_zp!(tii::Int8, prm::quasiGrad.Param, idx::quasiGrad.Index, 
     end
 end
 
-function master_grad_zq!(tii::Int8, prm::quasiGrad.Param, idx::quasiGrad.Index, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, sys::quasiGrad.System; run_devs = true)
+function master_grad_zq!(tii::Int8, prm::quasiGrad.Param, idx::quasiGrad.Index, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, sys::quasiGrad.System; run_devs::Bool = true)
     # gradient chain: nzms => zbase => zt => zq => (all q injection variables)
     #
     # note: grd[:qb_slack][...] is negelected here, and all terms are trivially
@@ -980,7 +980,7 @@ end
 
 # flush the master grad and other key gradients terms :)
 function flush_gradients!(grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System)
-    @batch per=thread for tii in prm.ts.time_keys
+    @batch per=core for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # set all to 0
         mgd.vm[tii]           .= 0.0    

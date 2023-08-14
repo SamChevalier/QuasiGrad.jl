@@ -3,7 +3,7 @@ function penalized_device_constraints!(grd::quasiGrad.Grad, idx::quasiGrad.Index
     #
     # Note -- delta penalty (qG.constraint_grad_weight) applied later in the scoring
     #         function, but it is applied to the gradient here!
-    # => @batch per=thread for dev in prm.dev.dev_keys
+    # => @batch per=core for dev in prm.dev.dev_keys
     # => @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) 
     Threads.@threads for dev in prm.dev.dev_keys
         # for now, we use the "del" thing in the scoring function to penalize all
@@ -563,7 +563,7 @@ end
 
 function device_reserve_costs!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # compute the costs associated with device reserve offers
-    @batch per=thread for tii in prm.ts.time_keys
+    @batch per=core for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # duration
         dt = prm.ts.duration[tii]
@@ -592,7 +592,7 @@ function energy_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Param, qG::quasiGrad.
         dt = prm.ts.duration[tii]
 
         # devices
-        @batch per=thread for dev in prm.dev.dev_keys
+        @batch per=core for dev in prm.dev.dev_keys
         # => @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
             cst = prm.dev.cum_cost_blocks[dev][tii][1]  # cost for each block (leading with 0)
             pbk = prm.dev.cum_cost_blocks[dev][tii][2]  # power in each block (leading with 0)
@@ -651,7 +651,7 @@ end
 
 function energy_penalties!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
     # loop over devices, not time
-    # => @batch per=thread for dev in prm.dev.dev_keys
+    # => @batch per=core for dev in prm.dev.dev_keys
     # => @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
     Threads.@threads for dev in prm.dev.dev_keys
         Wub = prm.dev.energy_req_ub[dev]
@@ -710,7 +710,7 @@ end
 
 function all_device_statuses_and_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # loop over each time period
-    @batch per=thread for tii in prm.ts.time_keys
+    @batch per=core for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # duration
         dt = prm.ts.duration[tii]
@@ -815,7 +815,7 @@ end
 
 function simple_device_statuses!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # loop over each time period
-    @batch per=thread for tii in prm.ts.time_keys
+    @batch per=core for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # start up and shutdown costs
         if tii == 1
@@ -830,7 +830,7 @@ function simple_device_statuses!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG:
     end
 
     # now, compute the u_sum
-    @batch per=thread for tii in prm.ts.time_keys
+    @batch per=core for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         for dev in prm.dev.dev_keys
             # => T_supc = idx.Ts_supc[dev][tii] # => get_supc(tii, dev, prm)
@@ -848,7 +848,7 @@ function device_active_powers!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::q
         # the following is expensive, so we skip it during power flow solves
         # (and we don't update p_su/p_sd anyways!)
         if qG.run_susd_updates
-            @batch per=thread for dev in prm.dev.dev_keys
+            @batch per=core for dev in prm.dev.dev_keys
             # => @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
                 # first, get the startup power
                 # => T_supc     = idx.Ts_supc[dev][tii]     # => T_supc, p_supc_set   = get_supc(tii, dev, prm)
@@ -883,7 +883,7 @@ end
 # reactive power computation
 function device_reactive_powers!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # loop over each time period
-    @batch per=thread for tii in prm.ts.time_keys
+    @batch per=core for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         if isempty(idx.J_pqe)
             # nothing to compute in this case!
@@ -911,7 +911,7 @@ end
 
 function device_startup_states!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # before looping over the startup states, flush stt
-    @batch per=thread for tii in prm.ts.time_keys
+    @batch per=core for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         for dev in prm.dev.dev_keys
             stt.zsus_dev_local[tii][dev]  .= 0.0
@@ -920,7 +920,7 @@ function device_startup_states!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::
     end
     
     # parallel loop over devices
-    @batch per=thread for dev in prm.dev.dev_keys
+    @batch per=core for dev in prm.dev.dev_keys
     # => @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
         # loop over each time period
         for tii in prm.ts.time_keys

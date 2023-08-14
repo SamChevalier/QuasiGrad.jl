@@ -100,102 +100,6 @@ function run_adam_with_plotting!(
     qG.eval_grad = true
 end
 
-#function run_adam_with_plotting!(
-#        adm::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}},
-#        ax::quasiGrad.Makie.Axis,
-#        cgd::quasiGrad.ConstantGrad,
-#        ctb::Vector{Vector{Float64}},
-#        ctd::Vector{Vector{Float64}},
-#        fig::quasiGrad.Makie.Figure,
-#        flw::Dict{Symbol, Vector{Float64}},
-#        grd::Dict{Symbol, Dict{Symbol, Dict{Symbol, Vector{Float64}}}}, 
-#        idx::quasiGrad.Index,
-#        mgd::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
-#        ntk::quasiGrad.Network,
-#        plt::Dict{Symbol, Integer},
-#        prm::quasiGrad.Param,
-#        qG::quasiGrad.QG,
-#        scr::Dict{Symbol, Float64},
-#        stt::Dict{Symbol, Dict{Symbol, Vector{Float64}}}, 
-#        sys::quasiGrad.System,
-#        upd::Dict{Symbol, Dict{Symbol, Vector{Int64}}},
-#        wct::Vector{Vector{Int64}},
-#        z_plt::Dict{Symbol, Dict{Symbol, Float64}})
-#
-#    # initialize
-#    adm_step    = 0
-#    beta1       = qG.beta1
-#    beta2       = qG.beta2
-#    beta1_decay = 1.0
-#    beta2_decay = 1.0
-#    run_adam    = true
-#    
-#    # flush adam at each restart
-#    #if qG.flush_adam == true
-#    #    quasiGrad.flush_adam!(adm, mgd, prm, upd)
-#    #end
-#
-#    # add Gurobi Projection line?
-#    if !plt[:first_plot]
-#        # add a dark vertical line
-#        quasiGrad.Makie.lines!(ax, [plt[:global_adm_step], plt[:global_adm_step]], [-20, 20], color = :black, linestyle = :dot, linewidth = 3.0)
-#    end
-#
-#    # start the timer!
-#    adam_start = time()
-#
-#    # loop over adam steps
-#    while run_adam
-#        # increment
-#        adm_step += 1
-#        plt[:global_adm_step] += 1 # for plotting
-#
-#        # what type of step decay should we employ?
-#        if qG.decay_type == "cos"
-#            alpha = qG.alpha_min + 0.5*(qG.alpha_max - qG.alpha_min)*(1+cos((adm_step/qG.Ti)*pi))
-#        elseif qG.decay_type == "exponential"
-#            alpha = qG.alpha_0*(qG.step_decay^adm_step)
-#        else
-#            @assert qG.decay_type == "none"
-#            alpha = copy(qG.alpha_0)
-#        end
-#
-#        # decay beta
-#        beta1_decay = beta1_decay*beta1
-#        beta2_decay = beta2_decay*beta2
-#
-#        # compute all states and grads
-#        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-#
-#        # take an adam step
-#        quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
-#
-#        # stopping criteria
-#        if qG.adam_stopper == "time"
-#            if time() - adam_start >= qG.adam_max_time
-#                run_adam = false
-#            end
-#        elseif qG.adam_stopper == "iterations"
-#            if adm_step >= qG.adam_max_its
-#                run_adam = false
-#            end
-#        else
-#            # uh-oh -- no stopper!
-#        end
-#
-#        # plot the progress
-#        quasiGrad.update_plot!(adm_step, ax, fig, plt, qG, scr, z_plt)
-#        display(fig)
-#    end
-#
-#    # one last clip + state computation -- no grad needed!
-#    qG.eval_grad = false
-#    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-#
-#    # turn it back on
-#    qG.eval_grad = true
-#end
-
 # initialize the plot
 function initialize_plot(
     cgd::quasiGrad.ConstantGrad, 
@@ -204,7 +108,6 @@ function initialize_plot(
     grd::quasiGrad.Grad, 
     idx::quasiGrad.Index, 
     mgd::quasiGrad.MasterGrad, 
-    
     ntk::quasiGrad.Network,
     plt::Dict{Symbol, Integer}, 
     prm::quasiGrad.Param, 

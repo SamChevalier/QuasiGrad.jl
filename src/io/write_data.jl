@@ -102,7 +102,6 @@ function post_process_stats(
     grd::quasiGrad.Grad, 
     idx::quasiGrad.Index, 
     mgd::quasiGrad.MasterGrad, 
-    
     ntk::quasiGrad.Network, 
     prm::quasiGrad.Param, 
     qG::quasiGrad.QG, 
