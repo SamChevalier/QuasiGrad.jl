@@ -142,7 +142,6 @@ precompile(master_grad_zs_acline!,(Int8, quasiGrad.Index, quasiGrad.Grad, quasiG
 precompile(master_grad_zs_xfm!,(Int8, quasiGrad.Index, quasiGrad.Grad, quasiGrad.MasterGrad, quasiGrad.QG, quasiGrad.State, quasiGrad.System))
 precompile(max_binary,(Int32, quasiGrad.Index, Int64, quasiGrad.State, Int8))
 precompile(max_power,(quasiGrad.Index, quasiGrad.State, Int8, Int64))
-precompile(newton_power_flow,(quasiGrad.Grad, quasiGrad.Index, Float64, Vector{Float64}, quasiGrad.Param, Vector{Int64}, quasiGrad.QG, Vector{Float64}, quasiGrad.State, quasiGrad.System, Int8, quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}))
 precompile(penalized_device_constraints!,(quasiGrad.Grad, quasiGrad.Index, quasiGrad.MasterGrad, quasiGrad.Param, quasiGrad.QG, Dict{Symbol, Float64}, quasiGrad.State, quasiGrad.System))
 precompile(post_process_stats,(Bool, quasiGrad.ConstantGrad, quasiGrad.Contingency, quasiGrad.Flow, quasiGrad.Grad, quasiGrad.Index, quasiGrad.MasterGrad, quasiGrad.Network, quasiGrad.Param, quasiGrad.QG, Dict{Symbol, Float64}, quasiGrad.State, quasiGrad.System))
 precompile(power_balance!,(quasiGrad.Grad, quasiGrad.Index, quasiGrad.Param, quasiGrad.QG, quasiGrad.State, quasiGrad.System))

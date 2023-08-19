@@ -704,7 +704,6 @@ function economic_dispatch_initialization!(cgd::quasiGrad.ConstantGrad, ctg::qua
     quasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys)
 
     # 3. update the states
-    tmp = copy(qG.skip_ctg_eval)
     qG.skip_ctg_eval = true
     qG.eval_grad     = false
     quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)

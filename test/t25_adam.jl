@@ -22,8 +22,6 @@ adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasi
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 stt0 = deepcopy(stt);
 
-
-
 # %%
 stt = deepcopy(stt0);
 for tii in prm.ts.time_keys
