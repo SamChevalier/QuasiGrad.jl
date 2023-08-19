@@ -8,7 +8,7 @@ function penalized_device_constraints!(grd::quasiGrad.Grad, idx::quasiGrad.Index
     Threads.@threads for dev in prm.dev.dev_keys
         # for now, we use the "del" thing in the scoring function to penalize all
         # constraint violations -- thus, don't call the "c_hat" constants
-        for tii in prm.ts.time_keys
+        @fastmath @simd for tii in prm.ts.time_keys
             # duration
             dt = prm.ts.duration[tii]
             # in the following constraints, we need to sum over previous constraints
@@ -884,25 +884,11 @@ end
 function device_reactive_powers!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # loop over each time period
     @batch per=core for tii in prm.ts.time_keys
-    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
-        if isempty(idx.J_pqe)
-            # nothing to compute in this case!
-        else
-            # same expression for producers and consumers!
-            stt.dev_q[tii][idx.J_pqe] .= prm.dev.q_0[idx.J_pqe].*stt.u_sum[tii][idx.J_pqe] .+ prm.dev.beta[idx.J_pqe]*stt.dev_p[tii][idx.J_pqe]
+        # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
+        # => stt.dev_q[tii][idx.J_pqe] .= prm.dev.q_0[idx.J_pqe].*stt.u_sum[tii][idx.J_pqe] .+ prm.dev.beta[idx.J_pqe].*stt.dev_p[tii][idx.J_pqe]
+        for dev in idx.J_pqe
+            stt.dev_q[tii][dev] = prm.dev.q_0[dev]*stt.u_sum[tii][dev] + prm.dev.beta[dev]*stt.dev_p[tii][dev]
         end
-        # => loopy version:
-            # for dev in 1:sys.ndev
-            #     # only a subset of devices will have a reactive power equality constraint
-            #     if dev in idx.J_pqe
-            #         # the following (pr vs cs) are equivalent
-            #         if dev in idx.pr_devs # producer? 
-            #             stt.dev_q[tii][dev] = prm.dev.q_0[dev]*stt.u_sum[tii][dev] + prm.dev.beta[dev]*stt.dev_p[dev][tii]
-            #         else # the device must be a consumer :)
-            #             stt.dev_q[tii][dev] = prm.dev.q_0[dev]*stt.u_sum[dev][tii] + prm.dev.beta[dev]*stt.dev_p[dev][tii]
-            #         end
-            #     end
-            # end
     end
 
     # sleep tasks

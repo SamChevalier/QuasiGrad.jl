@@ -3,6 +3,8 @@ using Revise
 
 # files ===
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N01576D1/scenario_001.json"
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E3.1_20230629/D1/C3E3N04224D1/scenario_131.json"
+
 jsn  = quasiGrad.load_json(path)
 
 # initialize
@@ -48,8 +50,11 @@ print("t9: ")
 print("t10: ")
 @btime quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
 
+# %%
 print("t11: ")
 @btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
+
+# %%
 
 print("t12: ")
 @btime quasiGrad.device_reserve_costs!(prm, qG, stt)
@@ -60,10 +65,11 @@ print("t13: ")
 print("t14: ")
 @btime quasiGrad.reserve_balance!(idx, prm, qG, stt, sys)
 
+# %%
 print("t15: ")
-ntk.s_max .= 1.0
+ntk.s_max .= 100000.0
 @time quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-
+# %%
 print("t16: ")
 @btime quasiGrad.score_zt!(idx, prm, qG, scr, stt)
 
@@ -72,6 +78,8 @@ print("t17: ")
 
 print("t18: ")
 @btime quasiGrad.score_zms!(scr)
+
+# %%
 
 print("t19: ")
 @btime quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)

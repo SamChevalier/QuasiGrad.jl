@@ -1,12 +1,14 @@
 # in this file, we design the function which solves economic dispatch
 function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; include_sus_in_ed::Bool=true)
-    # note: all binaries are LP relaxed (so there is not BaB-ing): 0 < b < 1
-    #
-    # NOTE -- we are not including start-up-state discounts -- not worth it :)
+    # note: all binaries are LP relaxed (so there is no BaB-ing): 0 < b < 1
+
+    # first, give BLAS access to ALL threads -- this can accelerate the barrier solver!
+    LinearAlgebra.BLAS.set_num_threads(qG.num_threads)
 
     # build and empty the model!
     tstart = time()
     model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => qG.num_threads); add_bridges = false)
+    set_optimizer_attribute(model, "Method", 3) # force a concurrent solver
     set_string_names_on_creation(model, false)
 
     # set model properties => let this run until it finishes
@@ -17,6 +19,8 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
         # quasiGrad.set_optimizer_attribute(model, "MIPGap",         qG.mip_gap)
         # quasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
         # quasiGrad.set_optimizer_attribute(model, "Crossover", 0)
+    #quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", 1e-3)
+    #quasiGrad.set_optimizer_attribute(model, "OptimalityTol",  1e-2)
 
     # define the minimum set of variables we will need to solve the constraints
     u_on_dev  = Dict{Int32, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.u_on_dev[tii][dev],  lower_bound = 0.0, upper_bound = 1.0) for tii in prm.ts.time_keys) # => base_name = "u_on_dev_t$(ii)",  
@@ -601,6 +605,9 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
         # warn!
         @warn "Copper plate economic dispatch (LP) failed -- skip initialization!"
     end
+
+    # finally, demote BLAS -- single thread usage!!
+    LinearAlgebra.BLAS.set_num_threads(qG.num_threads)
 end
 
 function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
@@ -682,7 +689,7 @@ end
 
 function economic_dispatch_initialization!(cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; include_sus::Bool=true)
     # 1. run ED (global upper bound)
-    quasiGrad.solve_economic_dispatch!(idx, prm, qG, scr, stt, sys, upd, include_sus_in_ed=include_sus)
+    quasiGrad.solve_economic_dispatch!(idx, prm, qG, scr, stt, sys, upd, include_sus_in_ed=true)
 
     # 2. solve a dc power flow
     quasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys)

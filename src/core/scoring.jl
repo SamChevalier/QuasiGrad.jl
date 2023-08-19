@@ -17,7 +17,8 @@ function print_zms(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
     if (qG.print_zms == true) && mod(scr[:cnt],qG.print_freq) == 0
         zms   = round(scr[:zms];           sigdigits = 5)
         zms_p = round(scr[:zms_penalized]; sigdigits = 5)
-        println("Penalized zms: $(zms_p)! Standard zms: $(zms)!")
+        zctg  = round(scr[:zctg_avg] + scr[:zctg_min]; sigdigits = 5)
+        println("Penalized zms: $(zms_p)! Standard zms: $(zms)! Ctg score: $(zctg)!")
     end
 end
 

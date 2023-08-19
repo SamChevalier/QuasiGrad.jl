@@ -1,32 +1,27 @@
 # adam solver -- take steps for every element in master_grad (only two states are tracked: m and v)
-function adam!(adm::quasiGrad.Adam, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}}; standard_adam::Bool = true)
-    # note: for "adam_pf", just set standard_adam = false
+function adam!(adm::quasiGrad.Adam, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for var_key in adm.keys
     for var_key in adm.keys
-        # so, only progress if, either, this is standard adam (not in the pf stepper),
-        # or the variable is a power flow variable!
-        if (var_key in qG.adam_pf_variables) || standard_adam
-            # call states and gradients ("getproperty" and "call_adam_states" slower)
-            adam_states = getfield(adm, var_key)     
-            state       = getfield(stt, var_key)
-            grad        = getfield(mgd, var_key)
+        # call states and gradients ("getproperty" and "call_adam_states" slower)
+        adam_states = getfield(adm, var_key)     
+        state       = getfield(stt, var_key)
+        grad        = getfield(mgd, var_key)
 
-            # loop over all time
-            Threads.@threads for tii in prm.ts.time_keys
-                if var_key in keys(upd)
-                    @inbounds for updates in upd[var_key][tii]
-                        adam_states.m[tii][updates] = qG.beta1*adam_states.m[tii][updates] + qG.one_min_beta1*grad[tii][updates]
-                        adam_states.v[tii][updates] = qG.beta2*adam_states.v[tii][updates] + qG.one_min_beta2*quasiGrad.LoopVectorization.pow_fast.(grad[tii][updates], 2)
-                        state[tii][updates]         = state[tii][updates]  - qG.alpha_tnow[var_key]*(adam_states.m[tii][updates]/qG.one_min_beta1_decay)/(quasiGrad.LoopVectorization.sqrt_fast(adam_states.v[tii][updates]/qG.one_min_beta2_decay) + qG.eps)
-                    end
-                else
-                    if !isempty(adam_states.m[tii])
-                        # update adam moments
-                            # => clipped_grad, if helpful!  = clamp.(mgd[var_key][tii], -qG.grad_max, qG.grad_max)
-                        @turbo adam_states.m[tii] .= qG.beta1.*adam_states.m[tii] .+ qG.one_min_beta1.*grad[tii]
-                        @turbo adam_states.v[tii] .= qG.beta2.*adam_states.v[tii] .+ qG.one_min_beta2.*quasiGrad.LoopVectorization.pow_fast.(grad[tii], 2)
-                        @turbo state[tii]         .= state[tii] .- qG.alpha_tnow[var_key].*(adam_states.m[tii]./qG.one_min_beta1_decay)./(quasiGrad.LoopVectorization.sqrt_fast.(adam_states.v[tii]./qG.one_min_beta2_decay) .+ qG.eps)
-                    end
+        # loop over all time
+        Threads.@threads for tii in prm.ts.time_keys
+            if var_key in keys(upd)
+                @inbounds for updates in upd[var_key][tii]
+                    adam_states.m[tii][updates] = qG.beta1*adam_states.m[tii][updates] + qG.one_min_beta1*grad[tii][updates]
+                    adam_states.v[tii][updates] = qG.beta2*adam_states.v[tii][updates] + qG.one_min_beta2*quasiGrad.LoopVectorization.pow_fast.(grad[tii][updates], 2)
+                    state[tii][updates]         = state[tii][updates]  - qG.alpha_tnow[var_key]*(adam_states.m[tii][updates]/qG.one_min_beta1_decay)/(quasiGrad.LoopVectorization.sqrt_fast(adam_states.v[tii][updates]/qG.one_min_beta2_decay) + qG.eps)
+                end
+            else
+                if !isempty(adam_states.m[tii])
+                    # update adam moments
+                        # => clipped_grad, if helpful!  = clamp.(mgd[var_key][tii], -qG.grad_max, qG.grad_max)
+                    @turbo adam_states.m[tii] .= qG.beta1.*adam_states.m[tii] .+ qG.one_min_beta1.*grad[tii]
+                    @turbo adam_states.v[tii] .= qG.beta2.*adam_states.v[tii] .+ qG.one_min_beta2.*quasiGrad.LoopVectorization.pow_fast.(grad[tii], 2)
+                    @turbo state[tii]         .= state[tii] .- qG.alpha_tnow[var_key].*(adam_states.m[tii]./qG.one_min_beta1_decay)./(quasiGrad.LoopVectorization.sqrt_fast.(adam_states.v[tii]./qG.one_min_beta2_decay) .+ qG.eps)
                 end
             end
         end
@@ -34,7 +29,7 @@ function adam!(adm::quasiGrad.Adam, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Pa
 end
 
 # adam solver -- take steps for every element in the master_grad list
-function flush_adam!(adm::quasiGrad.Adam, prm::quasiGrad.Param, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function flush_adam!(adm::quasiGrad.Adam, flw::quasiGrad.Flow, prm::quasiGrad.Param, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # loop over the keys in mgd
     for var_key in adm.keys
         adam_states = getfield(adm,var_key)
@@ -51,6 +46,11 @@ function flush_adam!(adm::quasiGrad.Adam, prm::quasiGrad.Param, upd::Dict{Symbol
                 adam_states.m[tii] .= 0.0
                 adam_states.v[tii] .= 0.0
             end
+
+            # also, flush the ctg gradient buffers!
+            flw.dz_dpinj_rolling[tii]        .= 0.0
+            flw.dsmax_dqfr_flow_rolling[tii] .= 0.0
+            flw.dsmax_dqto_flow_rolling[tii] .= 0.0
         end
     end
 end
@@ -71,84 +71,88 @@ function run_adam!(
         sys::quasiGrad.System,
         upd::Dict{Symbol, Vector{Vector{Int64}}})
 
-    # re-initialize
-    qG.adm_step      = 0
-    qG.beta1_decay   = 1.0
-    qG.beta2_decay   = 1.0
-    qG.one_min_beta1 = 1.0 - qG.beta1 # here for testing, in case beta1 is changed
-    qG.one_min_beta2 = 1.0 - qG.beta2 # here for testing, in case beta1 is changed
-    run_adam         = true
-
+    # here we go!
     @info "Running adam for $(qG.adam_max_time) seconds!"
-    
-    # flush adam at each restart ?
-    quasiGrad.flush_adam!(adm, prm, upd)
 
-    # start the timer!
-    adam_start = time()
-    #ta = time()
-    # loop over adam steps
-    while run_adam
+    # split this adam solve up into two
+    qG.adam_time_1 = 0.1*qG.adam_max_time # init
+    qG.adam_time_2 = 0.9*qG.adam_max_time # cleanup
 
-        # increment
-        qG.adm_step += 1
-
-        #if mod(qG.adm_step,100) == 0
-        #    ta = time()
-        #    qG.adm_step = 0
-        #end
-
-        # step decay
-        if qG.decay_adam_step == true
-            quasiGrad.adam_step_decay!(qG, time(), adam_start, adam_start+qG.adam_max_time)
+    # loop and solve adam twice: once for a true solve, and once for a quick cleanup
+    for lp in 1:2
+        if lp == 1
+            println("adam 1 (10%)")
+            qG.skip_ctg_eval = true
+        else
+            println("adam 2 (10%)")
+            qG.skip_ctg_eval = false
         end
 
-        # decay beta and pre-compute
-        qG.beta1_decay         = qG.beta1_decay*qG.beta1
-        qG.beta2_decay         = qG.beta2_decay*qG.beta2
-        qG.one_min_beta1_decay = (1.0-qG.beta1_decay)
-        qG.one_min_beta2_decay = (1.0-qG.beta2_decay)
+        # re-initialize
+        qG.adm_step      = 0
+        qG.beta1_decay   = 1.0
+        qG.beta2_decay   = 1.0
+        qG.one_min_beta1 = 1.0 - qG.beta1 # here for testing, in case beta1 is changed before a run
+        qG.one_min_beta2 = 1.0 - qG.beta2 # here for testing, in case beta2 is changed before a run
+        run_adam         = true
+        
+        # flush adam at each restart ?
+        quasiGrad.flush_adam!(adm, flw, prm, upd)
 
-        # update weight parameters?
-        if qG.apply_grad_weight_homotopy == true
-            quasiGrad.update_penalties!(prm, qG, time(), adam_start, adam_start+qG.adam_max_time)
-        end
+        # start the timer!
+        adam_start = time()
+        # loop over adam steps
+        while run_adam
 
-        # compute all states and grads
-        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+            # increment
+            qG.adm_step += 1
 
-        # take an adam step
-        quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
-        GC.safepoint()
-        # experiments!
-            # => quasiGrad.adaGrad!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
-            # => quasiGrad.the_quasiGrad!(adm, mgd, prm, qG, stt, upd)
-            # => quasiGrad.adam_with_ls!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd, cgd, ctb, ctd, flw, grd, idx, ntk, scr, sys, wct)
-
-        # take intermediate pf steps?
-        if qG.take_adam_pf_steps == true
-            for _ in 1:qG.num_adam_pf_step
-                # update the power injection-associated gradients
-                quasiGrad.update_states_and_grads_for_adam_pf!(grd, idx, mgd, prm, qG, stt, sys)
-
-                # take an adam pf step (standard_adam=false)
-                quasiGrad.adam!(adm, mgd, prm, qG, stt, upd, standard_adam = false)
+            # step decay
+            if qG.decay_adam_step == true
+                if lp == 1
+                    quasiGrad.adam_step_decay!(lp, qG, time(), adam_start, adam_start+qG.adam_t1)
+                else
+                    quasiGrad.adam_step_decay!(lp, qG, time(), adam_start, adam_start+qG.adam_t2)
+                end
             end
+
+            # decay beta and pre-compute
+            qG.beta1_decay         = qG.beta1_decay*qG.beta1
+            qG.beta2_decay         = qG.beta2_decay*qG.beta2
+            qG.one_min_beta1_decay = (1.0-qG.beta1_decay)
+            qG.one_min_beta2_decay = (1.0-qG.beta2_decay)
+
+            # update weight parameters?
+            if qG.apply_grad_weight_homotopy == true
+                if lp == 1
+                    quasiGrad.update_penalties!(prm, qG, time(), adam_start, adam_start+qG.adam_max_time)
+            
+                else
+                    # just the final penalty terms from the last solve
+                end
+            end
+
+            # compute all states and grads
+            quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+
+            # take an adam step
+            quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
+            GC.safepoint()
+            # experiments!
+                # => quasiGrad.adaGrad!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+                # => quasiGrad.the_quasiGrad!(adm, mgd, prm, qG, stt, upd)
+                # => quasiGrad.adam_with_ls!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd, cgd, ctb, ctd, flw, grd, idx, ntk, scr, sys, wct)
+
+            # stop?
+            run_adam = quasiGrad.adam_termination(adam_start, qG, run_adam)
         end
-
-        #if qG.adm_step == 99
-        #    tb = time() - ta
-        #    println("time: $tb")
-        #end
-
-        # stop?
-        run_adam = quasiGrad.adam_termination(adam_start, qG, run_adam)
     end
 
     # one last clip + state computation -- no grad needed!
     qG.eval_grad = false
     quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     qG.eval_grad = true
+    qG.skip_ctg_eval = false
 end
 
 function update_states_and_grads!(
@@ -232,7 +236,7 @@ function update_states_and_grads_for_adam_pf!(grd::quasiGrad.Grad, idx::quasiGra
     quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
 
     # compute the master grad
-    quasiGrad.master_grad_adam_pf!(grd, idx, mgd, prm, sys)
+    quasiGrad.master_grad_adam_pf!(grd, idx, mgd, prm, qG, sys)
 end
 
 function batch_fix!(pct_round::Float64, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
@@ -245,7 +249,7 @@ function batch_fix!(pct_round::Float64, prm::quasiGrad.Param, stt::quasiGrad.Sta
     end
 
     # sort and find the binaries that are closest to Gurobi's solution
-
+    # 
     # which ones do we fix?
     num_bin_fix = Int64(round(sys.nT*sys.ndev*pct_round/100.0))
     bins_to_fix = sortperm(bin_vec_del)[1:num_bin_fix]
@@ -297,6 +301,8 @@ function solution_status(model::quasiGrad.Model)
     #   INVALID_OPTION = 22
     #   INTERRUPTED = 23
     #   OTHER_ERROR = 24
+    # => println(termination_status(model))
+    # => println(Int(termination_status(model)))
     soln_status = Int(termination_status(model))
     if soln_status in [1, 4, 7] # optimal, locally solved, or almost optimal
         soln_valid = true

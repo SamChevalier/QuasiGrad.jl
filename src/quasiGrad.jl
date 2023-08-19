@@ -57,9 +57,6 @@ const eps_beta   = 1e-6::Float64
 const eps_susd   = 1e-6::Float64
 const d_unit     = 5e-3::Float64
 
-# set the BLAS thread limit to 1, to be safe
-LinearAlgebra.BLAS.set_num_threads(1)
-
 # define a gurobi licence: 
 #   => https://github.com/jump-dev/Gurobi.jl/issues/424
 const GRB_ENV = Ref{Gurobi.Env}()
@@ -86,8 +83,8 @@ end
 
 # directly precompile everthing else which is NOT a function of jsn -- move down alphabetically
 precompile(acline_flows!,(quasiGrad.Grad, quasiGrad.Index, quasiGrad.Param, quasiGrad.QG, quasiGrad.State, quasiGrad.System))
-precompile(adam!,(quasiGrad.Adam, quasiGrad.MasterGrad, quasiGrad.Param, quasiGrad.QG, quasiGrad.State, Dict{Symbol, Vector{Vector{Int64}}}, Bool))
-precompile(adam_step_decay!,(quasiGrad.QG, Float64, Float64, Float64))
+precompile(adam!,(quasiGrad.Adam, quasiGrad.MasterGrad, quasiGrad.Param, quasiGrad.QG, quasiGrad.State, Dict{Symbol, Vector{Vector{Int64}}}))
+precompile(adam_step_decay!,(Bool,quasiGrad.QG, Float64, Float64, Float64))
 precompile(adam_termination,(Float64, quasiGrad.QG, Bool))
 precompile(all_device_statuses_and_costs!,(quasiGrad.Grad, quasiGrad.Param, quasiGrad.QG, quasiGrad.State))
 precompile(apply_dev_p_grads!,(Int8, quasiGrad.Param, quasiGrad.QG, quasiGrad.Index, quasiGrad.State, quasiGrad.Grad, quasiGrad.MasterGrad, Union{Int32,Int64}, Float64))
@@ -124,7 +121,7 @@ precompile(du_sum!,(Int8, quasiGrad.Param, quasiGrad.State, quasiGrad.MasterGrad
 precompile(economic_dispatch_initialization!,(quasiGrad.ConstantGrad, quasiGrad.Contingency, quasiGrad.Flow, quasiGrad.Grad, quasiGrad.Index, quasiGrad.MasterGrad, quasiGrad.Network, quasiGrad.Param, quasiGrad.QG, Dict{Symbol, Float64}, quasiGrad.State, quasiGrad.System, Dict{Symbol, Vector{Vector{Int64}}}, Bool))
 precompile(energy_costs!,(quasiGrad.Grad, quasiGrad.Param, quasiGrad.QG, quasiGrad.State, quasiGrad.System))
 precompile(energy_penalties!,(quasiGrad.Grad, quasiGrad.Index, quasiGrad.Param, quasiGrad.QG, Dict{Symbol, Float64}, quasiGrad.State, quasiGrad.System))
-precompile(flush_adam!,(quasiGrad.Adam, quasiGrad.Param, Dict{Symbol, Vector{Vector{Int64}}}))
+precompile(flush_adam!,(quasiGrad.Adam, quasiGrad.Flow, quasiGrad.Param, Dict{Symbol, Vector{Vector{Int64}}}))
 precompile(flush_gradients!,(quasiGrad.Grad, quasiGrad.MasterGrad, quasiGrad.Param, quasiGrad.QG, quasiGrad.System))
 precompile(flush_lbfgs!,(quasiGrad.LBFGS, quasiGrad.Param, quasiGrad.QG, quasiGrad.State))
 precompile(get_sdpc,(Int8, Union{Int32,Int64}, quasiGrad.Param))
@@ -137,7 +134,7 @@ precompile(get_tsumax,(Vector{Float64}, quasiGrad.Param))
 precompile(get_tsus_sets,(Int8, Union{Int32,Int64}, quasiGrad.Param, Int64))
 precompile(manage_time!,(Float64, quasiGrad.QG))
 precompile(master_grad!,(quasiGrad.ConstantGrad, quasiGrad.Grad, quasiGrad.Index, quasiGrad.MasterGrad, quasiGrad.Param, quasiGrad.QG, quasiGrad.State, quasiGrad.System))
-precompile(master_grad_adam_pf!,(quasiGrad.Grad, quasiGrad.Index, quasiGrad.MasterGrad, quasiGrad.Param, quasiGrad.System))
+precompile(master_grad_adam_pf!,(quasiGrad.Grad, quasiGrad.Index, quasiGrad.MasterGrad, quasiGrad.Param, quasiGrad.QG, quasiGrad.System))
 precompile(master_grad_solve_pf!,(quasiGrad.ConstantGrad, quasiGrad.Grad, quasiGrad.Index, quasiGrad.MasterGrad, quasiGrad.Param, quasiGrad.QG, quasiGrad.State, quasiGrad.System))
 precompile(master_grad_zp!,(Int8, quasiGrad.Param, quasiGrad.Index, quasiGrad.Grad, quasiGrad.MasterGrad, quasiGrad.System, Bool))
 precompile(master_grad_zq!,(Int8, quasiGrad.Param, quasiGrad.Index, quasiGrad.Grad, quasiGrad.MasterGrad, quasiGrad.System, Bool))

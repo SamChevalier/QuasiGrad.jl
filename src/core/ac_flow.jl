@@ -60,7 +60,7 @@ function acline_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad
         @turbo stt.acline_sfr_plus[tii] .= stt.acline_sfr[tii] .- prm.acline.mva_ub_nom
         @turbo stt.acline_sto_plus[tii] .= stt.acline_sto[tii] .- prm.acline.mva_ub_nom
         @turbo stt.zs_acline[tii]       .= (dt*cs).*max.(stt.acline_sfr_plus[tii], stt.acline_sto_plus[tii], 0.0)
-        
+
         # ====================================================== #
         # ====================================================== #
         #
@@ -350,7 +350,6 @@ function xfm_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Pa
             else
                 # standard
                 @fastmath @inbounds @simd for xfm in 1:sys.nx
-                        xfm in 1:sys.nx
                     if (stt.xfm_sfr_plus[tii][xfm] > 0.0) && (stt.xfm_sfr_plus[tii][xfm] > stt.xfm_sto_plus[tii][xfm])
                         grd.zs_xfm.xfm_pfr[tii][xfm] = dt*cs*stt.xfm_pfr[tii][xfm]/stt.xfm_sfr[tii][xfm]
                         grd.zs_xfm.xfm_qfr[tii][xfm] = dt*cs*stt.xfm_qfr[tii][xfm]/stt.xfm_sfr[tii][xfm]

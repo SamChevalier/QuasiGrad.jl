@@ -82,6 +82,8 @@ mutable struct QG
     plot_scale_up::Float64 
     plot_scale_dn::Float64
     adam_max_time::Float64 
+    adam_t1::Float64 
+    adam_t2::Float64 
     adam_max_its::Int64 
     adam_stopper::String  
     apply_grad_weight_homotopy::Bool

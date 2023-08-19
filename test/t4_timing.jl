@@ -12,8 +12,9 @@ path = "../GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/D2/C3S0N00073/scenario_002.json"
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/D1/C3S1N00600/scenario_001.json"
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N01576D1/scenario_001.json"
-
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S3.1_20230606/C3S3N01576D1/scenario_007.json"
+
+path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3E3.1_20230629/D1/C3E3N04224D1/scenario_131.json"
 
 # load
 jsn = quasiGrad.load_json(path)
@@ -41,7 +42,7 @@ quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, p
 ## %% Timing tests
 #
 qG.skip_ctg_eval = true
-qG.num_threads = 8
+qG.num_threads = 10
 @btime quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %% choose step sizes
@@ -98,9 +99,8 @@ qG.adam_max_time = 250.0
 quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %%
-
 qG.eval_grad = true
-qG.num_threads = 1
+qG.num_threads = 10
 
 print("t1: ")
 @btime quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)

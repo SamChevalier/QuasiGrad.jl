@@ -88,7 +88,7 @@ beta2       = qG.beta2
 beta1_decay = 1.0
 beta2_decay = 1.0
 run_adam    = true
-quasiGrad.flush_adam!(adm, prm, upd)
+quasiGrad.flush_adam!(adm, flw, prm, upd)
 
 # %% ====
 adm_step += 1

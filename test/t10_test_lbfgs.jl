@@ -58,7 +58,7 @@ run_adam    = true
 alpha       = 0.001
 
 # flush adam at each restart
-quasiGrad.flush_adam!(adm, prm, upd)
+quasiGrad.flush_adam!(adm, flw, prm, upd)
 
 # -- loop
 for ii in 1:1000

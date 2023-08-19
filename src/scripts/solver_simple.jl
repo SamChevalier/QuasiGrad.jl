@@ -133,7 +133,7 @@ qG.alpha_0 = alpha_0
 # %% %%%%%%%%%%%%%
 stt = deepcopy(stt0)
 # %% %%%%%%%%%%%%%
-quasiGrad.flush_adam!(adm, prm, upd)
+quasiGrad.flush_adam!(adm, flw, prm, upd)
 
 # %%
 qG.pqbal_grad_weight_p    = (1e-3*prm.vio.p_bus)

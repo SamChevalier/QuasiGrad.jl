@@ -361,7 +361,7 @@ function master_grad_solve_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad,
     end
 end
 
-function master_grad_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, sys::quasiGrad.System)
+function master_grad_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System)
     # this function takes the gradient of zms with respect to the
     # variables which will help to resolve power flow.
     # Notably, even though we solve time-independent power flow

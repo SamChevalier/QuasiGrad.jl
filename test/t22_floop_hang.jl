@@ -730,7 +730,7 @@ run_adam    = true
 
 # flush adam at each restart ?
 # println("adam NOT flushed")
-quasiGrad.flush_adam!(adm, prm, upd)
+quasiGrad.flush_adam!(adm, flw, prm, upd)
 
 # start the timer!
 adam_start = time()

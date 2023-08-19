@@ -185,9 +185,9 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # choose adam step sizes (initial)
     vmva_scale_t0    = 1e-3
     xfm_scale_t0     = 1e-3
-    dc_scale_t0      = 1e-1
-    power_scale_t0   = 1e-1
-    reserve_scale_t0 = 1e-1
+    dc_scale_t0      = 1e-2
+    power_scale_t0   = 1e-2
+    reserve_scale_t0 = 1e-2
     bin_scale_t0     = 1e-2 # bullish!!!
     alpha_t0 = Dict(:vm    => vmva_scale_t0,
                    :va     => vmva_scale_t0,
@@ -221,9 +221,9 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
         # choose adam step sizes (final)
         vmva_scale_tf    = 1e-5
         xfm_scale_tf     = 1e-5
-        dc_scale_tf      = 1e-3
-        power_scale_tf   = 1e-3
-        reserve_scale_tf = 1e-3
+        dc_scale_tf      = 1e-4
+        power_scale_tf   = 1e-4
+        reserve_scale_tf = 1e-4
         bin_scale_tf     = 1e-4 # bullish!!!
         alpha_tf = Dict(:vm    => vmva_scale_tf,
                        :va     => vmva_scale_tf,
@@ -263,6 +263,8 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
 
     # adam runtime
     adam_max_time = 60.0 # only one is true -- overwritten in GO iterations
+    adam_t1       = 60.0 #  -- overwritten in GO iterations
+    adam_t2       = 60.0 #  -- overwritten in GO iterations
     adam_max_its  = 300  # only one is true
     adam_stopper  = "time" # "iterations"
 
@@ -271,7 +273,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # see the homotopy file for more parameters!!!
 
     # gradient modifications -- power balance
-    pqbal_grad_type     = "scaled_quadratic" # "soft_abs" # "quadratic_for_lbfgs", "standard"
+    pqbal_grad_type     = "soft_abs" # "scaled_quadratic" "quadratic_for_lbfgs", "standard"
     pqbal_grad_weight_p = prm.vio.p_bus # standard: prm.vio.p_bus
     pqbal_grad_weight_q = prm.vio.q_bus # standard: prm.vio.q_bus
     pqbal_grad_eps2     = 1e-5
@@ -377,7 +379,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     skip_ctg_eval = false
 
     # adam solving pf
-    take_adam_pf_steps = true
+    take_adam_pf_steps = false
     num_adam_pf_step   = 3
     adam_pf_variables  = [:dc_pfr, :dc_qto, :dc_qfr, :vm, :va, :phi, :tau, :u_step_shunt]
 
@@ -447,6 +449,8 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
         plot_scale_up, 
         plot_scale_dn, 
         adam_max_time, 
+        adam_t1,
+        adam_t2,
         adam_max_its,
         adam_stopper,
         apply_grad_weight_homotopy,
@@ -501,7 +505,10 @@ end
 
 function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::Bool = false, perturb_states::Bool=false, pert_size::Float64=1.0)
     # perform all initializations from the jsn data
-    # 
+
+    # first, set the BLAS thread limit to 1, to be safe
+    LinearAlgebra.BLAS.set_num_threads(1)
+
     # parse the input jsn data
     prm, idx, sys = parse_json(jsn)
 
@@ -957,7 +964,7 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     if qG.base_solver == "pcg"
         if sys.nb <= qG.min_buses_for_krylov
             # too few buses -- use LU
-            @info "Not enough buses for Krylov! Using LU anyways."
+            println("Not enough buses for Krylov! Using LU for all Ax=b system solves.")
         end
 
         # time is short -- let's jsut always use ldl preconditioner -- it's just as fast
@@ -1064,12 +1071,15 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     # => @info "Done."
 
     # solve for the wmi factors!
+    t1 = time()
     Threads.@threads for ctg_ii in 1:sys.nctg
         # this code is optimized -- see above for comments!!!
         u_k[ctg_ii]        .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
         @turbo g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
         @turbo mul!(z_k[ctg_ii], Yfr, u_k[ctg_ii])
     end
+    t_ctg = time() - t1
+    println("WMI factor time: $t_ctg")
 
     # original code:
         #for ctg_ii in 1:sys.nctg

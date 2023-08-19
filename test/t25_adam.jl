@@ -1,24 +1,134 @@
 using quasiGrad
 using Revise
 
-# %% files
+# files
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/C3S0N00014/scenario_003.json"
 #path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/C3S0N00073/scenario_002.json"
 #path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N01576D1/scenario_001.json"
 
 tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
-path = tfp*"C3S4X_20230809/D2/C3S4N00073D2/scenario_997.json"
+path = tfp*"C3E3.1_20230629/D1/C3E3N01576D1/scenario_027.json"
+#tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
+#path = tfp*"C3S4X_20230809/D2/C3S4N00073D2/scenario_997.json"
 
 jsn  = quasiGrad.load_json(path)
 
 # initialize
-t1 = time()
 adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=false);
-tt = time() - t1
-println(tt)
 
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+#quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+stt0 = deepcopy(stt);
+
+# %% adam!!!
+stt = deepcopy(stt0);
+# %%
+qG.decay_adam_step             = true
+qG.apply_grad_weight_homotopy  = true # true
+qG.homotopy_with_cos_decay     = false
+qG.num_threads                 = 10
+qG.print_zms                   = true
+qG.adam_max_time               = 35.0
+qG.take_adam_pf_steps          = false
+
+qG.beta1                   = 0.9
+qG.beta2                   = 0.99
+qG.ctg_solve_frequency     = 3
+qG.always_solve_ctg        = false
+qG.skip_ctg_eval           = true
+
+qG.ctg_memory         = 0.0            
+qG.one_min_ctg_memory = 1.0 - qG.ctg_memory
+
+qG.pqbal_grad_weight_p = prm.vio.p_bus # standard: prm.vio.p_bus
+qG.pqbal_grad_weight_q = prm.vio.q_bus # standard: prm.vio.q_bus
+
+# qG.ctg_grad_weight         = prm.vio.s_flow
+# qG.scale_c_sflow_testing   = 1.0
+
+quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+
+@info "fix pbal weight, fix ctg ac and xfm flows!!"
+
+println(qG.adm_step)
+
+
+
+# %% ========================
+    # choose adam step sizes (initial)
+    vmva_scale_t0    = 1e-6
+    xfm_scale_t0     = 1e-6
+    dc_scale_t0      = 1e-3
+    power_scale_t0   = 1e-3
+    reserve_scale_t0 = 1e-3
+    bin_scale_t0     = 1e-3  # bullish!!!
+    qG.alpha_t0 = Dict(:vm    => vmva_scale_t0,
+                   :va     => vmva_scale_t0,
+                   # xfm
+                   :phi    => xfm_scale_t0,
+                   :tau    => xfm_scale_t0,
+                   # dc
+                   :dc_pfr => dc_scale_t0,
+                   :dc_qto => dc_scale_t0,
+                   :dc_qfr => dc_scale_t0,
+                   # powers -- decay this!!
+                   :dev_q  => power_scale_t0,
+                   :p_on   => power_scale_t0,
+                   # reserves
+                   :p_rgu     => reserve_scale_t0,
+                   :p_rgd     => reserve_scale_t0,
+                   :p_scr     => reserve_scale_t0,
+                   :p_nsc     => reserve_scale_t0,
+                   :p_rrd_on  => reserve_scale_t0,
+                   :p_rrd_off => reserve_scale_t0,
+                   :p_rru_on  => reserve_scale_t0,
+                   :p_rru_off => reserve_scale_t0,
+                   :q_qrd     => reserve_scale_t0,
+                   :q_qru     => reserve_scale_t0,
+                   # bins
+                   :u_on_xfm     => bin_scale_t0,
+                   :u_on_dev     => bin_scale_t0,
+                   :u_step_shunt => bin_scale_t0,
+                   :u_on_acline  => bin_scale_t0)
+
+        # choose adam step sizes (final)
+        vmva_scale_tf    = 1e-7
+        xfm_scale_tf     = 1e-7
+        dc_scale_tf      = 1e-5
+        power_scale_tf   = 1e-5
+        reserve_scale_tf = 1e-5
+        bin_scale_tf     = 1e-5 # bullish!!!
+        qG.alpha_tf = Dict(:vm    => vmva_scale_tf,
+                       :va     => vmva_scale_tf,
+                       # xfm
+                       :phi    => xfm_scale_tf,
+                       :tau    => xfm_scale_tf,
+                       # dc
+                       :dc_pfr => dc_scale_tf,
+                       :dc_qto => dc_scale_tf,
+                       :dc_qfr => dc_scale_tf,
+                       # powers -- decay this!!
+                       :dev_q  => power_scale_tf,
+                       :p_on   => power_scale_tf,
+                       # reserves
+                       :p_rgu     => reserve_scale_tf,
+                       :p_rgd     => reserve_scale_tf,
+                       :p_scr     => reserve_scale_tf,
+                       :p_nsc     => reserve_scale_tf,
+                       :p_rrd_on  => reserve_scale_tf,
+                       :p_rrd_off => reserve_scale_tf,
+                       :p_rru_on  => reserve_scale_tf,
+                       :p_rru_off => reserve_scale_tf,
+                       :q_qrd     => reserve_scale_tf,
+                       :q_qru     => reserve_scale_tf,
+                       # bins
+                       :u_on_xfm     => bin_scale_tf,
+                       :u_on_dev     => bin_scale_tf,
+                       :u_step_shunt => bin_scale_tf,
+                       :u_on_acline  => bin_scale_tf)
+
+
 
 
 # %% -- test 1
@@ -180,3 +290,51 @@ quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, s
 # %% ============
 #pct_round = 0.0
 #quasiGrad.project!(pct_round, idx, prm, qG, stt, sys, upd, final_projection = false)
+
+# %%
+using Plots
+
+# for step size:
+stp_0 = 1e-2
+stp_f = 1e-7
+ds    = stp_0/stp_f
+lds   = log10(ds)
+
+# the y-axis will span from 0 to -lds
+x = -1:0.01:1
+Plots.plot(x, -beta*lds .+ log10(stp_0))
+
+# %%
+Plots.plot(x, 10 .^ (-beta*lds .+ log10(stp_0)))
+
+# %%
+
+x = -1:0.01:1
+beta = exp.(6.0*x)./(1.0 .+ exp.(6.0*x))
+Plots.plot(x, 10.0 .* (1 .- beta) .- 10.0)
+
+# %%
+Plots.plot(x, 1e-3.*(1.0.-beta) .+ 1e-7.*beta)
+
+#qG.alpha_t0[stp_key]*(1.0-beta) + qG.alpha_tf[stp_key]*beta
+
+# %%
+x = -1:0.01:1
+beta  = exp.(5.0.*x)./(0.5 .+ exp.(5.0.*x))
+
+# loop and compute the homotopy based on a log-transformation fall-off
+#for stp_key in keys(qG.alpha_tnow)
+    log_stp_ratio          = log10(1e-1/1e-4)
+    stp = -beta.*log_stp_ratio .+ log10.(1e-1)
+#end
+
+Plots.plot(x, stp)
+
+#Plots.plot(x, 10 .^ stp)
+
+x       = -1:0.01:1
+beta_p  = exp.(6.0.*x)./(1.0 .+ exp.(6.0.*x)) # penalty
+beta_s  = exp.(5.0.*x)./(0.5 .+ exp.(5.0.*x)) # step
+
+Plots.plot(x,exp.(5.0*x)./(1.0 .+ exp.(5.0*x))) # penalty
+Plots.plot!(x,exp.(5.0*x)./(0.6 .+ exp.(5.0*x))) # step

@@ -335,7 +335,6 @@ function compute_quasiGrad_solution_timed(InFile1::String, NewTimeLimitInSeconds
 end
 
 function compute_quasiGrad_solution_diagnostics(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
-
     v = VERSION
     println(v)
 
@@ -437,6 +436,71 @@ function compute_quasiGrad_solution_diagnostics(InFile1::String, NewTimeLimitInS
     println("ctg time3: $ctg_time")
 end
 
+function compute_quasiGrad_solution_ed_timing(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
+    v = VERSION
+    println(v)
+
+    st = Sys.CPU_THREADS
+    nt = Threads.nthreads()  
+
+    println("system threads: $st")
+    println("number threads: $nt")
+
+    # print all thread ids :)
+    Threads.@threads for i = 1:200
+        tt = Threads.threadid()
+        print("$tt, ")
+        sleep(0.25)
+    end
+
+    println()
+
+    # load
+    t = time()
+    jsn = quasiGrad.load_json(InFile1)
+    load_time = time() - t
+    println("loadtime1: $load_time")
+
+    t = time()
+    jsn = quasiGrad.load_json(InFile1)
+    load_time = time() - t
+    println("loadtime2: $load_time")
+
+    # initialize
+    t = time()
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
+    init_time = time() - t
+    println("init time1: $init_time")
+
+    t = time()
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
+    init_time = time() - t
+    println("init time2: $init_time")
+
+    # ed
+    t = time()
+    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    ed_time = time() - t
+    println("ed time1: $ed_time")
+
+    t = time()
+    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    ed_time = time() - t
+    println("ed time2: $ed_time")
+
+    # update
+    t = time()
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time1: $up_time")
+
+    t = time()
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time2: $up_time")
+
+end
+
 function compute_quasiGrad_solution_diagnostics_loop(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
 
     v = VERSION
@@ -465,4 +529,67 @@ function compute_quasiGrad_solution_diagnostics_loop(InFile1::String, NewTimeLim
 
     lt = time() - t1
     println("loop time: $lt")
+end
+
+function compute_quasiGrad_load_solve_project_write_23643(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
+
+    # load!
+    jsn = quasiGrad.load_json(InFile1)
+
+    # initialize
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
+
+    # write locally
+    qG.write_location   = "local"
+    qG.eval_grad        = true
+    qG.always_solve_ctg = true
+    qG.skip_ctg_eval    = false
+
+    # turn off all printing
+    qG.print_zms                     = false # print zms at every adam iteration?
+    qG.print_final_stats             = false # print stats at the end?
+    qG.print_lbfgs_iterations        = false
+    qG.print_projection_success      = false
+    qG.print_linear_pf_iterations    = false
+    qG.print_reserve_cleanup_success = false
+    
+    # solve
+    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    #=
+    quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+    quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
+    quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+
+    solution_file = "C3E3N23643D1_scenario_003_solution.json"
+    quasiGrad.write_solution(solution_file, prm, qG, stt, sys)
+
+    # write results to file
+    m1 = "zms = $(scr[:zms])"
+    m2 = "penalized zms = $(scr[:zms_penalized])"
+    m3 = "ctg avg = $(scr[:zctg_avg])"
+    m4 = "ctg min = $(scr[:zctg_min])"
+    m5 = "e-min = $(scr[:z_enmin])"
+    m6 = "e-max = $(scr[:z_enmax])"
+
+    solution_file = replace(solution_file, ".json" => "")
+    txt_file = solution_file*".txt"
+    open(txt_file, "w") do file
+        write(file, m1)
+        write(file, '\n')
+        write(file, m2)
+        write(file, '\n')
+        write(file, '\n')
+        write(file, m3)
+        write(file, '\n')
+        write(file, m4)
+        write(file, '\n')
+        write(file, '\n')
+        write(file, m5)
+        write(file, '\n')
+        write(file, m6)
+    end
+    =#
 end

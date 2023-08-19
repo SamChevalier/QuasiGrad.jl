@@ -70,15 +70,17 @@ function prepare_solution(prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasi
 end
 
 # write the JSON
-function write_solution(input_json_path::String, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function write_solution(json_path::String, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
 
     # prepare the solution dictionary
     soln_dict = quasiGrad.prepare_solution(prm, stt, sys, qG)
 
     # parse the input and then append
     if qG.write_location == "local"
-        input_json       = replace(input_json_path, ".json" => "")
-        output_json_path = input_json*"_solution_schev.json"
+        # just use the given soln name!
+        output_json_path = json_path
+            # => input_json       = replace(json_path, ".json" => "")
+            # => output_json_path = input_json*"_solution_schev.json"
     else 
         @assert qG.write_location == "GO"
         # just write the folder in the cwd
@@ -112,13 +114,17 @@ function post_process_stats(
     # shall we actually post-process?
     if run == true
         # update the state vector
-        qG.eval_grad      = false
-        qG.score_all_ctgs = true
+        qG.eval_grad        = false
+        qG.skip_ctg_eval    = false
+        qG.always_solve_ctg = true
+        qG.score_all_ctgs   = true
         quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
         
         # flop, just in case
         qG.eval_grad         = true
+        qG.skip_ctg_eval     = true
         qG.score_all_ctgs    = false
+        qG.always_solve_ctg  = false
         qG.print_final_stats = true
         
         # print some stats?

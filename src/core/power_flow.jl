@@ -73,10 +73,10 @@ function solve_power_flow!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx
                 @info "LBFGS failed -- error too high. Snapping state back!"
 
                 # update the copies of vm, va, p, and q
-                stt.vm    = deepcopy(stt.vm_copy)
-                stt.va    = deepcopy(stt.va_copy)
-                stt.p_on  = deepcopy(stt.p_on_copy)
-                stt.dev_q = deepcopy(stt.dev_q_copy)
+                stt.vm    .= deepcopy.(stt.vm_copy)
+                stt.va    .= deepcopy.(stt.va_copy)
+                stt.p_on  .= deepcopy.(stt.p_on_copy)
+                stt.dev_q .= deepcopy.(stt.dev_q_copy)
             end
         end
     end
@@ -583,7 +583,7 @@ function solve_pf_lbfgs!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::q
             # if this is the very first iteration, just take a tiny gradient step
             #
             # want: maximum(grad)*step_size = 1e-4, to, step_size = 1e-4/maximum(grad)
-            step_size = (1e-4)/maximum(lbf.state[:gradf_now][tii])
+            step_size = (1e-5)/maximum(lbf.state[:gradf_now][tii])
             lbf.state[:x_new][tii] .= lbf.state[:x_now][tii] .- step_size*lbf.state[:gradf_now][tii]
         end
 

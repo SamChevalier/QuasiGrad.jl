@@ -31,7 +31,7 @@ function solve_ctgs!(
 
             if qG.score_all_ctgs == true
                 ###########################################################
-                # println("Warning -- scoring all contingencies! No gradients.")
+                println("Warning -- scoring all contingencies! No gradients.")
                 ###########################################################
             end
 
@@ -356,7 +356,7 @@ function solve_ctgs!(
                     stt.zctg_scored[tii]                         .= @view stt.zctg[tii][flw.worst_ctg_ids[tii][1:num_ctg]]
                     flw.worst_ctg_ids[tii][1:num_wrst]           .= @view flw.worst_ctg_ids[tii][partialsortperm(stt.zctg_scored[tii], 1:num_wrst)]
                     flw.worst_ctg_ids[tii][(num_wrst+1:num_ctg)] .= @view quasiGrad.shuffle!(deleteat!(collect(1:sys.nctg), sort(flw.worst_ctg_ids[tii][1:num_wrst])))[1:num_rnd]
-                    # OG scoring:
+                    # OG scoring and ranking:
                         # =>  # since we have scored all contingencies at this given time,
                         # =>  # rank them from most negative to least (worst is first)
                         # =>  flw.worst_ctg_ids[tii][1:num_ctg] .= sortperm(@view stt.zctg[tii][@view flw.worst_ctg_ids[tii][1:num_ctg]])

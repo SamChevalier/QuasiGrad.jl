@@ -29,7 +29,7 @@ function run_adam_with_plotting!(
     @info "Running adam for $(qG.adam_max_time) seconds!"
 
     # flush adam at each restart ?
-    quasiGrad.flush_adam!(adm, prm, upd)
+    quasiGrad.flush_adam!(adm, flw, prm, upd)
 
     # add Gurobi Projection line?
     if !plt[:first_plot]
@@ -75,17 +75,6 @@ function run_adam_with_plotting!(
             # => quasiGrad.adaGrad!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
             # => quasiGrad.the_quasiGrad!(adm, mgd, prm, qG, stt, upd)
             # => quasiGrad.adam_with_ls!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd, cgd, ctb, ctd, flw, grd, idx, ntk, scr, sys, wct)
-
-        # take intermediate pf steps?
-        if qG.take_adam_pf_steps == true
-            for _ in 1:qG.num_adam_pf_step
-                # update the power injection-associated gradients
-                quasiGrad.update_states_and_grads_for_adam_pf!(grd, idx, mgd, prm, qG, stt, sys)
-
-                # take an adam pf step (standard_adam=false)
-                quasiGrad.adam!(adm, mgd, prm, qG, stt, upd, standard_adam = false)
-            end
-        end
 
         quasiGrad.update_plot!(ax, fig, plt, qG, scr, z_plt)
         display(fig)

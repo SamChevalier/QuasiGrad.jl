@@ -760,6 +760,15 @@ function load_solve_project_write(path::String, solution_file::String)
     qG.eval_grad        = true
     qG.always_solve_ctg = true
     qG.skip_ctg_eval    = false
+
+    # turn off all printing
+    qG.print_zms                     = false # print zms at every adam iteration?
+    qG.print_final_stats             = false # print stats at the end?
+    qG.print_lbfgs_iterations        = false
+    qG.print_projection_success      = false
+    qG.print_linear_pf_iterations    = false
+    qG.print_reserve_cleanup_success = false
+    
     # solve
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
     quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
@@ -767,8 +776,8 @@ function load_solve_project_write(path::String, solution_file::String)
     quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
     quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
-    quasiGrad.write_solution(solution_file, prm, qG, stt, sys)
     quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    quasiGrad.write_solution(solution_file, prm, qG, stt, sys)
 
     # write results to file
     m1 = "zms = $(scr[:zms])"
@@ -778,6 +787,7 @@ function load_solve_project_write(path::String, solution_file::String)
     m5 = "e-min = $(scr[:z_enmin])"
     m6 = "e-max = $(scr[:z_enmax])"
 
+    solution_file = replace(solution_file, ".json" => "")
     txt_file = solution_file*".txt"
     open(txt_file, "w") do file
         write(file, m1)
