@@ -561,6 +561,8 @@ function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
     acline_to_bus = Int64.(indexin(prm.acline.to_bus,prm.bus.id))
     xfm_fr_bus    = Int64.(indexin(prm.xfm.fr_bus,prm.bus.id))
     xfm_to_bus    = Int64.(indexin(prm.xfm.to_bus,prm.bus.id))
+    ac_fr_bus     = [acline_fr_bus; xfm_fr_bus] # acline + xfm
+    ac_to_bus     = [acline_to_bus; xfm_to_bus] # acline + xfm
     dc_fr_bus     = Int64.(indexin(prm.dc.fr_bus,prm.bus.id))
     dc_to_bus     = Int64.(indexin(prm.dc.to_bus,prm.bus.id))
     shunt_bus     = Int64.(indexin(prm.shunt.bus,prm.bus.id))
@@ -682,6 +684,8 @@ function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
         acline_to_bus,
         xfm_fr_bus,
         xfm_to_bus,
+        ac_fr_bus,
+        ac_to_bus,
         dc_fr_bus,
         dc_to_bus,
         ac_line_flows,        # index of acline flows in a vector of all lines

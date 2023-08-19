@@ -666,10 +666,19 @@ function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::qu
                 flw.theta[tii] .= ntk.Ybr\c
             end
 
-            # update
-            stt.va[tii][2:end] .= copy.(flw.theta[tii])
-            stt.va[tii][1]      = 0.0 # make sure
+            # update -- before updating, make sure that the largest 
+            # phase angle differences are smaller than pi/3! if they are not
+            # then scale the entire thing :)
+            max_delta = maximum(abs.((@view stt.va[tii][idx.ac_fr_bus]) .- (@view stt.va[tii][idx.ac_fr_bus]) .- flw.ac_phi[tii]))
 
+            if max_delta > pi/3
+                # downscale! otherwise, you could have a really bad linearization!
+                stt.va[tii][2:end] .= flw.theta[tii].*((pi/3)/max_delta)
+                stt.va[tii][1]      = 0.0 # make sure
+            else
+                stt.va[tii][2:end] .= copy.(flw.theta[tii])
+                stt.va[tii][1]      = 0.0 # make sure
+            end
             # solve with pcg -- vm
             # quasiGrad.cg!(vmr, ntk.Ybr, qinj[2:end], abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr)
             

@@ -361,6 +361,8 @@ struct Index
     acline_to_bus::Vector{Int64}
     xfm_fr_bus::Vector{Int64}
     xfm_to_bus::Vector{Int64}
+    ac_fr_bus::Vector{Int64}
+    ac_to_bus::Vector{Int64}
     dc_fr_bus::Vector{Int64}
     dc_to_bus::Vector{Int64}
     ac_line_flows::Vector{Int64}

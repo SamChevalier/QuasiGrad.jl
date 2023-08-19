@@ -447,11 +447,11 @@ function compute_quasiGrad_solution_ed_timing(InFile1::String, NewTimeLimitInSec
     println("number threads: $nt")
 
     # print all thread ids :)
-    Threads.@threads for i = 1:200
-        tt = Threads.threadid()
-        print("$tt, ")
-        sleep(0.25)
-    end
+    #Threads.@threads for i = 1:200
+    #    tt = Threads.threadid()
+    #    print("$tt, ")
+    #    sleep(0.25)
+    #end
 
     println()
 
@@ -461,10 +461,10 @@ function compute_quasiGrad_solution_ed_timing(InFile1::String, NewTimeLimitInSec
     load_time = time() - t
     println("loadtime1: $load_time")
 
-    t = time()
-    jsn = quasiGrad.load_json(InFile1)
-    load_time = time() - t
-    println("loadtime2: $load_time")
+    #t = time()
+    #jsn = quasiGrad.load_json(InFile1)
+    #load_time = time() - t
+    #println("loadtime2: $load_time")
 
     # initialize
     t = time()
@@ -472,10 +472,10 @@ function compute_quasiGrad_solution_ed_timing(InFile1::String, NewTimeLimitInSec
     init_time = time() - t
     println("init time1: $init_time")
 
-    t = time()
-    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
-    init_time = time() - t
-    println("init time2: $init_time")
+    #t = time()
+    #adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
+    #init_time = time() - t
+    #println("init time2: $init_time")
 
     # ed
     t = time()
@@ -483,10 +483,10 @@ function compute_quasiGrad_solution_ed_timing(InFile1::String, NewTimeLimitInSec
     ed_time = time() - t
     println("ed time1: $ed_time")
 
-    t = time()
-    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
-    ed_time = time() - t
-    println("ed time2: $ed_time")
+    #t = time()
+    #quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    #ed_time = time() - t
+    #println("ed time2: $ed_time")
 
     # update
     t = time()

@@ -1,16 +1,18 @@
 using quasiGrad
 using Revise
 
-# files
+# %% files
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/C3S0N00014/scenario_003.json"
 #path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S0_20221208/C3S0N00073/scenario_002.json"
 #path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N00600D1/scenario_001.json"
 path = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/C3S1_20221222/C3S1N01576D1/scenario_001.json"
-
 tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
 path = tfp*"C3E3.1_20230629/D1/C3E3N01576D1/scenario_027.json"
 #tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
 #path = tfp*"C3S4X_20230809/D2/C3S4N00073D2/scenario_997.json"
+
+path = tfp*"C3E3.1_20230629/D1/C3E3N04224D1/scenario_131.json"
+solution_file = "C3E3N04224D1_scenario_131_solution.json"
 
 jsn  = quasiGrad.load_json(path)
 
@@ -18,8 +20,21 @@ jsn  = quasiGrad.load_json(path)
 adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=false);
 
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
-#quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
 stt0 = deepcopy(stt);
+
+
+
+# %%
+stt = deepcopy(stt0);
+for tii in prm.ts.time_keys
+    stt.va[tii] .= 0.0
+end
+
+qG.lbfgs_adam_alpha_0 = 0.01
+qG.initial_pf_lbfgs_step = 0.5
+qG.max_linear_pfs = 1
+quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+
 
 # %% adam!!!
 stt = deepcopy(stt0);
