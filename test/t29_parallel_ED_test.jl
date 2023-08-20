@@ -136,13 +136,6 @@ end
 
 
 # %% ==============
-ctg_ii = 1
-zrs = zeros(sys.nb-1)
-zrs .= @view Er[ctg_out_ind[ctg_ii][1],:]
-# %%
-quasiGrad.cg!(u_k[ctg_ii], Ybr, zrs, abstol = qG.pcg_tol, Pl=Ybr_ChPr, maxiter = qG.max_pcg_its)
-
-# %% ==============
 lck = Threads.SpinLock() # => Threads.ReentrantLock(); SpinLock slower, but safer, than ReentrantLock ..?
 
 # define a vector of bools acciated with multithread storage:
@@ -159,16 +152,15 @@ lck = Threads.SpinLock()
                             #end
 
 zrs = zeros(sys.nb-1, qG.num_threads+2)
-
 t1 = time()
 
 Threads.@threads for ctg_ii in 1:sys.nctg
     # use a custom "thread ID" -- three indices: tii, ctg_ii, and thrID
-    thrID = Int16(1)
+    thrID = 1
     Threads.lock(lck)
         thrIdx = findfirst(ready_to_use)
         if thrIdx != Nothing
-            thrID = Int16(thrIdx)
+            thrID = thrIdx
         end
         ready_to_use[thrID] = false # now in use :)
     Threads.unlock(lck)
@@ -183,7 +175,7 @@ Threads.@threads for ctg_ii in 1:sys.nctg
 
     # all done!!
     Threads.lock(lck)
-        ctg.ready_to_use[thrID] = true
+        ready_to_use[thrID] = true
     Threads.unlock(lck)
 end
 

@@ -1,82 +1,83 @@
-function solve_power_flow!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::quasiGrad.Index, lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
-    # Note -- this is run *after* DCPF and q/v corrections
+function solve_power_flow!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::quasiGrad.Index, lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; first_solve::Bool=true)
+    # Note -- this is run *after* DCPF and q/v corrections (maybe..)
     # 
-    # 1. fire up lbfgs, as controlled by adam, WITH regularization + OPF
-    # 2. after a short period, use Gurobi to solve successive power flows
-    # 
-    # step 1: lbfgs power flow
-    #
-    # turn on extra influence
-    qG.eval_grad                       = true
-    qG.include_energy_costs_lbfgs      = true
-    qG.include_lbfgs_p0_regularization = true
+    if first_solve == true
+        # 1. fire up lbfgs, as controlled by adam, WITH regularization + OPF
+        # 2. after a short period, use Gurobi to solve successive power flows
+        # 
+        # step 1: lbfgs power flow
+        #
+        # turn on extra influence
+        qG.eval_grad                       = true
+        qG.include_energy_costs_lbfgs      = true
+        qG.include_lbfgs_p0_regularization = true
 
-    # set the loss function to quadratic -- low gradient factor
-    tmp_pb_grad_type   = deepcopy(qG.pqbal_grad_type)
-    qG.pqbal_grad_type = "soft_abs"
-    qG.pqbal_grad_eps2 = 1e-3
+        # set the loss function
+        qG.pqbal_grad_type = "soft_abs"
+        qG.pqbal_grad_eps2 = 1e-3
 
-    # loop -- lbfgs
-    run_lbfgs = true
-    lbfgs_cnt = 0
-    zt0       = 0.0
+        # loop -- lbfgs
+        run_lbfgs = true
+        lbfgs_cnt = 0
+        zt0       = 0.0
 
-    # make a few copies, just in case
-    stt.vm_copy    .= deepcopy.(stt.vm)
-    stt.va_copy    .= deepcopy.(stt.va)
-    stt.p_on_copy  .= deepcopy.(stt.p_on)
-    stt.dev_q_copy .= deepcopy.(stt.dev_q)
+        # make a few copies, just in case
+        stt.vm_copy    .= deepcopy.(stt.vm)
+        stt.va_copy    .= deepcopy.(stt.va)
+        stt.p_on_copy  .= deepcopy.(stt.p_on)
+        stt.dev_q_copy .= deepcopy.(stt.dev_q)
 
-    # re-initialize the lbf(gs) struct
-    quasiGrad.flush_lbfgs!(lbf, prm, qG, stt)
+        # re-initialize the lbf(gs) struct
+        quasiGrad.flush_lbfgs!(lbf, prm, qG, stt)
 
-    # initialize: compute all states and grads
-    quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
-
-    # store the first value
-    zt0 = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys) + sum(lbf.zpf[:zq][tii] for tii in prm.ts.time_keys)
-
-    # loop -- lbfgs
-    while run_lbfgs == true
-        # take an lbfgs step
-        emergency_stop = quasiGrad.solve_pf_lbfgs!(lbf, mgd, prm, qG, stt, upd)
-
-        # save zpf BEFORE updating with the new state -- don't track bias terms
-        for tii in prm.ts.time_keys
-            lbf.step[:zpf_prev][tii] = (lbf.zpf[:zp][tii]+lbf.zpf[:zq][tii]) 
-        end
-
-        # compute all states and grads
+        # initialize: compute all states and grads
         quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
 
         # store the first value
-        zp = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys)
-        zq = sum(lbf.zpf[:zq][tii] for tii in prm.ts.time_keys)
-        zt = zp + zq
+        zt0 = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys) + sum(lbf.zpf[:zq][tii] for tii in prm.ts.time_keys)
 
-        # print
-        if qG.print_lbfgs_iterations == true
-            ztr = round(zt; sigdigits = 3)
-            zpr = round(zp; sigdigits = 3)
-            zqr = round(zq; sigdigits = 3)
-            stp = round(sum(lbf.step[:step][tii] for tii in prm.ts.time_keys)/sys.nT; sigdigits = 3)
-            println("Total: $(ztr), P penalty: $(zpr), Q penalty: $(zqr), avg adam step: $(stp)!")
-        end
+        # loop -- lbfgs
+        while run_lbfgs == true
+            # take an lbfgs step
+            emergency_stop = quasiGrad.solve_pf_lbfgs!(lbf, mgd, prm, qG, stt, upd)
 
-        # increment
-        lbfgs_cnt += 1
+            # save zpf BEFORE updating with the new state -- don't track bias terms
+            for tii in prm.ts.time_keys
+                lbf.step[:zpf_prev][tii] = (lbf.zpf[:zp][tii]+lbf.zpf[:zq][tii]) 
+            end
 
-        # quit if the error gets too large relative to the first error
-        if (lbfgs_cnt > qG.num_lbfgs_steps) || (zt > 1.25*zt0) || (emergency_stop == true)
-            run_lbfgs = false
-            if (emergency_stop == true) || (zt > 1.25*zt0)
-                @info "LBFGS failed -- error too high. Snapping state back!"
+            # compute all states and grads
+            quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
 
-                # update the copies of vm, va, p, and q
-                stt.vm    .= deepcopy.(stt.vm_copy)
-                stt.va    .= deepcopy.(stt.va_copy)
-                stt.p_on  .= deepcopy.(stt.p_on_copy)
-                stt.dev_q .= deepcopy.(stt.dev_q_copy)
+            # store the first value
+            zp = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys)
+            zq = sum(lbf.zpf[:zq][tii] for tii in prm.ts.time_keys)
+            zt = zp + zq
+
+            # print
+            if qG.print_lbfgs_iterations == true
+                ztr = round(zt; sigdigits = 3)
+                zpr = round(zp; sigdigits = 3)
+                zqr = round(zq; sigdigits = 3)
+                stp = round(sum(lbf.step[:step][tii] for tii in prm.ts.time_keys)/sys.nT; sigdigits = 3)
+                println("Total: $(ztr), P penalty: $(zpr), Q penalty: $(zqr), avg adam step: $(stp)!")
+            end
+
+            # increment
+            lbfgs_cnt += 1
+
+            # quit if the error gets too large relative to the first error
+            if (lbfgs_cnt > qG.num_lbfgs_steps) || (zt > 1.25*zt0) || (emergency_stop == true)
+                run_lbfgs = false
+                if (emergency_stop == true) || (zt > 1.25*zt0)
+                    @info "LBFGS failed -- error too high. Snapping state back!"
+
+                    # update the copies of vm, va, p, and q
+                    stt.vm    .= deepcopy.(stt.vm_copy)
+                    stt.va    .= deepcopy.(stt.va_copy)
+                    stt.p_on  .= deepcopy.(stt.p_on_copy)
+                    stt.dev_q .= deepcopy.(stt.dev_q_copy)
+                end
             end
         end
     end
@@ -84,8 +85,6 @@ function solve_power_flow!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx
     # step 2: Gurobi linear solve (projection)
     quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
 
-    # change the gradient type back to whatever it was
-    qG.pqbal_grad_type = tmp_pb_grad_type
 end
 
 # correct the reactive power injections into the network
@@ -421,8 +420,8 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
             # finally, bound the apparent power flow in the lines and transformers
             JacSfr_acl_noref = @view ntk.Jac_sflow_fr[tii][1:sys.nl,       [1:sys.nb; (sys.nb+2):end]]
             JacSfr_xfm_noref = @view ntk.Jac_sflow_fr[tii][(sys.nl+1):end, [1:sys.nb; (sys.nb+2):end]]
-            @constraint(model, JacSfr_acl_noref*x_in + stt.acline_sfr[tii] .<= 1.25 .* prm.acline.mva_ub_nom)
-            @constraint(model, JacSfr_xfm_noref*x_in + stt.xfm_sfr[tii]    .<= 1.25 .* prm.xfm.mva_ub_nom)
+            @constraint(model, JacSfr_acl_noref*x_in + stt.acline_sfr[tii] .<= 1.2 .* prm.acline.mva_ub_nom)
+            @constraint(model, JacSfr_xfm_noref*x_in + stt.xfm_sfr[tii]    .<= 1.2 .* prm.xfm.mva_ub_nom)
                         
             if first_run == true
                 first_run = false # toggle

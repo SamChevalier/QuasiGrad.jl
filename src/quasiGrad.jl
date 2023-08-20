@@ -79,6 +79,12 @@ using PrecompileTools
     # call the jsn and initialize
     jsn = quasiGrad.load_json(path)
     adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
+
+    # do an economic dispatch solve
+    
+    #
+    
+    #
 end
 
 # directly precompile everthing else which is NOT a function of jsn -- move down alphabetically
@@ -166,7 +172,7 @@ precompile(soft_abs_reserve_grad,(Float64, quasiGrad.QG))
 precompile(solution_status,(quasiGrad.Model,))
 precompile(solve_Gurobi_projection!,(Bool, quasiGrad.Index, quasiGrad.Param, quasiGrad.QG, quasiGrad.State, quasiGrad.System, Dict{Symbol, Vector{Vector{Int64}}}))
 precompile(solve_parallel_linear_pf_with_Gurobi!,(quasiGrad.Index, quasiGrad.Network, quasiGrad.Param, quasiGrad.QG,  quasiGrad.State, quasiGrad.System))
-precompile(solve_power_flow!,(quasiGrad.ConstantGrad, quasiGrad.Grad, quasiGrad.Index, quasiGrad.LBFGS, quasiGrad.MasterGrad, quasiGrad.Network, quasiGrad.Param, quasiGrad.QG, quasiGrad.State, quasiGrad.System, Dict{Symbol, Vector{Vector{Int64}}}))
+precompile(solve_power_flow!,(quasiGrad.ConstantGrad, quasiGrad.Grad, quasiGrad.Index, quasiGrad.LBFGS, quasiGrad.MasterGrad, quasiGrad.Network, quasiGrad.Param, quasiGrad.QG, quasiGrad.State, quasiGrad.System, Dict{Symbol, Vector{Vector{Int64}}}, Bool))
 precompile(simple_device_statuses!,(quasiGrad.Index, quasiGrad.Param, quasiGrad.QG, quasiGrad.State))
 precompile(single_shot_pf_cleanup!,(quasiGrad.Index, quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, quasiGrad.Param, quasiGrad.QG,  quasiGrad.State, quasiGrad.System, Int8))
 precompile(snap_shunts!,(Bool, quasiGrad.Param, quasiGrad.QG, quasiGrad.State, Dict{Symbol, Vector{Vector{Int64}}}))

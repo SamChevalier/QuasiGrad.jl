@@ -320,7 +320,7 @@ end
 
 # cleanup reserve variables, mostly
 function soft_reserve_cleanup!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
-    # this is, necessarily, a centralized optimziation problem (over decives)
+    # this is, necessarily, a centralized optimziation problem (over devices)
     #
     # build the model! default tolerances are fine, because this
     # is a penalized solution (not a final, feasible one)
