@@ -634,6 +634,8 @@ function solve_parallel_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.
         t_keys = [prm.ts.time_keys[1:16];
                   prm.ts.time_keys[17:32];
                   prm.ts.time_keys[33:48]]
+    else
+        # jsut in case
     end
 
     # loop over parallel solves
