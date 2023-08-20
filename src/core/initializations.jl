@@ -999,26 +999,16 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     
     # should we build the full ctg matrices?
     if qG.build_ctg_full == true
-        nac   = sys.nac
-        Ybr_k = Dict(ctg_ii => quasiGrad.spzeros(nac,nac) for ctg_ii in 1:sys.nctg)
+        Ybr_k = Dict(ctg_ii => quasiGrad.spzeros(sys.nac,sys.nac) for ctg_ii in 1:sys.nctg)
     else
         # build something small of the correct data type
         Ybr_k = Dict(1 => quasiGrad.spzeros(1,1))
     end
 
-    # and/or, should we build the low rank ctg elements?
-    if qG.build_ctg_lowrank == true
-        # no need => v_k = Dict(ctg_ii => quasiGrad.spzeros(nac) for ctg_ii in 1:sys.nctg)
-        # no need => b_k = Dict(ctg_ii => 0.0 for ctg_ii in 1:sys.nctg)
-        u_k = [zeros(sys.nb-1) for ctg_ii in 1:sys.nctg] # Dict(ctg_ii => zeros(sys.nb-1) for ctg_ii in 1:sys.nctg) # Dict(ctg_ii => quasiGrad.spzeros(sys.nb-1) for ctg_ii in 1:sys.nctg)
-        g_k = zeros(sys.nctg) # => Dict(ctg_ii => 0.0 for ctg_ii in 1:sys.nctg)
-        z_k = [zeros(sys.nac) for ctg_ii in 1:sys.nctg]
-        # if the "w_k" formulation is wanted => w_k = Dict(ctg_ii => quasiGrad.spzeros(sys.nb-1) for ctg_ii in 1:sys.nctg)
-    else
-        u_k = [zeros(sys.nb-1) for ctg_ii in 1:sys.nctg]
-        g_k = zeros(sys.nctg)
-        z_k = [zeros(sys.nac) for ctg_ii in 1:sys.nctg]
-    end
+    # and/or, should we build the low rank ctg elements? yes.. (qG.build_ctg_lowrank == true)
+    u_k = [zeros(sys.nb-1) for ctg_ii in 1:sys.nctg]
+    g_k = zeros(sys.nctg)
+    z_k = [zeros(sys.nac) for ctg_ii in 1:sys.nctg]
 
     # loop over components (see below for comments!!!)
     for ctg_ii in 1:sys.nctg
@@ -1030,137 +1020,50 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
         end
     end
 
-    # => @info "Solving $(sys.nctg) wmi factors..."
-    # => FLoops.assistant(false)
-    # => @batch per=core for ctg_ii in 1:sys.nctg (slightly slower)
-    # => @floop ThreadedEx(basesize = sys.nctg ÷ qG.num_threads) for ctg_ii in 1:sys.nctg
-    # =>     # this code is optimized -- see above for comments!!!
-    # =>     u_k[ctg_ii] .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
-    # =>     @turbo g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
-    # =>     @turbo mul!(z_k[ctg_ii], Yfr, u_k[ctg_ii])
-    # => end
-    # => FLoops.assistant(true)
-    # => FLoops.assistant(true)
-    # => @info "Done."
+    # initialize state vectors for holding cg! results. first, standard base-case power flow solver:
+    #   ** build early so we can use it! **
+    x                 = randn(sys.nb-1) # using this format just to match "cg.jl"
+    # => note -- the first array does NOT need to be zero'd out at each iteration, it seems
+    pf_cg_statevars   = [quasiGrad.IterativeSolvers.CGStateVariables(zero(x), similar(x), similar(x)) for tii in prm.ts.time_keys]
+    grad_cg_statevars = [quasiGrad.IterativeSolvers.CGStateVariables(zero(x), similar(x), similar(x)) for ii in 1:(qG.num_threads+2)]
 
-    # solve for the wmi factors!
-    t1 = time()
+    # set up a spin-lock to share memory buffers!
+    wmi_tol      = qG.pcg_tol/10.0  # use higher tolerance here
+    wmi_its      = 2*qG.max_pcg_its # allow for more iterations
+    ready_to_use = ones(Bool, qG.num_threads+2)
+    lck          = Threads.SpinLock()
+    zrs          = [zeros(sys.nb-1) for _ in 1:(qG.num_threads+2)]
+    t1           = time()
+    
+    # loop
     Threads.@threads for ctg_ii in 1:sys.nctg
-        # this code is optimized -- see above for comments!!!
-        u_k[ctg_ii]        .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
+        # use a custom "thread ID" -- three indices: tii, ctg_ii, and thrID
+        thrID = 1
+        Threads.lock(lck)
+            thrIdx = findfirst(ready_to_use)
+            if thrIdx != Nothing
+                thrID = thrIdx
+            end
+            ready_to_use[thrID] = false # now in use :)
+        Threads.unlock(lck)
+    
+        # apply sparse 
+        zrs[thrID] .= @view Er[ctg_out_ind[ctg_ii][1],:]
+        
+        # compute u, g, and z!
+            # => previous direct computation: u_k[ctg_ii]        .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
+        quasiGrad.cg!(u_k[ctg_ii], Ybr, zrs[thrID], statevars = grad_cg_statevars[thrID], abstol = wmi_tol, Pl=Ybr_ChPr, maxiter = wmi_its)
         @turbo g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
-        @turbo mul!(z_k[ctg_ii], Yfr, u_k[ctg_ii])
+        @turbo quasiGrad.mul!(z_k[ctg_ii], Yfr, u_k[ctg_ii])
+    
+        # all done!!
+        Threads.lock(lck)
+            ready_to_use[thrID] = true
+        Threads.unlock(lck)
     end
+
     t_ctg = time() - t1
-    println("WMI factor time: $t_ctg")
-
-    # original code:
-        #for ctg_ii in 1:sys.nctg
-        #    # components
-        #    cmpnts = prm.ctg.components[ctg_ii]
-        #    for (cmp_ii,cmp) in enumerate(cmpnts)
-        #        # get the cmp index and b
-        #        cmp_index = findfirst(x -> x == cmp, ac_ids) 
-        #        # => cmp_b     = -ac_b_params[cmp_index] # negative, because we subtract it out
-        #
-        #        # output
-        #        ctg_out_ind[ctg_ii][cmp_ii] = cmp_index
-        #        ctg_params[ctg_ii][cmp_ii]  = -ac_b_params[cmp_index]
-        #
-        #        # -> y_diag[cmp_index] = sqrt(cmp_b)
-        #            # we record these in ctg
-        #            # ctg_out_ind[ctg_ii]
-        #    end
-        #
-        #    # next, should we build the actual, full ctg matrix?
-        #    if qG.build_ctg_full == true
-        #        # direct construction..
-        #        #
-        #        # NOTE: this is written assuming multiple elements can be
-        #        # simultaneously outaged
-        #        Ybs_k = copy(Ybs)
-        #        Ybs_k[CartesianIndex.(tuple.(ctg_out_ind[ctg_ii],ctg_out_ind[ctg_ii]))] .= 0.0
-        #        Ybr_k[ctg_ii] = Er'*Ybs_k*Er
-        #    end
-        #
-        #    # and/or, should we build the low rank ctg elements?
-        #    if qG.build_ctg_lowrank == true
-        #        # .. vs low rank
-        #        #
-        #        # NOTE: this is written assuming only ONE element
-        #        # can be outaged
-        #
-        #        if qG.save_sparse_WMI_updates
-        #            # no need to save:
-        #                # v_k[ctg_ii] =  Er[ctg_out_ind[ctg_ii][1],:]
-        #                # b_k[ctg_ii] = -ac_b_params[ctg_out_ind[ctg_ii][1]]
-        #            v_k = Er[ctg_out_ind[ctg_ii][1],:]
-        #            b_k = -ac_b_params[ctg_out_ind[ctg_ii][1]]
-        #            #
-        #            # construction: 
-        #            # 
-        #            # Ybr_k[ctg_ii] = ctg[:Ybr] + v*beta*v'
-        #            #               = ctg[:Ybr] + vLR_k[ctg_ii]*beta*vLR_k[ctg_ii]
-        #            #
-        #            # if v, b saved:
-        #                # u_k[ctg_ii] = Ybr\Array(v_k[ctg_ii])
-        #                # w_k[ctg_ii] = b_k[ctg_ii]*u_k[ctg_ii]/(1+(v_k[ctg_ii]'*u_k[ctg_ii])*b_k[ctg_ii])
-        #            # LU fac => u_k[ctg_ii] = Ybr\Vector(v_k)
-        #                # this is very slow -- we need to us cg and then enforce sparsity!
-        #                # Float64.(Vector(v_k)) is not needed! cg can handle sparse :)
-        #                # quasiGrad.cg!(u_k[ctg_ii], Ybr, Vector(Float64.(v_k)), abstol = qG.pcg_tol, Pl=Ybr_ChPr)
-        #            # enforce sparsity -- should be sparse anyways
-        #                # u_k[ctg_ii][abs.(u_k[ctg_ii]) .< 1e-8] .= 0.0
-        #
-        #            # we want to sparsify a high-fidelity solution:
-        #            # uk_d = Ybr_Ch\v_k[ctg_ii]
-        #            # quasiGrad.cg!(u_k[ctg_ii], Ybr, Vector(Float64.(v_k)), abstol = qG.pcg_tol, Pl=Ybr_ChPr)
-        #            # u_k[ctg_ii] = Ybr\Vector(v_k)
-        #            # u_k[ctg_ii] = C\Vector(v_k)
-        #            if qG.build_basecase_cholesky
-        #                u_k_local = (Ybr_Ch\v_k)[:]
-        #            else
-        #                u_k_local = Ybr\Vector(v_k)
-        #            end
-        #            # sparsify
-        #            abs_u_k           = abs.(u_k_local)
-        #            u_k_ii_SmallToBig = sortperm(abs_u_k)
-        #            bit_vec           = cumsum(abs_u_k[u_k_ii_SmallToBig])/sum(abs_u_k) .> (1.0 - qG.accuracy_sparsify_lr_updates)
-        #            # edge case is caught! bit_vec will never be empty. Say, abs_u_k[u_k_ii_SmallToBig] = [0,0,1], then we have
-        #            # bit_vec = cumsum(abs_u_k[u_k_ii_SmallToBig])/sum(abs_u_k) .> 0.01%, say => bit_vec = [0,0,1] 
-        #            # 
-        #            # also, we use ".>" because we only want to include all elements that contribute to meeting the stated accuracy goal
-        #            u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]] = u_k_local[u_k_ii_SmallToBig[bit_vec]]
-        #            # this is ok, since u_k and w_k have the same sparsity pattern
-        #            # => for the "w_k" formulation: w_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]] = b_k*u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]]/(1.0+(quasiGrad.dot(v_k,u_k[ctg_ii][u_k_ii_SmallToBig[bit_vec]]))*b_k)
-        #            g_k[ctg_ii] = b_k/(1.0+(quasiGrad.dot(v_k,u_k[ctg_ii]))*b_k)
-        #        else
-        #            # this code is optimized -- see above for comments
-        #            u_k[ctg_ii] .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
-        #            g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
-        #        end
-        #    end
-        #end
-
-    # build the phase angle solution dict -- this will have "sys.nb-1" angles for each solution,
-    # since theta1 = 0, and it will have n_ctg+1 solutions, because the base case solution will be
-    # optionally saved at the end.. similar for pflow_k
-    # theta_k       = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1)) for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys)
-    # pflow_k       = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nac))  for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys)
-    # theta_k       = Dict(tkeys[ii] => [zeros(sys.nb-1) for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys)
-    # pflow_k       = Dict(tkeys[ii] => [zeros(sys.nac)  for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys)
-    # this is the gradient solution assuming a base case admittance (it is then rank 1 corrected to dz_dpinj)
-    # ctd = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys) 
-    # ctd = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys)   
-    # this is the gradient solution, corrected from ctd
-    # dz_dpinj      = Dict(tkeys[ii] => [Vector{Float64}(undef,(sys.nb-1))  for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys) 
-    # dz_dpinj      = Dict(tkeys[ii] => [zeros(sys.nb-1)  for jj in 1:(sys.nctg+1)] for tii in prm.ts.time_keys) 
-
-    # "local" storage for apparent power flows (not needed across time)
-    # sfr     = Dict(ctg_ii => zeros(sys.nac) for ctg_ii in 1:sys.nctg)
-    # sto     = Dict(ctg_ii => zeros(sys.nac) for ctg_ii in 1:sys.nctg)
-    # sfr_vio = Dict(ctg_ii => zeros(sys.nac) for ctg_ii in 1:sys.nctg)
-    # sto_vio = Dict(ctg_ii => zeros(sys.nac) for ctg_ii in 1:sys.nctg)   
+    println("WMI factor solve time: $t_ctg")
 
     # phase shift derivatives
     #   => consider power injections:  pinj = (p_pr-p_cs-p_sh-p_fr_dc-p_to_dc-alpha*slack) + Er^T*phi*b
@@ -1199,12 +1102,6 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     Jac_pq_flow_to           = [spzeros(2*sys.nac,2*sys.nb) for tii in prm.ts.time_keys]
     Jac_sflow_fr             = [spzeros(sys.nac,2*sys.nb) for tii in prm.ts.time_keys]
     Jac_sflow_to             = [spzeros(sys.nac,2*sys.nb) for tii in prm.ts.time_keys]
-
-    # initialize state vectors for holding cg! results. first, standard base-case power flow solver:
-    x                 = randn(sys.nb-1) # using this format just to match "cg.jl"
-    # note -- the first array does NOT need to be zero'd out at each iteration, it seems
-    pf_cg_statevars   = [quasiGrad.IterativeSolvers.CGStateVariables(zero(x), similar(x), similar(x)) for tii in prm.ts.time_keys]
-    grad_cg_statevars = [quasiGrad.IterativeSolvers.CGStateVariables(zero(x), similar(x), similar(x)) for ii in 1:(qG.num_threads+2)]
 
     # network parameters
     ntk = quasiGrad.Network(
@@ -2514,120 +2411,4 @@ function initialize_lbfgs(mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::q
     lbfgs = quasiGrad.LBFGS(p0, state, diff, idx, map, step, zpf)
 
     return lbfgs
-end
-
-# %%
-# build everything that will be needed to solve ctgs
-function initialize_ctg_test(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGrad.QG, idx::quasiGrad.Index)
-    # note, the reference bus is always bus #1
-    #
-    # first, get the ctg limits
-    s_max_ctg = [prm.acline.mva_ub_em; prm.xfm.mva_ub_em]
-
-    # get the ordered names of all components
-    ac_ids = [prm.acline.id; prm.xfm.id ]
-
-    # get the ordered (negative!!) susceptances
-    ac_b_params = -[prm.acline.b_sr; prm.xfm.b_sr]
-    
-    # build the full incidence matrix: E = lines x buses
-    E, Efr, Eto = build_incidence(idx, prm, stt, sys)
-    Er = E[:,2:end]
-    ErT = copy(Er')
-
-    # get the diagonal admittance matrix   => Ybs == "b susceptance"
-    Ybs = quasiGrad.spdiagm(ac_b_params)
-    Yb  = E'*Ybs*E
-    Ybr = Yb[2:end,2:end]  # use @view ? 
-
-    # should we precondition the base case?
-    #
-    # Note: Ybr should be sparse!! otherwise,
-    # the sparse preconditioner won't have any memory limits and
-    # will be the full Chol-decomp -- not a big deal, I guess..
-    if qG.base_solver == "pcg"
-        if sys.nb <= qG.min_buses_for_krylov
-            # too few buses -- use LU
-            println("Not enough buses for Krylov! Using LU for all Ax=b system solves.")
-        end
-
-        # time is short -- let's jsut always use ldl preconditioner -- it's just as fast
-        Ybr_ChPr = quasiGrad.Preconditioners.lldl(Ybr, memory = qG.cutoff_level);
-    else
-        # time is short -- let's jsut always use ldl preconditioner -- it's just as fast
-        Ybr_ChPr = quasiGrad.Preconditioners.lldl(Ybr, memory = qG.cutoff_level);
-            # # => Ybr_ChPr = quasiGrad.I
-            # Ybr_ChPr = quasiGrad.CholeskyPreconditioner(Ybr, qG.cutoff_level);
-    end
-    
-    # should we build the cholesky decomposition of the base case
-    # admittance matrix? we build this to compute high-fidelity
-    # solutions of the rank-1 update matrices
-    if qG.build_basecase_cholesky
-        if minimum(ac_b_params) < 0.0
-            @info "Yb not PSd -- using ldlt (instead of cholesky) to construct WMI update vectors."
-            Ybr_Ch = quasiGrad.ldlt(Ybr)
-        else
-            Ybr_Ch = quasiGrad.cholesky(Ybr)
-        end
-    else
-        # this is nonsense
-        Ybr_Ch = quasiGrad.I
-    end
-
-    # get the flow matrix
-    Yfr  = Ybs*Er
-    YfrT = copy(Yfr')
-
-    # build the low-rank contingecy updates
-    #
-    # base: Y_b*theta_b = p
-    # ctg:  Y_c*theta_c = p
-    #       Y_c = Y_b + uk'*uk
-    ctg_out_ind = Dict(ctg_ii => Vector{Int64}(undef, length(prm.ctg.components[ctg_ii])) for ctg_ii in 1:sys.nctg)
-    ctg_params  = Dict(ctg_ii => Vector{Float64}(undef, length(prm.ctg.components[ctg_ii])) for ctg_ii in 1:sys.nctg)
-    
-    # should we build the full ctg matrices?
-    #
-    # build something small of the correct data type
-    Ybr_k = Dict(1 => quasiGrad.spzeros(1,1))
-
-    # and/or, should we build the low rank ctg elements?
-    #
-    # no need => v_k = Dict(ctg_ii => quasiGrad.spzeros(nac) for ctg_ii in 1:sys.nctg)
-    # no need => b_k = Dict(ctg_ii => 0.0 for ctg_ii in 1:sys.nctg)
-    u_k = [zeros(sys.nb-1) for ctg_ii in 1:sys.nctg] # Dict(ctg_ii => zeros(sys.nb-1) for ctg_ii in 1:sys.nctg) # Dict(ctg_ii => quasiGrad.spzeros(sys.nb-1) for ctg_ii in 1:sys.nctg)
-    g_k = zeros(sys.nctg) # => Dict(ctg_ii => 0.0 for ctg_ii in 1:sys.nctg)
-    z_k = [zeros(sys.nac) for ctg_ii in 1:sys.nctg]
-    # if the "w_k" formulation is wanted => w_k = Dict(ctg_ii => quasiGrad.spzeros(sys.nb-1) for ctg_ii in 1:sys.nctg)
-
-    # loop over components (see below for comments!!!)
-    for ctg_ii in 1:sys.nctg
-        cmpnts = prm.ctg.components[ctg_ii]
-        for (cmp_ii,cmp) in enumerate(cmpnts)
-            cmp_index = findfirst(x -> x == cmp, ac_ids) 
-            ctg_out_ind[ctg_ii][cmp_ii] = cmp_index
-            ctg_params[ctg_ii][cmp_ii]  = -ac_b_params[cmp_index]
-        end
-    end
-
-    # solve for the wmi factors!
-    zrs = zeros(qG.num_threads, sys.nb-1)
-    Threads.@threads for ctg_ii in 1:sys.nctg
-        # u_k[ctg_ii] .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
-
-        quasiGrad.cg!(u_k[ctg_ii], Ybr, Er[ctg_out_ind[ctg_ii][1],:], abstol = qG.pcg_tol, Pl=Ybr_ChPr, maxiter = qG.max_pcg_its)
-        
-    end
-    t1 = time()
-
-    Threads.@threads for ctg_ii in 1:sys.nctg
-        # this code is optimized -- see above for comments!!!
-        #u_k[ctg_ii]        .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
-
-        @turbo g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
-        @turbo mul!(z_k[ctg_ii], Yfr, u_k[ctg_ii])
-    end
-    t_ctg = time() - t1
-    println("WMI factor time: $t_ctg")
 end

@@ -17,6 +17,9 @@ stt0 = deepcopy(stt);
 tfp  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
 path = tfp*"C3E3.1_20230629/D1/C3E3N00617D1/scenario_001.json" 
 path = tfp*"C3E3.1_20230629/D1/C3E3N04224D1/scenario_131.json"
+path = tfp*"C3E3.1_20230629/D1/C3E3N08316D1/scenario_001.json"
+
+path = tfp*"C3E3.1_20230629/D2/C3E3N08316D2/scenario_001.json"
 
 jsn  = quasiGrad.load_json(path)
 adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=false);
@@ -25,17 +28,33 @@ qG.print_projection_success = false
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 stt0 = deepcopy(stt);
 
-
 # %% test -- wmi factor acceleration!!!
 Base.GC.gc()
+# %%
 
-@time quasiGrad.initialize_ctg_test(stt, sys, prm, qG, idx)
+@time quasiGrad.initialize_ctg(stt, sys, prm, qG, idx);
 
 # %% =============
 E, Efr, Eto = quasiGrad.build_incidence(idx, prm, stt, sys)
 Er = E[:,2:end]
 ErT = copy(Er')
 
+# %%
+if sys.nT == 18
+    parallel_runs = 1:1
+    t_keys = [prm.ts.time_keys]
+elseif sys.nT == 42
+    parallel_runs = 1:3
+    t_keys = [prm.ts.time_keys[1:14];
+              prm.ts.time_keys[15:28];
+              prm.ts.time_keys[29:42]]
+elseif sys.nT == 48
+    parallel_runs = 1:3
+    t_keys = [prm.ts.time_keys[1:16];
+              prm.ts.time_keys[17:32];
+              prm.ts.time_keys[33:48]]
+end
+# %%
 
 
 
@@ -133,6 +152,12 @@ for ctg_ii in 1:sys.nctg
     end
 end
 
+Threads.@threads for ctg_ii in 1:sys.nctg
+    # this code is optimized -- see above for comments!!!
+    u_k[ctg_ii]        .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
+    quasiGrad.@turbo g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
+    quasiGrad.@turbo quasiGrad.mul!(z_k[ctg_ii], Yfr, u_k[ctg_ii])
+end
 
 
 # %% ==============
@@ -150,9 +175,13 @@ lck = Threads.SpinLock()
                             #    quasiGrad.cg!(u_k[ctg_ii], Ybr, Er[ctg_out_ind[ctg_ii][1],:], abstol = qG.pcg_tol, Pl=Ybr_ChPr, maxiter = qG.max_pcg_its)
                             #    
                             #end
+u_k = [zeros(sys.nb-1) for ctg_ii in 1:sys.nctg]
 
-zrs = zeros(sys.nb-1, qG.num_threads+2)
+zrs = [zeros(sys.nb-1) for ij in 1:(qG.num_threads+2)]
 t1 = time()
+
+qG.pcg_tol = 0.0006499230723708769
+qG.pcg_tol = 0.006499230723708769
 
 Threads.@threads for ctg_ii in 1:sys.nctg
     # use a custom "thread ID" -- three indices: tii, ctg_ii, and thrID
@@ -165,13 +194,13 @@ Threads.@threads for ctg_ii in 1:sys.nctg
         ready_to_use[thrID] = false # now in use :)
     Threads.unlock(lck)
 
-    # zrs[thrID] .= @view Er[ctg_out_ind[ctg_ii][1],:]
+    zrs[thrID] .= @view Er[ctg_out_ind[ctg_ii][1],:]
     
     # this code is optimized -- see above for comments!!!
-    # u_k[ctg_ii]        .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
-    #quasiGrad.cg!(u_k[ctg_ii], Ybr, zrs[thrID], abstol = qG.pcg_tol, Pl=Ybr_ChPr, maxiter = qG.max_pcg_its)
-    #quasiGrad.@turbo g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
-    #quasiGrad.@turbo mul!(z_k[ctg_ii], Yfr, u_k[ctg_ii])
+    #u_k[ctg_ii]        .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
+    quasiGrad.cg!(u_k[ctg_ii], Ybr, zrs[thrID], abstol = qG.pcg_tol, Pl=Ybr_ChPr, maxiter = qG.max_pcg_its)
+    quasiGrad.@turbo g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
+    quasiGrad.@turbo quasiGrad.mul!(z_k[ctg_ii], Yfr, u_k[ctg_ii])
 
     # all done!!
     Threads.lock(lck)
@@ -181,3 +210,19 @@ end
 
 t_ctg = time() - t1
 println("WMI factor time: $t_ctg")
+
+# %%
+if sys.nT == 18
+    parallel_runs = 1:1
+    t_keys = [prm.ts.time_keys]
+elseif sys.nT == 42
+    parallel_runs = 1:3
+    t_keys = [prm.ts.time_keys[1:14];
+              prm.ts.time_keys[15:28];
+              prm.ts.time_keys[29:42]]
+elseif sys.nT == 48
+    parallel_runs = 1:3
+    t_keys = [prm.ts.time_keys[1:16];
+              prm.ts.time_keys[17:32];
+              prm.ts.time_keys[33:48]]
+end
