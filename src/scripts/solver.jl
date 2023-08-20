@@ -478,10 +478,10 @@ function compute_quasiGrad_solution_ed_timing(InFile1::String, NewTimeLimitInSec
     #println("init time2: $init_time")
 
     # ed
-    #t = time()
-    #quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
-    #ed_time = time() - t
-    #println("ed time1: $ed_time")
+    t = time()
+    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    ed_time = time() - t
+    println("ed time1: $ed_time")
 
     #t = time()
     #quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
@@ -493,7 +493,37 @@ function compute_quasiGrad_solution_ed_timing(InFile1::String, NewTimeLimitInSec
     qG.skip_ctg_eval = true
     quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     up_time = time() - t
-    println("up time1: $up_time")
+    println("up time: $up_time")
+
+    t = time()
+    qG.skip_ctg_eval = true
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time: $up_time")
+
+    t = time()
+    qG.skip_ctg_eval = true
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time: $up_time")
+
+    t = time()
+    qG.skip_ctg_eval = true
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time: $up_time")
+
+    t = time()
+    qG.skip_ctg_eval = true
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time: $up_time")
+
+    t = time()
+    qG.skip_ctg_eval = true
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time: $up_time")
 
     #t = time()
     #qG.skip_ctg_eval = true

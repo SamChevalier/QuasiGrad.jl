@@ -635,7 +635,10 @@ function solve_parallel_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.
                   prm.ts.time_keys[17:32];
                   prm.ts.time_keys[33:48]]
     else
-        # jsut in case
+        # just in case -- solve one at a time
+        println("Hmmm -- solving parallel EDs in a serial fashion.")
+        parallel_runs = 1:sys.nT
+        t_keys = [[prm.ts.time_keys[ij]] for ij in 1:sys.nT]
     end
 
     # loop over parallel solves
