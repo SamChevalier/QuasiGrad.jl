@@ -14,35 +14,57 @@ path = tfp*"C3E3.1_20230629/D1/C3E3N01576D1/scenario_027.json"
 path = tfp*"C3E3.1_20230629/D1/C3E3N04224D1/scenario_131.json"
 solution_file = "C3E3N04224D1_scenario_131_solution.json"
 
+path = tfp*"C3E3.1_20230629/D1/C3E3N08316D1/scenario_001.json"
+#solution_file = "C3E3N08316D1_scenario_001_solution.json"
+
+# %%
+path = tfp*"C3E3.1_20230629/D1/C3E3N23643D1/scenario_003.json"
+#solution_file = "C3E3N23643D1_scenario_003_solution.json"
+#load_solve_project_write(path, solution_file)
+
+# %%
+
+path = tfp*"C3E3.1_20230629/D1/C3E3N00617D1/scenario_001.json" 
+#path = tfp*"C3E3.1_20230629/D2/C3E3N00073D2/scenario_231.json"
+#path = tfp*"C3E3.1_20230629/D3/C3E3N00073D3/scenario_231.json"
+
+path = tfp*"C3E3.1_20230629/D1/C3E3N01576D1/scenario_027.json"
+#path = tfp*"C3E3.1_20230629/D2/C3E3N00617D2/scenario_001.json"
+#path = tfp*"C3E3.1_20230629/D3/C3E3N00617D3/scenario_001.json"
+
 jsn  = quasiGrad.load_json(path)
 
 # initialize
 adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, perturb_states=false);
 
+# %% ===========
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 stt0 = deepcopy(stt);
 
-# %%
+# %%   
 stt = deepcopy(stt0);
-for tii in prm.ts.time_keys
-    stt.va[tii] .= 0.0
-end
+# for tii in prm.ts.time_keys
+#     stt.va[tii] .= 0.0
+# end
 
-qG.lbfgs_adam_alpha_0 = 0.01
-qG.initial_pf_lbfgs_step = 0.5
-qG.max_linear_pfs = 1
+# %%
+
+
+qG.lbfgs_adam_alpha_0 = 0.001
+qG.initial_pf_lbfgs_step = 0.01
+qG.max_linear_pfs = 3
 quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
 
 
 # %% adam!!!
 stt = deepcopy(stt0);
-# %%
+
 qG.decay_adam_step             = true
-qG.apply_grad_weight_homotopy  = true # true
+qG.apply_grad_weight_homotopy  = true
 qG.homotopy_with_cos_decay     = false
 qG.num_threads                 = 10
 qG.print_zms                   = true
-qG.adam_max_time               = 35.0
+qG.adam_max_time               = 150.0
 qG.take_adam_pf_steps          = false
 
 qG.beta1                   = 0.9
@@ -70,12 +92,12 @@ println(qG.adm_step)
 
 # %% ========================
     # choose adam step sizes (initial)
-    vmva_scale_t0    = 1e-6
-    xfm_scale_t0     = 1e-6
-    dc_scale_t0      = 1e-3
-    power_scale_t0   = 1e-3
-    reserve_scale_t0 = 1e-3
-    bin_scale_t0     = 1e-3  # bullish!!!
+    vmva_scale_t0    = 1e-4
+    xfm_scale_t0     = 1e-4
+    dc_scale_t0      = 1e-1
+    power_scale_t0   = 1e-1
+    reserve_scale_t0 = 1e-1
+    bin_scale_t0     = 1e-1  # bullish!!!
     qG.alpha_t0 = Dict(:vm    => vmva_scale_t0,
                    :va     => vmva_scale_t0,
                    # xfm
@@ -140,8 +162,6 @@ println(qG.adm_step)
                        :u_on_dev     => bin_scale_tf,
                        :u_step_shunt => bin_scale_tf,
                        :u_on_acline  => bin_scale_tf)
-
-
 
 
 # %% -- test 1

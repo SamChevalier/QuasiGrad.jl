@@ -35,26 +35,32 @@ function update_penalties!(prm::quasiGrad.Param, qG::quasiGrad.QG, tnow::Float64
         # => qG.reserve_grad_eps2    = 1e-2 * (1.0-beta) + beta * 1e-7
 
     # also, update the constraint penalties -- use a linear growth:
-    #qG.pqbal_grad_weight_p    = (0.1*prm.vio.p_bus)*(1.0-beta)  + beta*prm.vio.p_bus
-    #qG.pqbal_grad_weight_q    = (0.1*prm.vio.q_bus)*(1.0-beta)  + beta*prm.vio.q_bus
-    #qG.constraint_grad_weight = (0.1*prm.vio.p_bus)*(1.0-beta)  + beta*prm.vio.p_bus
-    #qG.ctg_grad_weight        = (0.1*prm.vio.s_flow)*(1.0-beta) + beta*prm.vio.s_flow
-#
-    #if prm.vio.s_flow < 1.5e3
-    #    qG.acflow_grad_weight = copy(prm.vio.s_flow)
-    #else
-    #    qG.acflow_grad_weight = (0.1*prm.vio.s_flow)*(1.0-beta)  + beta*prm.vio.s_flow
-    #end
+    qG.pqbal_grad_weight_p    = (0.1*prm.vio.p_bus)*(1.0-beta)  + beta*prm.vio.p_bus
+    qG.pqbal_grad_weight_q    = (0.1*prm.vio.q_bus)*(1.0-beta)  + beta*prm.vio.q_bus
+    qG.constraint_grad_weight = (0.1*prm.vio.p_bus)*(1.0-beta)  + beta*prm.vio.p_bus
+    qG.ctg_grad_weight        = (0.1*prm.vio.s_flow)*(1.0-beta) + beta*prm.vio.s_flow
+
+    if prm.vio.s_flow < 1.5e3
+        qG.acflow_grad_weight = copy(prm.vio.s_flow)
+    else
+        qG.acflow_grad_weight = (0.1*prm.vio.s_flow)*(1.0-beta)  + beta*prm.vio.s_flow
+    end
 end
 
 
-function adam_step_decay!(adam_first_solve::Bool, qG::quasiGrad.QG, tnow::Float64, t0::Float64, tf::Float64)
+function adam_step_decay!(qG::quasiGrad.QG, tnow::Float64, t0::Float64, tf::Float64)
     # depending on where we are between t0 and tf, compute a normalized
     # scalar value beta which acts as a homotopy parameter
     tnorm = 2.0*(tnow-t0)/(tf - t0) - 1.0 # scale between -1 and 1
     beta  = exp(5.0*tnorm)/(0.6 + exp(5.0*tnorm))
 
-    # this is just a cleanup
+    # loop and compute the homotopy based on a log-transformation fall-off
+    for stp_key in keys(qG.alpha_tnow)
+        log_stp_ratio          = log10(qG.alpha_t0[stp_key]/qG.alpha_tf[stp_key])
+        qG.alpha_tnow[stp_key] = 10.0 ^ (-beta*log_stp_ratio + log10(qG.alpha_t0[stp_key]))
+    end
+
+    #= this is just a cleanup
     if adam_first_solve == true
         # loop and compute the homotopy based on a log-transformation fall-off
         #
@@ -70,6 +76,7 @@ function adam_step_decay!(adam_first_solve::Bool, qG::quasiGrad.QG, tnow::Float6
             qG.alpha_tnow[stp_key] = 10.0 ^ (-beta*log_stp_ratio + log10(qG.alpha_t0[stp_key]))
         end
     end
+    =#
 
     # plotting:
         # => x = -1:0.01:1

@@ -2021,7 +2021,8 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
         [zeros(sys.nx)   for tii in prm.ts.time_keys],
         [zeros(sys.nx)   for tii in prm.ts.time_keys],
         [zeros(sys.nx)   for tii in prm.ts.time_keys],
-        [zeros(sys.nx)   for tii in prm.ts.time_keys])
+        [zeros(sys.nx)   for tii in prm.ts.time_keys],
+        zeros(sys.nT)) # parallel ed scores!
 
         # shunts -- should we use the supplied initialization? default: no!
         if qG.initialize_shunt_to_given_value

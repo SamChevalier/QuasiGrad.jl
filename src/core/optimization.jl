@@ -74,18 +74,16 @@ function run_adam!(
     # here we go!
     @info "Running adam for $(qG.adam_max_time) seconds!"
 
-    # split this adam solve up into two
-    qG.adam_time_1 = 0.1*qG.adam_max_time # init
-    qG.adam_time_2 = 0.9*qG.adam_max_time # cleanup
-
-    # loop and solve adam twice: once for a true solve, and once for a quick cleanup
+    # loop and solve adam twice: once for an initialization, and once for a true run
     for lp in 1:2
         if lp == 1
-            println("adam 1 (10%)")
+            println("=== running adam 1 (10%) ===")
             qG.skip_ctg_eval = true
+            this_runtime     = 0.1*qG.adam_max_time # init
         else
-            println("adam 2 (10%)")
+            println("=== running adam 2 (90%) ===")
             qG.skip_ctg_eval = false
+            this_runtime     = 0.9*qG.adam_max_time # run
         end
 
         # re-initialize
@@ -108,13 +106,7 @@ function run_adam!(
             qG.adm_step += 1
 
             # step decay
-            if qG.decay_adam_step == true
-                if lp == 1
-                    quasiGrad.adam_step_decay!(lp, qG, time(), adam_start, adam_start+qG.adam_t1)
-                else
-                    quasiGrad.adam_step_decay!(lp, qG, time(), adam_start, adam_start+qG.adam_t2)
-                end
-            end
+            quasiGrad.adam_step_decay!(qG, time(), adam_start, adam_start+this_runtime)
 
             # decay beta and pre-compute
             qG.beta1_decay         = qG.beta1_decay*qG.beta1
@@ -124,12 +116,7 @@ function run_adam!(
 
             # update weight parameters?
             if qG.apply_grad_weight_homotopy == true
-                if lp == 1
-                    quasiGrad.update_penalties!(prm, qG, time(), adam_start, adam_start+qG.adam_max_time)
-            
-                else
-                    # just the final penalty terms from the last solve
-                end
+                quasiGrad.update_penalties!(prm, qG, time(), adam_start, adam_start+this_runtime)
             end
 
             # compute all states and grads
@@ -144,8 +131,10 @@ function run_adam!(
                 # => quasiGrad.adam_with_ls!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd, cgd, ctb, ctd, flw, grd, idx, ntk, scr, sys, wct)
 
             # stop?
-            run_adam = quasiGrad.adam_termination(adam_start, qG, run_adam)
+            run_adam = quasiGrad.adam_termination(adam_start, qG, run_adam, this_runtime)
         end
+
+        println(this_runtime)
     end
 
     # one last clip + state computation -- no grad needed!
@@ -319,10 +308,10 @@ function solution_status(model::quasiGrad.Model)
     return soln_valid
 end
 
-function adam_termination(adam_start::Float64, qG::quasiGrad.QG, run_adam::Bool)
+function adam_termination(adam_start::Float64, qG::quasiGrad.QG, run_adam::Bool, this_runtime::Float64)
     # stopping criteria
     if qG.adam_stopper == "time"
-        if time() - adam_start >= qG.adam_max_time
+        if time() - adam_start >= this_runtime # => qG.adam_max_time
             run_adam = false
         end
     elseif qG.adam_stopper == "iterations"

@@ -3,13 +3,13 @@ function solve_ctgs!(
     ctg::quasiGrad.Contingency,
     flw::quasiGrad.Flow,
     grd::quasiGrad.Grad,
-    idx::quasiGrad.Index, 
-    mgd::quasiGrad.MasterGrad, 
-    ntk::quasiGrad.Network, 
-    prm::quasiGrad.Param, 
+    idx::quasiGrad.Index,
+    mgd::quasiGrad.MasterGrad,
+    ntk::quasiGrad.Network,
+    prm::quasiGrad.Param,
     qG::quasiGrad.QG,
     scr::Dict{Symbol, Float64},
-    stt::quasiGrad.State, 
+    stt::quasiGrad.State,
     sys::quasiGrad.System)
 
     # first, increment, regardless

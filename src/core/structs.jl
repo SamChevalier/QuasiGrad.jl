@@ -783,6 +783,7 @@ struct State
     va_fr_x::Vector{Vector{Float64}}  
     vm_to_x::Vector{Vector{Float64}}  
     va_to_x::Vector{Vector{Float64}}
+    parallel_ed_obj::Vector{Float64}
 end
 
 # mini gradient structs
