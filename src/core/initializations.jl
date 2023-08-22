@@ -379,14 +379,14 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # shall we compute injections when we build the Jacobian?
     compute_pf_injs_with_Jac   = true
     if Div == 1
-        max_pf_dx                  = 1e-3    # stop when max delta < 5e-4
+        max_pf_dx                  = 1e-4    # stop when max delta < 5e-4
         max_pf_dx_final_solve      = 1e-5    # final pf solve
-        max_linear_pfs_final_solve = 2
-        max_linear_pfs             = 2       # stop when number of pfs > max_linear_pfs
+        max_linear_pfs_final_solve = 3
+        max_linear_pfs             = 3       # stop when number of pfs > max_linear_pfs
     else
         max_pf_dx                  = 1e-4    # stop when max delta < 5e-4
-        max_pf_dx_final_solve      = 2.5e-5  # final pf solve
-        max_linear_pfs_final_solve = 2
+        max_pf_dx_final_solve      = 1e-5  # final pf solve
+        max_linear_pfs_final_solve = 3
         max_linear_pfs             = 3       # stop when number of pfs > max_linear_pfs
     end
     

@@ -115,11 +115,12 @@ function compute_quasiGrad_solution_practice(InFile1::String, NewTimeLimitInSeco
     # =====================================================\\
     # TT: start time
     start_time = time()
+
     jsn = quasiGrad.load_json(InFile1)
     adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
         quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true);
     
-    qG.adam_max_time  = 60.0
+    qG.adam_max_time  = 90.0
     
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
     quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
@@ -138,16 +139,28 @@ function compute_quasiGrad_solution_practice(InFile1::String, NewTimeLimitInSeco
     quasiGrad.cleanup_constrained_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
     quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
     quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
-    endtime = time()
+    
+    total_time = time() - start_time
 
     # post process
     quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
     # final print
-    println("grand time: $(endtime)")
+    println("grand time: $(total_time)")
+
     println("ed upper bounds: $(scr[:ed_obj])")
     println("zms: $(scr[:zms])")
-    println("zms: $(scr[:zms_penalized])")
+    println("zms_p: $(scr[:zms_penalized])")
+
+    println("zp: $(scr[:zp])")
+    println("zq: $(scr[:zq])")
+
+    println("zs_acline: $(scr[:acl])")
+    println("zs_xfm: $(scr[:xfm])")
+
+    println("z_enpr: $(scr[:enpr])")
+    println("z_encs: $(scr[:encs])")
+
 end
 
 function compute_triage_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
@@ -688,6 +701,96 @@ function compute_quasiGrad_load_solve_project_write_23643(InFile1::String, NewTi
         write(file, m6)
     end
     =#
+end
+
+function compute_quasiGrad_TIME_23643(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
+
+    # load!
+    jsn = quasiGrad.load_json(InFile1)
+
+    # initialize
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
+
+    # write locally
+    qG.write_location   = "local"
+    qG.eval_grad        = true
+    qG.always_solve_ctg = true
+    qG.skip_ctg_eval    = false
+
+    # turn off all printing
+    qG.print_zms                     = false # print zms at every adam iteration?
+    qG.print_final_stats             = false # print stats at the end?
+    qG.print_lbfgs_iterations        = false
+    qG.print_projection_success      = false
+    qG.print_linear_pf_iterations    = false
+    qG.print_reserve_cleanup_success = false
+    
+    # solve
+    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    
+    # now, time everything
+    print("t1: ")
+    @btime quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
+
+    print("t2: ")
+    @btime quasiGrad.clip_all!(prm, qG, stt)
+
+    print("t3: ")
+    @btime quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
+
+    print("t4: ")
+    @btime quasiGrad.xfm_flows!(grd, idx, prm, qG, stt, sys)
+
+    print("t5: ")
+    @btime quasiGrad.shunts!(grd, idx, prm, qG, stt)
+
+    print("t6: ")
+    @btime quasiGrad.all_device_statuses_and_costs!(grd, prm, qG, stt)
+
+    print("t7: ")
+    @btime quasiGrad.device_startup_states!(grd, idx, mgd, prm, qG, stt, sys)
+
+    print("t8a: ")
+    @btime quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
+
+    print("t8b: ")
+    @btime quasiGrad.device_reactive_powers!(idx, prm, qG, stt)
+
+    print("t9: ")
+    @btime quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
+
+    print("t10: ")
+    @btime quasiGrad.energy_penalties!(grd, idx, prm, qG, scr, stt, sys)
+
+    print("t11: ")
+    @btime quasiGrad.penalized_device_constraints!(grd, idx, mgd, prm, qG, scr, stt, sys)
+
+    print("t12: ")
+    @btime quasiGrad.device_reserve_costs!(prm, qG, stt)
+
+    print("t13: ")
+    @btime quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
+
+    print("t14: ")
+    @btime quasiGrad.reserve_balance!(idx, prm, qG, stt, sys)
+
+    print("t15: ")
+    @time quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+
+    print("t16: ")
+    @btime quasiGrad.score_zt!(idx, prm, qG, scr, stt)
+
+    print("t17: ")
+    @btime quasiGrad.score_zbase!(qG, scr)
+
+    print("t18: ")
+    @btime quasiGrad.score_zms!(scr)
+
+    print("t19: ")
+    @btime quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
+
+    print("t20: ")
+    @btime quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
 end
 
 function compute_quasiGrad_solution_one_sweep(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)

@@ -35,7 +35,7 @@ path = tfp*"C3E3.1_20230629/D1/C3E3N00617D1/scenario_001.json"
 solution_file = "C3E3N00617D1_scenario_001_solution.json"
 load_solve_project_write(path, solution_file)
 
-# %%
+# %% ===
 path = tfp*"C3E3.1_20230629/D1/C3E3N01576D1/scenario_027.json"
 solution_file = "C3E3N01576D1_scenario_027_solution.json"
 load_solve_project_write(path, solution_file)
