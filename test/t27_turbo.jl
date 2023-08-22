@@ -421,7 +421,7 @@ qG.eval_grad = true
 
 # %%
 qG.num_lbfgs_steps = 100
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %%
 qG.max_linear_pfs       = 25
@@ -449,7 +449,7 @@ xi, par = quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt
 stt = deepcopy(stt0);
 qG.num_lbfgs_steps = 250
 
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 # %%
 stt0 = deepcopy(stt);
 
@@ -699,7 +699,7 @@ zt = zp + zq
 # %% ======== ==============
 qG.num_lbfgs_steps = 10000
 
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %%
 quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)

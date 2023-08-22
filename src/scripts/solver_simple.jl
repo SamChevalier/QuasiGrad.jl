@@ -53,7 +53,7 @@ quasiGrad.manage_time!(time_left, qG)
 qG.adam_max_time = 60.0
 
 # L1. run power flow
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %% L2. clean-up reserves by solving softly constrained LP
 quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)

@@ -28,6 +28,36 @@ function adam!(adm::quasiGrad.Adam, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Pa
     end
 end
 
+# adam solver -- take steps for every element in master_grad (only two states are tracked: m and v)
+function adam_pf!(adm::quasiGrad.Adam, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}})
+    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for var_key in adm.keys
+    for var_key in qG.adam_pf_variables
+        # call states and gradients ("getproperty" and "call_adam_states" slower)
+        adam_states = getfield(adm, var_key)
+        state       = getfield(stt, var_key)
+        grad        = getfield(mgd, var_key)
+
+        # loop over all time
+        Threads.@threads for tii in prm.ts.time_keys
+            if var_key in keys(upd)
+                @inbounds for updates in upd[var_key][tii]
+                    adam_states.m[tii][updates] = qG.beta1*adam_states.m[tii][updates] + qG.one_min_beta1*grad[tii][updates]
+                    adam_states.v[tii][updates] = qG.beta2*adam_states.v[tii][updates] + qG.one_min_beta2*quasiGrad.LoopVectorization.pow_fast.(grad[tii][updates], 2)
+                    state[tii][updates]         = state[tii][updates]  - qG.alpha_tnow[var_key]*(adam_states.m[tii][updates]/qG.one_min_beta1_decay)/(quasiGrad.LoopVectorization.sqrt_fast(adam_states.v[tii][updates]/qG.one_min_beta2_decay) + qG.eps)
+                end
+            else
+                if !isempty(adam_states.m[tii])
+                    # update adam moments
+                        # => clipped_grad, if helpful!  = clamp.(mgd[var_key][tii], -qG.grad_max, qG.grad_max)
+                    @turbo adam_states.m[tii] .= qG.beta1.*adam_states.m[tii] .+ qG.one_min_beta1.*grad[tii]
+                    @turbo adam_states.v[tii] .= qG.beta2.*adam_states.v[tii] .+ qG.one_min_beta2.*quasiGrad.LoopVectorization.pow_fast.(grad[tii], 2)
+                    @turbo state[tii]         .= state[tii] .- qG.alpha_tnow[var_key].*(adam_states.m[tii]./qG.one_min_beta1_decay)./(quasiGrad.LoopVectorization.sqrt_fast.(adam_states.v[tii]./qG.one_min_beta2_decay) .+ qG.eps)
+                end
+            end
+        end
+    end
+end
+
 # adam solver -- take steps for every element in the master_grad list
 function flush_adam!(adm::quasiGrad.Adam, flw::quasiGrad.Flow, prm::quasiGrad.Param, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # loop over the keys in mgd
@@ -55,24 +85,13 @@ function flush_adam!(adm::quasiGrad.Adam, flw::quasiGrad.Flow, prm::quasiGrad.Pa
     end
 end
 
-function run_adam!(
-        adm::quasiGrad.Adam,
-        cgd::quasiGrad.ConstantGrad,
-        ctg::quasiGrad.Contingency,
-        flw::quasiGrad.Flow,
-        grd::quasiGrad.Grad, 
-        idx::quasiGrad.Index,
-        mgd::quasiGrad.MasterGrad,
-        ntk::quasiGrad.Network,
-        prm::quasiGrad.Param,
-        qG::quasiGrad.QG, 
-        scr::Dict{Symbol, Float64},
-        stt::quasiGrad.State, 
-        sys::quasiGrad.System,
-        upd::Dict{Symbol, Vector{Vector{Int64}}})
+function run_adam!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
 
     # here we go!
     @info "Running adam for $(qG.adam_max_time) seconds!"
+
+    # flush adam just once!
+    quasiGrad.flush_adam!(adm, flw, prm, upd)
 
     # loop and solve adam twice: once for an initialization, and once for a true run
     for lp in 1:2
@@ -95,7 +114,7 @@ function run_adam!(
         run_adam         = true
         
         # flush adam at each restart ?
-        quasiGrad.flush_adam!(adm, flw, prm, upd)
+        # => quasiGrad.flush_adam!(adm, flw, prm, upd)
 
         # start the timer!
         adam_start = time()
@@ -133,9 +152,61 @@ function run_adam!(
             # stop?
             run_adam = quasiGrad.adam_termination(adam_start, qG, run_adam, this_runtime)
         end
-
-        println(this_runtime)
     end
+
+    # one last clip + state computation -- no grad needed!
+    qG.eval_grad = false
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    qG.eval_grad = true
+    qG.skip_ctg_eval = false
+end
+
+function run_adam_pf!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+    # here we go! basically, we only compute a small subset of pf-relevant gradients
+    @info "Running powerflow-adam for $(qG.adam_max_time) seconds!"
+
+        # re-initialize
+        qG.adm_step      = 0
+        qG.beta1_decay   = 1.0
+        qG.beta2_decay   = 1.0
+        qG.one_min_beta1 = 1.0 - qG.beta1 # here for testing, in case beta1 is changed before a run
+        qG.one_min_beta2 = 1.0 - qG.beta2 # here for testing, in case beta2 is changed before a run
+        run_adam         = true
+        
+        # flush adam at each restart ?
+        quasiGrad.flush_adam!(adm, flw, prm, upd)
+
+        # start the timer!
+        adam_start = time()
+
+        # loop over adam steps
+        while run_adam
+
+            # increment
+            qG.adm_step += 1
+
+            # step decay
+            quasiGrad.adam_step_decay!(qG, time(), adam_start, adam_start+qG.adam_max_time; adam_pf=true)
+
+            # decay beta and pre-compute
+            qG.beta1_decay         = qG.beta1_decay*qG.beta1
+            qG.beta2_decay         = qG.beta2_decay*qG.beta2
+            qG.one_min_beta1_decay = (1.0-qG.beta1_decay)
+            qG.one_min_beta2_decay = (1.0-qG.beta2_decay)
+
+            # update weight parameters?
+            quasiGrad.update_penalties!(prm, qG, time(), adam_start, adam_start+qG.adam_max_time)
+
+            # compute all states and grads
+            quasiGrad.update_states_and_grads_for_adam_pf!(grd, idx, mgd, prm, qG, scr, stt, sys)
+
+            # take an adam step
+            quasiGrad.adam_pf!(adm, mgd, prm, qG, stt, upd)
+            GC.safepoint()
+
+            # stop?
+            run_adam = quasiGrad.adam_termination(adam_start, qG, run_adam, qG.adam_max_time)
+        end
 
     # one last clip + state computation -- no grad needed!
     qG.eval_grad = false
@@ -207,25 +278,39 @@ function update_states_and_grads!(
     quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 end
 
-function update_states_and_grads_for_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function update_states_and_grads_for_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
     # update the non-device states which affect power balance
     #
+    # if we are here, we want to make sure we are NOT running su/sd updates
+    qG.run_susd_updates = false
+
     # flush the gradient -- both master grad and some of the gradient terms
     quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 
     # clip all basic states (i.e., the states which are iterated on)
-    quasiGrad.clip_for_adam_pf!(prm, qG, stt)
+    qG.clip_pq_based_on_bins = false
+    quasiGrad.clip_all!(prm, qG, stt)
     
     # compute network flows and injections
     quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
     quasiGrad.xfm_flows!(grd, idx, prm, qG, stt, sys)
     quasiGrad.shunts!(grd, idx, prm, qG, stt)
 
+    # device powers
+    quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
+    quasiGrad.device_reactive_powers!(idx, prm, qG, stt)
+
     # now, we can compute the power balances
     quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
 
+    # score the market surplus function
+    quasiGrad.score_zt!(idx, prm, qG, scr, stt) 
+
+    # print the market surplus function value
+    quasiGrad.print_zms_adam_pf(qG, scr)
+
     # compute the master grad
-    quasiGrad.master_grad_adam_pf!(grd, idx, mgd, prm, qG, sys)
+    quasiGrad.master_grad_adam_pf!(grd, idx, mgd, prm, qG, stt, sys)
 end
 
 function batch_fix!(pct_round::Float64, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})

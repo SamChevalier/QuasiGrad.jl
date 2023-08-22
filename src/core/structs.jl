@@ -50,6 +50,7 @@ mutable struct QG
     score_all_ctgs::Bool
     min_buses_for_krylov::Int64
     frac_ctg_keep::Float64
+    frac_ctg_backprop::Float64
     pcg_tol::Float64
     max_pcg_its::Int64
     grad_ctg_tol::Float64
@@ -78,6 +79,8 @@ mutable struct QG
     one_min_beta2_decay::Float64
     alpha_tf::Dict{Symbol, Float64}
     alpha_t0::Dict{Symbol, Float64}
+    alpha_pf_t0::Dict{Symbol, Float64}
+    alpha_pf_tf::Dict{Symbol, Float64}
     alpha_tnow::Dict{Symbol, Float64}
     plot_scale_up::Float64 
     plot_scale_dn::Float64
@@ -109,13 +112,13 @@ mutable struct QG
     compute_pf_injs_with_Jac::Bool
     max_pf_dx::Float64   
     max_pf_dx_final_solve::Float64
+    max_linear_pfs_final_solve::Float64
     max_linear_pfs::Int64
-    max_linear_pfs_final_solve::Int64
-    max_linear_pfs_total::Int64
     print_linear_pf_iterations::Bool
     Gurobi_pf_obj::String
     initialize_shunt_to_given_value::Bool
     initialize_vm_to_given_value::Bool
+    run_lbfgs::Bool
     include_energy_costs_lbfgs::Bool
     include_lbfgs_p0_regularization::Bool
     print_lbfgs_iterations::Bool

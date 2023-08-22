@@ -361,7 +361,7 @@ function master_grad_solve_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad,
     end
 end
 
-function master_grad_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System)
+function master_grad_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # this function takes the gradient of zms with respect to the
     # variables which will help to resolve power flow.
     # Notably, even though we solve time-independent power flow
@@ -380,6 +380,15 @@ function master_grad_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::qu
 
         # g16 (zq): nzms => zbase => zt => zq => (all q injection variables)
         quasiGrad.master_grad_zq!(tii, prm, idx, grd, mgd, sys, run_devs = false)
+
+        # loop over devices
+        for dev in prm.dev.dev_keys
+            quasiGrad.apply_dev_q_grads!(tii, prm, qG, idx, stt, grd, mgd, dev, grd.dx.dq[tii][dev])
+
+            # NOTE -- apply_dev_q_grads!() must be called first! some reactive power
+            #         terms also call active power terms, which will add to their derivatives
+            quasiGrad.apply_dev_p_grads!(tii, prm, qG, idx, stt, grd, mgd, dev, grd.dx.dp[tii][dev])
+        end
     end
 end
 

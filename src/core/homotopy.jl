@@ -13,9 +13,8 @@ function update_penalties!(prm::quasiGrad.Param, qG::quasiGrad.QG, tnow::Float64
     tnorm = 2.0*(tnow-t0)/(tf - t0) - 1.0 # scale between -1 and 1
     beta  = exp(5.0*tnorm)/(1.0 + exp(5.0*tnorm))
 
-
     # modify the epsilon parameters
-    eps2_t0                 = 1e-3
+    eps2_t0                 = 1e-2
     eps2_tf                 = 1e-9
     log_eps2_ratio          = log10(eps2_t0/eps2_tf)
     esp2_update             = 10.0 ^ (-beta*log_eps2_ratio + log10(eps2_t0))
@@ -25,8 +24,6 @@ function update_penalties!(prm::quasiGrad.Param, qG::quasiGrad.QG, tnow::Float64
     qG.ctg_grad_eps2        = esp2_update
     qG.reserve_grad_eps2    = esp2_update
 
-    qG.ctg_grad_eps2 = 0.001
-
     # alternative, linear update rule:
         # => qG.pqbal_grad_eps2      = 1e-2 * (1.0-beta) + beta * 1e-7
         # => qG.constraint_grad_eps2 = 1e-2 * (1.0-beta) + beta * 1e-7
@@ -34,7 +31,7 @@ function update_penalties!(prm::quasiGrad.Param, qG::quasiGrad.QG, tnow::Float64
         # => qG.ctg_grad_eps2        = 1e-2 * (1.0-beta) + beta * 1e-7
         # => qG.reserve_grad_eps2    = 1e-2 * (1.0-beta) + beta * 1e-7
 
-    # also, update the constraint penalties -- use a linear growth:
+    # also, update the constraint penalties -- use linear growth:
     qG.pqbal_grad_weight_p    = (0.1*prm.vio.p_bus)*(1.0-beta)  + beta*prm.vio.p_bus
     qG.pqbal_grad_weight_q    = (0.1*prm.vio.q_bus)*(1.0-beta)  + beta*prm.vio.q_bus
     qG.constraint_grad_weight = (0.1*prm.vio.p_bus)*(1.0-beta)  + beta*prm.vio.p_bus
@@ -48,16 +45,24 @@ function update_penalties!(prm::quasiGrad.Param, qG::quasiGrad.QG, tnow::Float64
 end
 
 
-function adam_step_decay!(qG::quasiGrad.QG, tnow::Float64, t0::Float64, tf::Float64)
+function adam_step_decay!(qG::quasiGrad.QG, tnow::Float64, t0::Float64, tf::Float64; adam_pf::Bool=false)
     # depending on where we are between t0 and tf, compute a normalized
     # scalar value beta which acts as a homotopy parameter
     tnorm = 2.0*(tnow-t0)/(tf - t0) - 1.0 # scale between -1 and 1
-    beta  = exp(5.0*tnorm)/(0.6 + exp(5.0*tnorm))
+    beta  = exp(4.0*tnorm)/(0.6 + exp(4.0*tnorm))
 
-    # loop and compute the homotopy based on a log-transformation fall-off
-    for stp_key in keys(qG.alpha_tnow)
-        log_stp_ratio          = log10(qG.alpha_t0[stp_key]/qG.alpha_tf[stp_key])
-        qG.alpha_tnow[stp_key] = 10.0 ^ (-beta*log_stp_ratio + log10(qG.alpha_t0[stp_key]))
+    if adam_pf == true
+        # ***************** special case *****************
+        for stp_key in qG.adam_pf_variables
+            log_stp_ratio          = log10(qG.alpha_pf_t0[stp_key]/qG.alpha_pf_tf[stp_key])
+            qG.alpha_tnow[stp_key] = 10.0 ^ (-beta*log_stp_ratio + log10(qG.alpha_pf_t0[stp_key]))
+        end
+    else
+        # loop and compute the homotopy based on a log-transformation fall-off
+        for stp_key in keys(qG.alpha_tnow)
+            log_stp_ratio          = log10(qG.alpha_t0[stp_key]/qG.alpha_tf[stp_key])
+            qG.alpha_tnow[stp_key] = 10.0 ^ (-beta*log_stp_ratio + log10(qG.alpha_t0[stp_key]))
+        end
     end
 
     #= this is just a cleanup

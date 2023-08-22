@@ -17,8 +17,19 @@ function print_zms(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
     if (qG.print_zms == true) && mod(scr[:cnt],qG.print_freq) == 0
         zms   = round(scr[:zms];           sigdigits = 5)
         zms_p = round(scr[:zms_penalized]; sigdigits = 5)
-        zctg  = round(scr[:zctg_avg] + scr[:zctg_min]; sigdigits = 5)
+        zctg  = round(scr[:zctg_avg] + scr[:zctg_min]; sigdigits = 8)
         println("Penalized zms: $(zms_p)! Standard zms: $(zms)! Ctg score: $(zctg)!")
+    end
+end
+
+# print the total market surplus value
+function print_zms_adam_pf(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
+    # print score ======
+    scr[:cnt] += 1.0
+    if (qG.print_zms == true) && mod(scr[:cnt],qG.print_freq) == 0
+        zt  = scr[:zp] + scr[:zq] + scr[:acl] + scr[:xfm]
+        ztr = round(zt; sigdigits = 5)
+        println("Injection + flow penalties: $ztr")
     end
 end
 
@@ -210,6 +221,7 @@ function score_solve_pf!(lbf::quasiGrad.LBFGS, prm::quasiGrad.Param, stt::quasiG
     for tii in prm.ts.time_keys
         lbf.zpf[:zp][tii] = sum(stt.zp[tii])
         lbf.zpf[:zq][tii] = sum(stt.zq[tii])
+        lbf.zpf[:zs][tii] = sum(stt.zs_acline[tii]) + sum(stt.zs_xfm[tii])
     end
 end
 

@@ -20,14 +20,15 @@ function solve_ctgs!(
         # skipping
     else
         # should we solve, based on where we are in the adam solve?
-        if (qG.ctg_adam_counter == qG.ctg_solve_frequency) || qG.always_solve_ctg
+        if (qG.ctg_adam_counter >= qG.ctg_solve_frequency) || qG.always_solve_ctg || qG.score_all_ctgs
             # now, reset
             qG.ctg_adam_counter = 0
 
             # how many ctgs do we consider?
-            num_wrst = Int64(ceil(qG.frac_ctg_keep*sys.nctg/2))  # in case n_ctg is odd, and we want to keep all!
-            num_rnd  = Int64(floor(qG.frac_ctg_keep*sys.nctg/2)) # in case n_ctg is odd, and we want to keep all!
-            num_ctg  = num_wrst + num_rnd
+            num_wrst     = Int64(ceil(qG.frac_ctg_keep*sys.nctg/2))  # in case n_ctg is odd, and we want to keep all!
+            num_rnd      = Int64(floor(qG.frac_ctg_keep*sys.nctg/2)) # in case n_ctg is odd, and we want to keep all!
+            num_ctg      = num_wrst + num_rnd
+            num_backprop = Int64(sys.nctg*qG.frac_ctg_backprop) #, where frac_ctg_backprop <= frac_ctg_keep
 
             if qG.score_all_ctgs == true
                 ###########################################################
@@ -198,7 +199,7 @@ function solve_ctgs!(
 
                     # loop over contingency subset
                     # => @floop ThreadedEx(basesize = num_ctg ÷ qG.num_threads) for ctg_ii in @view flw.worst_ctg_ids[tii][1:num_ctg] # first is worst!!
-                    Threads.@threads for ctg_ii in @view flw.worst_ctg_ids[tii][1:num_ctg] # first is worst!!
+                    Threads.@threads for ctg_ii in @view flw.worst_ctg_ids[tii][1:num_backprop] # first is worst!! -- only consider "num_backprop"
                         # use a custom "thread ID"
                         thrID = Int16(1)
                         Threads.lock(lck)
@@ -352,7 +353,7 @@ function solve_ctgs!(
                     quasiGrad.zctgs_grad_qfr_xfm!(flw, grd, idx, mgd, prm, qG, sys, tii)
                     quasiGrad.zctgs_grad_qto_xfm!(flw, grd, idx, mgd, prm, qG, sys, tii)
 
-                    # score -- note: zctg_scored assumes and unchanging number of ctgs 
+                    # score -- note: zctg_scored assumes an unchanging number of ctgs 
                     stt.zctg_scored[tii]                         .= @view stt.zctg[tii][flw.worst_ctg_ids[tii][1:num_ctg]]
                     flw.worst_ctg_ids[tii][1:num_wrst]           .= @view flw.worst_ctg_ids[tii][partialsortperm(stt.zctg_scored[tii], 1:num_wrst)]
                     flw.worst_ctg_ids[tii][(num_wrst+1:num_ctg)] .= @view quasiGrad.shuffle!(deleteat!(collect(1:sys.nctg), sort(flw.worst_ctg_ids[tii][1:num_wrst])))[1:num_rnd]
@@ -661,4 +662,22 @@ function wmi_update(y0::Vector{Float64}, u::Vector{Float64}, g::Float64, x::Vect
 
     # output
     return y0 .- u.*(g*quasiGrad.dot(u, x))
+end
+
+function initialize_ctg_lists!(cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
+    # solve all ctgs once to find the initial set of worst ones :)
+    qG.skip_ctg_eval  = false
+    qG.score_all_ctgs = true
+
+    # solve!
+    quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+
+    # next, rank and update "worst_ctg_ids" list
+    @batch per=core for tii in prm.ts.time_keys
+        # note: sortperm! has ambiguous documentation re: initialization
+        flw.worst_ctg_ids[tii] .= sortperm(stt.zctg[tii])
+    end
+
+    # turn back off :)
+    qG.score_all_ctgs = false
 end

@@ -110,14 +110,16 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     scale_c_sflow_testing    = 1.0
 
     # ctg solver settings
-    ctg_grad_cutoff          = -25.0  # don't take gradients of ctg violations that are smaller
+    ctg_grad_cutoff          = -250.0 # don't take gradients of ctg violations that are smaller
                                       # (in magnitude) than this value -- not worth it!
     score_all_ctgs           = false  # this is used for testing/post-processing
     min_buses_for_krylov     = 25     # don't use Krylov if there are this many or fewer buses
 
     # adaptively choose the frac of ctgs to keep
-    max_ctg_to_keep = min(1000, length(prm.ctg.id))
-    frac_ctg_keep   = max_ctg_to_keep/length(prm.ctg.id)
+    max_ctg_to_keep     = min(500, length(prm.ctg.id))
+    max_ctg_to_backprop = min(100, length(prm.ctg.id))
+    frac_ctg_keep       = max_ctg_to_keep/length(prm.ctg.id)
+    frac_ctg_backprop   = max_ctg_to_backprop/length(prm.ctg.id)
     # this is the fraction of ctgs that are scored and differentiated
     # i.e., 100*frac_ctg_keep% of them. half are random, and half a
     # the worst case performers from the previous adam iteration.
@@ -173,8 +175,8 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     homotopy_with_cos_decay = true
     adm_step                = 0
     eps                     = 1e-8  # for numerical stability -- keep at 1e-8 (?)
-    beta1                   = 0.8
-    beta2                   = 0.88
+    beta1                   = 0.9
+    beta2                   = 0.99
     beta1_decay             = 1.0
     beta2_decay             = 1.0
     one_min_beta1           = 1.0
@@ -182,80 +184,140 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     one_min_beta1_decay     = 1.0
     one_min_beta2_decay     = 1.0
 
+    # ====================================================================================== #
+    # ====================================================================================== #
     # choose adam step sizes (initial)
-    vmva_scale_t0    = 1e-3
-    xfm_scale_t0     = 1e-3
-    dc_scale_t0      = 1e-2
-    power_scale_t0   = 1e-2
-    reserve_scale_t0 = 1e-2
-    bin_scale_t0     = 1e-2 # bullish!!!
-    alpha_t0 = Dict(:vm    => vmva_scale_t0,
-                   :va     => vmva_scale_t0,
+    vm_t0      = 1e-5
+    va_t0      = 1e-5
+    phi_t0     = 1e-5
+    tau_t0     = 1e-5 
+    dc_t0      = 1e-2
+    power_t0   = 1e-2
+    reserve_t0 = 1e-2
+    bin_t0     = 1e-2 # bullish!!!
+    alpha_t0 = Dict(
+                   :vm    => vm_t0,
+                   :va     => va_t0,
                    # xfm
-                   :phi    => xfm_scale_t0,
-                   :tau    => xfm_scale_t0,
+                   :phi    => phi_t0,
+                   :tau    => tau_t0,
                    # dc
-                   :dc_pfr => dc_scale_t0,
-                   :dc_qto => dc_scale_t0,
-                   :dc_qfr => dc_scale_t0,
-                   # powers -- decay this!!
-                   :dev_q  => power_scale_t0,
-                   :p_on   => power_scale_t0,
+                   :dc_pfr => dc_t0,
+                   :dc_qto => dc_t0,
+                   :dc_qfr => dc_t0,
+                   # powers
+                   :dev_q  => power_t0,
+                   :p_on   => power_t0,
                    # reserves
-                   :p_rgu     => reserve_scale_t0,
-                   :p_rgd     => reserve_scale_t0,
-                   :p_scr     => reserve_scale_t0,
-                   :p_nsc     => reserve_scale_t0,
-                   :p_rrd_on  => reserve_scale_t0,
-                   :p_rrd_off => reserve_scale_t0,
-                   :p_rru_on  => reserve_scale_t0,
-                   :p_rru_off => reserve_scale_t0,
-                   :q_qrd     => reserve_scale_t0,
-                   :q_qru     => reserve_scale_t0,
+                   :p_rgu     => reserve_t0,
+                   :p_rgd     => reserve_t0,
+                   :p_scr     => reserve_t0,
+                   :p_nsc     => reserve_t0,
+                   :p_rrd_on  => reserve_t0,
+                   :p_rrd_off => reserve_t0,
+                   :p_rru_on  => reserve_t0,
+                   :p_rru_off => reserve_t0,
+                   :q_qrd     => reserve_t0,
+                   :q_qru     => reserve_t0,
                    # bins
-                   :u_on_xfm     => bin_scale_t0,
-                   :u_on_dev     => bin_scale_t0,
-                   :u_step_shunt => bin_scale_t0,
-                   :u_on_acline  => bin_scale_t0)
+                   :u_on_xfm     => bin_t0,
+                   :u_on_dev     => bin_t0,
+                   :u_step_shunt => bin_t0,
+                   :u_on_acline  => bin_t0)
 
-        # choose adam step sizes (final)
-        vmva_scale_tf    = 1e-5
-        xfm_scale_tf     = 1e-5
-        dc_scale_tf      = 1e-4
-        power_scale_tf   = 1e-4
-        reserve_scale_tf = 1e-4
-        bin_scale_tf     = 1e-4 # bullish!!!
-        alpha_tf = Dict(:vm    => vmva_scale_tf,
-                       :va     => vmva_scale_tf,
-                       # xfm
-                       :phi    => xfm_scale_tf,
-                       :tau    => xfm_scale_tf,
-                       # dc
-                       :dc_pfr => dc_scale_tf,
-                       :dc_qto => dc_scale_tf,
-                       :dc_qfr => dc_scale_tf,
-                       # powers -- decay this!!
-                       :dev_q  => power_scale_tf,
-                       :p_on   => power_scale_tf,
-                       # reserves
-                       :p_rgu     => reserve_scale_tf,
-                       :p_rgd     => reserve_scale_tf,
-                       :p_scr     => reserve_scale_tf,
-                       :p_nsc     => reserve_scale_tf,
-                       :p_rrd_on  => reserve_scale_tf,
-                       :p_rrd_off => reserve_scale_tf,
-                       :p_rru_on  => reserve_scale_tf,
-                       :p_rru_off => reserve_scale_tf,
-                       :q_qrd     => reserve_scale_tf,
-                       :q_qru     => reserve_scale_tf,
-                       # bins
-                       :u_on_xfm     => bin_scale_tf,
-                       :u_on_dev     => bin_scale_tf,
-                       :u_step_shunt => bin_scale_tf,
-                       :u_on_acline  => bin_scale_tf)
+    # choose adam step sizes (final)
+    vm_tf      = 1e-7
+    va_tf      = 1e-7
+    phi_tf     = 1e-7
+    tau_tf     = 1e-7
+    dc_tf      = 1e-5 
+    power_tf   = 1e-5 
+    reserve_tf = 1e-5 
+    bin_tf     = 1e-5 # bullish!!!
+    alpha_tf = Dict(
+                    :vm    => vm_tf,
+                    :va     => va_tf,
+                    # xfm
+                    :phi    => phi_tf,
+                    :tau    => tau_tf,
+                    # dc
+                    :dc_pfr => dc_tf,
+                    :dc_qto => dc_tf,
+                    :dc_qfr => dc_tf,
+                    # powers
+                    :dev_q  => power_tf,
+                    :p_on   => power_tf,
+                    # reserves
+                    :p_rgu     => reserve_tf,
+                    :p_rgd     => reserve_tf,
+                    :p_scr     => reserve_tf,
+                    :p_nsc     => reserve_tf,
+                    :p_rrd_on  => reserve_tf,
+                    :p_rrd_off => reserve_tf,
+                    :p_rru_on  => reserve_tf,
+                    :p_rru_off => reserve_tf,
+                    :q_qrd     => reserve_tf,
+                    :q_qru     => reserve_tf,
+                    # bins
+                    :u_on_xfm     => bin_tf,
+                    :u_on_dev     => bin_tf,
+                    :u_step_shunt => bin_tf,
+                    :u_on_acline  => bin_tf)
+    # ====================================================================================== #
+    # ====================================================================================== #
 
-        # choose adam step size (current)
-        alpha_tnow = deepcopy(alpha_tf)
+    # ====================================================================================== #
+    # ====================================================================================== #
+    # choose adam step sizes for power flow (initial)
+    vm_pf_t0      = 2.5e-5
+    va_pf_t0      = 2.5e-5
+    phi_pf_t0     = 2.5e-5
+    tau_pf_t0     = 2.5e-5 
+    dc_pf_t0      = 1e-2
+    power_pf_t0   = 1e-2
+    bin_pf_t0     = 1e-2 # bullish!!!
+    alpha_pf_t0 = Dict(
+                   :vm     => vm_pf_t0,
+                   :va     => va_pf_t0,
+                   # xfm
+                   :phi    => phi_pf_t0,
+                   :tau    => tau_pf_t0,
+                   # dc
+                   :dc_pfr => dc_pf_t0,
+                   :dc_qto => dc_pf_t0,
+                   :dc_qfr => dc_pf_t0,
+                   # powers
+                   :dev_q  => power_pf_t0,
+                   :p_on   => power_pf_t0/2.5, # downscale active power!!!!
+                   # bins
+                   :u_step_shunt => bin_pf_t0)
+        
+    # choose adam step sizes for power flow (initial)
+    vm_pf_tf      = 1e-6
+    va_pf_tf      = 1e-6
+    phi_pf_tf     = 1e-6
+    tau_pf_tf     = 1e-6
+    dc_pf_tf      = 1e-4
+    power_pf_tf   = 1e-4
+    bin_pf_tf     = 1e-4 # bullish!!!
+    alpha_pf_tf = Dict(
+                    :vm     => vm_pf_tf,
+                    :va     => va_pf_tf,
+                    # xfm
+                    :phi    => phi_pf_tf,
+                    :tau    => tau_pf_tf,
+                    # dc
+                    :dc_pfr => dc_pf_tf,
+                    :dc_qto => dc_pf_tf,
+                    :dc_qfr => dc_pf_tf,
+                    # powers
+                    :dev_q  => power_pf_tf,
+                    :p_on   => power_pf_tf/2.5, # downscale active power!!!!
+                    # bins
+                    :u_step_shunt => bin_pf_tf)
+
+    # choose adam step size (current) -- this will always be overwritten
+    alpha_tnow = deepcopy(alpha_tf)
 
     # adam plotting
     plot_scale_up = 2.0
@@ -303,7 +365,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     ctg_grad_is_soft_abs = true # "standard"
     ctg_grad_weight    = prm.vio.s_flow
     ctg_grad_eps2      = 1e-4
-    ctg_memory         = 0.75                # how much memory should we give the ctg gradients?
+    ctg_memory         = 0.25                # how much memory should we give the ctg gradients?
     one_min_ctg_memory = 1.0 - ctg_memory    # ctg_memory + one_min_ctg_memory = 1 !!
     # NOTE: for no memory, just set ctg_memory = 0.0 -- then, every new gradient will be linearly 
     #       added and applied, and no smoothing will take place (except via adam itself!)
@@ -319,15 +381,13 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     if Div == 1
         max_pf_dx                  = 1e-3    # stop when max delta < 5e-4
         max_pf_dx_final_solve      = 1e-5    # final pf solve
+        max_linear_pfs_final_solve = 2
         max_linear_pfs             = 2       # stop when number of pfs > max_linear_pfs
-        max_linear_pfs_final_solve = 6       # stop when number of pfs > max_linear_pfs_final_solve
-        max_linear_pfs_total       = 4       # this includes failures
     else
         max_pf_dx                  = 1e-4    # stop when max delta < 5e-4
         max_pf_dx_final_solve      = 2.5e-5  # final pf solve
+        max_linear_pfs_final_solve = 2
         max_linear_pfs             = 3       # stop when number of pfs > max_linear_pfs
-        max_linear_pfs_final_solve = 6       # stop when number of pfs > max_linear_pfs_final_solve
-        max_linear_pfs_total       = 6       # this includes failures
     end
     
     Gurobi_pf_obj = "l2_penalties" # "min_dispatch_distance" or, "min_dispatch_perturbation"
@@ -345,27 +405,19 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     run_susd_updates = true
 
     # bias terms of solving bfgs
+    run_lbfgs                       = false # use adam instead ;)
     include_energy_costs_lbfgs      = false
     include_lbfgs_p0_regularization = false
-    initial_pf_lbfgs_step           = 0.0025 # keep this tiny!! a little bigger since the update..
+    initial_pf_lbfgs_step           = 0.005  # keep this tiny!! a little bigger since the update..
     lbfgs_adam_alpha_0              = 0.001  # keep this tiny!!
     lbfgs_map_over_all_time         = false  # assume the same set of variables
                                              # are optimized at each time step
     # how many historical gradients do we keep? 
     # 2 < n < 21, according to Wright
-    num_lbfgs_to_keep = 10
+    num_lbfgs_to_keep = 8
 
     # set the number of lbfgs steps
-    num_lbfgs_steps = 500
-    # => if num_bus < 100
-    # =>     num_lbfgs_steps = 400
-    # => elseif num_bus < 500    
-    # =>     num_lbfgs_steps = 350   
-    # => elseif num_bus < 1000    
-    # =>     num_lbfgs_steps = 300
-    # => else
-    # =>     num_lbfgs_steps = 500
-    # => end
+    num_lbfgs_steps = 250
 
     # when we clip p/q in bounds, should we clip based on binary values?
     # generally, only do this on the LAST adam iteration,
@@ -381,7 +433,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # adam solving pf
     take_adam_pf_steps = false
     num_adam_pf_step   = 3
-    adam_pf_variables  = [:dc_pfr, :dc_qto, :dc_qfr, :vm, :va, :phi, :tau, :u_step_shunt]
+    adam_pf_variables  = [:vm, :va, :tau, :phi, :dc_pfr, :dc_qfr, :dc_qto, :u_step_shunt, :p_on, :dev_q]
 
     # build the mutable struct
     qG = QG(
@@ -417,6 +469,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
         score_all_ctgs,
         min_buses_for_krylov,
         frac_ctg_keep,
+        frac_ctg_backprop,
         pcg_tol,
         max_pcg_its,
         grad_ctg_tol,
@@ -445,6 +498,8 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
         one_min_beta2_decay,
         alpha_tf,
         alpha_t0,
+        alpha_pf_t0,
+        alpha_pf_tf,
         alpha_tnow,
         plot_scale_up, 
         plot_scale_dn, 
@@ -476,13 +531,13 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
         compute_pf_injs_with_Jac,
         max_pf_dx,
         max_pf_dx_final_solve,
-        max_linear_pfs,
         max_linear_pfs_final_solve,
-        max_linear_pfs_total,
+        max_linear_pfs,
         print_linear_pf_iterations,
         Gurobi_pf_obj,
         initialize_shunt_to_given_value,
         initialize_vm_to_given_value,
+        run_lbfgs,
         include_energy_costs_lbfgs,
         include_lbfgs_p0_regularization,
         print_lbfgs_iterations,
@@ -2385,14 +2440,14 @@ function initialize_lbfgs(mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::q
 
     # step size control -- for adam!
     step = Dict(:zpf_prev    => Dict(tii => 0.0    for tii in prm.ts.time_keys),
-                         :beta1_decay => Dict(tii => 1.0    for tii in prm.ts.time_keys),
-                         :beta2_decay => Dict(tii => 1.0    for tii in prm.ts.time_keys),
-                         :m           => Dict(tii => 0.0    for tii in prm.ts.time_keys),   
-                         :v           => Dict(tii => 0.0    for tii in prm.ts.time_keys),   
-                         :mhat        => Dict(tii => 0.0    for tii in prm.ts.time_keys),
-                         :vhat        => Dict(tii => 0.0    for tii in prm.ts.time_keys),
-                         :step        => Dict(tii => 0.0    for tii in prm.ts.time_keys),
-                         :alpha_0     => Dict(tii => qG.lbfgs_adam_alpha_0 for tii in prm.ts.time_keys))
+                :beta1_decay => Dict(tii => 1.0    for tii in prm.ts.time_keys),
+                :beta2_decay => Dict(tii => 1.0    for tii in prm.ts.time_keys),
+                :m           => Dict(tii => 0.0    for tii in prm.ts.time_keys),   
+                :v           => Dict(tii => 0.0    for tii in prm.ts.time_keys),   
+                :mhat        => Dict(tii => 0.0    for tii in prm.ts.time_keys),
+                :vhat        => Dict(tii => 0.0    for tii in prm.ts.time_keys),
+                :step        => Dict(tii => 0.0    for tii in prm.ts.time_keys),
+                :alpha_0     => Dict(tii => qG.lbfgs_adam_alpha_0 for tii in prm.ts.time_keys))
 
     # indices to track where previous differential vectors are stored --
     # lbfgs_idx[1] is always the most recent data, and lbfgs_idx[end] is the oldest
@@ -2401,7 +2456,8 @@ function initialize_lbfgs(mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::q
     # create a scoring dict
     zpf = Dict(
         :zp  => Dict(tii => 0.0 for tii in prm.ts.time_keys),
-        :zq  => Dict(tii => 0.0 for tii in prm.ts.time_keys))
+        :zq  => Dict(tii => 0.0 for tii in prm.ts.time_keys),
+        :zs  => Dict(tii => 0.0 for tii in prm.ts.time_keys))
 
     # create the dict for regularizing the solution
     p0 = Dict(

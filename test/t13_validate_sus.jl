@@ -49,7 +49,7 @@ quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
 # %% 
 qG.max_pf_dx = 1e-2
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %%
 qG.IntFeasTol = 1e-9

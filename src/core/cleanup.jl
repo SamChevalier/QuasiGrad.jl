@@ -916,8 +916,7 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiGra
             # increment
             pf_cnt += 1
 
-            # first, rebuild the jacobian, and update the
-            # base points: stt.pinj0, stt.qinj0
+            # first, rebuild the jacobian, and update the base points: stt.pinj0, stt.qinj0
             quasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
             
             # empty model
@@ -927,8 +926,8 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiGra
             @variable(model, x_in[1:(2*sys.nb - 1)])
 
             # assign
-            dvm = @view x_in[1:sys.nb]
-            dva = @view x_in[(sys.nb+1):end]
+            dvm = x_in[1:sys.nb]
+            dva = x_in[(sys.nb+1):end]
             set_start_value.(dvm, stt.vm[tii])
             set_start_value.(dva, @view stt.va[tii][2:end])
             # note:
@@ -1068,70 +1067,19 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiGra
             # alternative: => @constraint(model, prm.bus.vm_lb .<= stt.vm[tii] + dvm .<= prm.bus.vm_ub)
 
             # mapping
-            JacP_noref = @view ntk.Jac[tii][1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
-            JacQ_noref = @view ntk.Jac[tii][(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
-
+            JacP_noref = ntk.Jac[tii][1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
+            JacQ_noref = ntk.Jac[tii][(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
             @constraint(model, JacP_noref*x_in .+ stt.pinj0[tii] .== nodal_p)
             @constraint(model, JacQ_noref*x_in .+ stt.qinj0[tii] .== nodal_q)
 
-            # objective: hold p and q close to their initial values
+            # objective: hold p and q close to their initial values (does not converge without v,a regularization)
                 # => || stt.pinj_ideal - (p0 + dp) || + regularization
-            # this finds a solution close to the dispatch point -- does not converge without v,a regularization
-            if qG.Gurobi_pf_obj == "min_dispatch_distance"
-                obj = AffExpr(0.0)
-
-                # loop over devices
-                for dev in 1:sys.ndev
-                    tmp_devp = @variable(model)
-                    tmp_devq = @variable(model)
-                    add_to_expression!(obj, tmp_devp, 25.0/sys.nb)
-                    add_to_expression!(obj, tmp_devq,  5.0/sys.nb)
-
-                    @constraint(model, stt.dev_p[tii][dev] - dev_p_vars[dev] <= tmp_devp)
-                    @constraint(model, dev_p_vars[dev] - stt.dev_p[tii][dev] <= tmp_devp)
-                    @constraint(model, stt.dev_q[tii][dev] - dev_q_vars[dev] <= tmp_devq)
-                    @constraint(model, dev_q_vars[dev] - stt.dev_q[tii][dev] <= tmp_devq)
-                end
-
-                tmp_vm = @variable(model)
-                tmp_va = @variable(model)
-                for bus in 1:sys.nb
-                    # if constraining nodal injections is helpful:
-                        # => tmp_p = @variable(model)
-                        # => tmp_q = @variable(model)
-                        # => @constraint(model, stt.pinj_ideal[bus] - nodal_p[bus] <= tmp_p)
-                        # => @constraint(model, nodal_p[bus] - stt.pinj_ideal[bus] <= tmp_p)
-                        # => @constraint(model, stt.qinj_ideal[bus] - nodal_q[bus] <= tmp_q)
-                        # => @constraint(model, nodal_q[bus] - stt.qinj_ideal[bus] <= tmp_q)
-                        # => add_to_expression!(obj, tmp_p, 25.0/sys.nb)
-                        # => add_to_expression!(obj, tmp_q, 2.5/sys.nb)
-
-                    # voltage regularization
-                    @constraint(model, -dvm[bus] <= tmp_vm)
-                    @constraint(model,  dvm[bus] <= tmp_vm)
-
-                    # phase regularization
-                    if bus > 1
-                        @constraint(model, -dva[bus-1] <= tmp_va)
-                        @constraint(model,  dva[bus-1] <= tmp_va)
-                    end
-                end
-
-                # this adds light regularization and causes convergence
-                add_to_expression!(obj, tmp_vm)
-                add_to_expression!(obj, tmp_va)
-            elseif qG.Gurobi_pf_obj == "l2_penalties"
-                # screw it -- l2 norm
-                obj = @expression(model,
-                    dvm'*dvm +
-                    dva'*dva +
-                    (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
-                    # => (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
-                    5.0*(stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) + 
-                    25.0*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
-            else
-                @warn "(ramp constrained) pf solver objective not recognized!"
-            end
+            obj = @expression(model,
+                x_in'*x_in +
+                (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
+                (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
+                5.0*(stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) + 
+                25.0*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
 
             # set the objective
             @objective(model, Min, obj)
@@ -1171,7 +1119,7 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiGra
                 end
             else
                 # the solution is NOT valid, so we should increase bounds and try again
-                @warn "Constrained power flow cleanup failed at $(tii)! Running one shot of penalized cleanup."
+                @warn "Constrained power flow cleanup failed at $(tii)! What a shame.."
                 # quasiGrad.single_shot_pf_cleanup!(idx, Jac, prm, qG, stt, sys, tii)
 
                 # all done with this time period -- move on

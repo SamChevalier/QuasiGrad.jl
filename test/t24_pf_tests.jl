@@ -93,7 +93,7 @@ stt = deepcopy(stt0);
 quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
 # %%
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %%
 stt = deepcopy(stt0);
@@ -107,7 +107,7 @@ qG.num_lbfgs_to_keep     = 10
 qG.num_lbfgs_steps       = 1000
 #qG.pqbal_grad_eps2       = 1e-2
 
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %% apply reactive power
 stt = deepcopy(stt0);

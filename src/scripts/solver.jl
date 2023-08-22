@@ -5,16 +5,32 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
     # =====================================================\\
     # TT: start time
     start_time = time()
-
-    # I1. load the system data
     jsn = quasiGrad.load_json(InFile1)
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
+        quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true);
     
-    # I2. initialize the system
+    qG.adam_max_time  = 60.0
     
-    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true);
-
-    # I3. run an economic dispatch and update the states
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
+    quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+    
+    quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
+    quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
+    # =...
+    quasiGrad.count_active_binaries!(prm, upd)
+    quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=false)
+    quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+    quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+    quasiGrad.cleanup_constrained_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
+    quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+    quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+    quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+
+
 
     # TT: time
     time_spent_before_loop = time() - start_time
@@ -33,7 +49,7 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
         qG.adam_max_time = qG.adam_solve_times[solver_itr]
 
         # L1. run power flow
-        quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+        quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
         # L2. clean-up reserves by solving softly constrained LP
         quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
@@ -67,7 +83,7 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
     quasiGrad.count_active_binaries!(prm, upd)
 
     # E1. run power flow, one more time
-    quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
     # E2. clean-up reserves by solving softly constrained LP
     quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
@@ -92,6 +108,48 @@ function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Floa
     quasiGrad.post_process_stats(false, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 end
 
+function compute_quasiGrad_solution_practice(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
+    # this is the master function which executes quasiGrad.
+    # 
+    # 
+    # =====================================================\\
+    # TT: start time
+    start_time = time()
+    jsn = quasiGrad.load_json(InFile1)
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
+        quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true);
+    
+    qG.adam_max_time  = 60.0
+    
+    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
+    quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+    
+    quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
+    quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
+    # =...
+    quasiGrad.count_active_binaries!(prm, upd)
+    quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=false)
+    quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+    quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+    quasiGrad.cleanup_constrained_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
+    quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+    quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+    endtime = time()
+
+    # post process
+    quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+
+    # final print
+    println("grand time: $(endtime)")
+    println("ed upper bounds: $(scr[:ed_obj])")
+    println("zms: $(scr[:zms])")
+    println("zms: $(scr[:zms_penalized])")
+end
+
 function compute_triage_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
     # this is the master function which executes quasiGrad.
     # 
@@ -105,7 +163,7 @@ function compute_triage_quasiGrad_solution(InFile1::String, NewTimeLimitInSecond
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
     
     t_before_pf = time()
-    quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
     quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
     t_pf      = time() - t_before_pf
     time_left = NewTimeLimitInSeconds - (time() - start_time)
@@ -147,7 +205,7 @@ function compute_triage_quasiGrad_solution(InFile1::String, NewTimeLimitInSecond
         quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
         quasiGrad.count_active_binaries!(prm, upd)
         if run_pf2
-            quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+            quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
         end
     end
@@ -174,7 +232,7 @@ function compute_quasiGrad_solution_feas(InFile1::String, NewTimeLimitInSeconds:
     pct_round = 100.0
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
     sleep(5.0)
-    quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
     sleep(5.0)
     quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
     sleep(5.0)
@@ -243,7 +301,7 @@ function compute_quasiGrad_solution_timed(InFile1::String, NewTimeLimitInSeconds
         qG.adam_max_time = qG.adam_solve_times[solver_itr]
 
         # L1. run power flow
-        quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+        quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
         time_elapsed = time() - start_time
         println("L1: $(time_elapsed)")
@@ -288,7 +346,7 @@ function compute_quasiGrad_solution_timed(InFile1::String, NewTimeLimitInSeconds
     quasiGrad.count_active_binaries!(prm, upd)
 
     # E1. run power flow, one more time
-    quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
     time_elapsed = time() - start_time
     println("E1: $(time_elapsed)")
@@ -594,7 +652,7 @@ function compute_quasiGrad_load_solve_project_write_23643(InFile1::String, NewTi
     # solve
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
     #=
-    quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+    quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
     quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
     quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
@@ -630,4 +688,100 @@ function compute_quasiGrad_load_solve_project_write_23643(InFile1::String, NewTi
         write(file, m6)
     end
     =#
+end
+
+function compute_quasiGrad_solution_one_sweep(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
+    v = VERSION
+    println(v)
+
+    st = Sys.CPU_THREADS
+    nt = Threads.nthreads()  
+
+    println("system threads: $st")
+    println("number threads: $nt")
+
+    println()
+
+    # load
+    t = time()
+    jsn = quasiGrad.load_json(InFile1)
+    load_time = time() - t
+    println("loadtime1: $load_time")
+
+    #t = time()
+    #jsn = quasiGrad.load_json(InFile1)
+    #load_time = time() - t
+    #println("loadtime2: $load_time")
+
+    # initialize
+    t = time()
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
+    init_time = time() - t
+    println("init time1: $init_time")
+
+    #t = time()
+    #adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn);
+    #init_time = time() - t
+    #println("init time2: $init_time")
+
+    # ed
+    t = time()
+    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    ed_time = time() - t
+    println("ed time1: $ed_time")
+
+    #t = time()
+    #quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    #ed_time = time() - t
+    #println("ed time2: $ed_time")
+
+    # update
+    t = time()
+    qG.skip_ctg_eval = true
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time: $up_time")
+
+    t = time()
+    qG.skip_ctg_eval = true
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time: $up_time")
+
+    t = time()
+    qG.skip_ctg_eval = true
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time: $up_time")
+
+    t = time()
+    qG.skip_ctg_eval = true
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time: $up_time")
+
+    t = time()
+    qG.skip_ctg_eval = true
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time: $up_time")
+
+    t = time()
+    qG.skip_ctg_eval = true
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    up_time = time() - t
+    println("up time: $up_time")
+
+    #t = time()
+    #qG.skip_ctg_eval = true
+    #quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    #up_time = time() - t
+    #println("up time2: $up_time")
+
+    #t = time()
+    #qG.skip_ctg_eval = true
+    #quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    #up_time = time() - t
+    #println("up time3: $up_time")
+
 end

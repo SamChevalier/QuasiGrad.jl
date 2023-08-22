@@ -53,7 +53,7 @@ stt = deepcopy(stt0);
 qG.lbfgs_adam_alpha_0 = 0.001
 qG.initial_pf_lbfgs_step = 0.01
 qG.max_linear_pfs = 3
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 
 # %% adam!!!
@@ -66,14 +66,13 @@ qG.num_threads                 = 10
 qG.print_zms                   = true
 qG.adam_max_time               = 150.0
 qG.take_adam_pf_steps          = false
+qG.beta1                       = 0.9
+qG.beta2                       = 0.99
+qG.ctg_solve_frequency         = 3
+qG.always_solve_ctg            = false
+qG.skip_ctg_eval               = true
 
-qG.beta1                   = 0.9
-qG.beta2                   = 0.99
-qG.ctg_solve_frequency     = 3
-qG.always_solve_ctg        = false
-qG.skip_ctg_eval           = true
-
-qG.ctg_memory         = 0.0            
+qG.ctg_memory         = 0.15            
 qG.one_min_ctg_memory = 1.0 - qG.ctg_memory
 
 qG.pqbal_grad_weight_p = prm.vio.p_bus # standard: prm.vio.p_bus
@@ -201,7 +200,7 @@ quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
 qG.initial_pf_lbfgs_step = 0.25
 qG.num_lbfgs_steps  = 150
 
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 
 
@@ -227,7 +226,7 @@ qG.num_threads = 10
 stt = deepcopy(stt0)
 qG.num_lbfgs_steps  = 15000
 
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %%
 stt = deepcopy(stt0)

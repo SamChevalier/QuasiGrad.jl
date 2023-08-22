@@ -218,7 +218,7 @@ gurobi_env = Gurobi.Env()
 model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(gurobi_env), "Threads" => 1, "OutputFlag" => 0))
 
 # %% solve lbfgs pf
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # %% Test 1: benchmark
 @time quasiGrad.solve_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)

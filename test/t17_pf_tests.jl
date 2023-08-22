@@ -15,7 +15,7 @@ quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
 # %%
 
 qG.initial_pf_lbfgs_step = 0.05
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 # ^ grb off
 stt0 = deepcopy(stt)
 

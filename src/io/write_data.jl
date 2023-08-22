@@ -116,7 +116,6 @@ function post_process_stats(
         # update the state vector
         qG.eval_grad        = false
         qG.skip_ctg_eval    = false
-        qG.always_solve_ctg = true
         qG.score_all_ctgs   = true
         quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
         
@@ -124,7 +123,6 @@ function post_process_stats(
         qG.eval_grad         = true
         qG.skip_ctg_eval     = true
         qG.score_all_ctgs    = false
-        qG.always_solve_ctg  = false
         qG.print_final_stats = true
         
         # print some stats?

@@ -217,7 +217,7 @@ qG.print_reserve_cleanup_success = false
 
 # solve
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
-quasiGrad.solve_power_flow!(cgd, grd, idx, lbf, mgd, ntk, prm, qG, stt, sys, upd)
+quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
 quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
