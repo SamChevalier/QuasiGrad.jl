@@ -28,7 +28,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     num_threads = Threads.nthreads()  
     nT          = length(prm.ts.time_keys)
 
-    # should we run (or skip) line and ac binary updates?
+    # should we run (or skip) line and ac binary updates via optimization (?)
     update_acline_xfm_bins = false
 
     # compute sus on each adam iteration?
@@ -558,7 +558,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     return qG
 end
 
-function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::Bool = false, perturb_states::Bool=false, pert_size::Float64=1.0)
+function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::Bool = false, perturb_states::Bool=false, pert_size::Float64=1.0, line_switching::Int64=0)
     # perform all initializations from the jsn data
 
     # first, set the BLAS thread limit to 1, to be safe
@@ -572,6 +572,15 @@ function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::B
 
     # intialize (empty) states
     cgd, grd, mgd, scr, stt = initialize_states(idx, prm, sys, qG)
+
+    # switch lines? if so, turn them all on!
+    if line_switching == 1
+        prm.acline.init_on_status .= 1.0
+        for tii in prm.ts.time_keys
+            stt.u_on_acline[tii] .= 1.0
+            stt.u_on_xfm[tii] .= 1.0
+        end
+    end
 
     # initialize the states which adam will update -- the rest are fixed
     adm = initialize_adam_states(prm, qG, sys)

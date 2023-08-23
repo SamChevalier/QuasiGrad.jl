@@ -892,7 +892,7 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiGra
     @info "Running constrained, linearized power flow cleanup across $(sys.nT) time periods."
 
     # loop over time
-    for tii in prm.ts.time_keys[5:6]
+    for tii in prm.ts.time_keys
 
         # duration
         dt = prm.ts.duration[tii]

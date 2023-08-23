@@ -825,3 +825,24 @@ rr = Mpf*(ntk.Jac_pq_flow_fr[tii][1:sys.nac      , (sys.nb+1):end]) + Mqf*(ntk.J
 for tii in prm.ts.time_keys
     ntk.Jac_sflow_fr[tii] = quasiGrad.spzeros(sys.nac, 2*sys.nb)
 end
+
+# %% ==============
+println(sum(sum(stt.zhat_mndn[tii]) for tii in prm.ts.time_keys)) 
+println(sum(sum(stt.zhat_mnup[tii]) for tii in prm.ts.time_keys)) 
+println(sum(sum(stt.zhat_rup[tii])  for tii in prm.ts.time_keys)) 
+println(sum(sum(stt.zhat_rd[tii])  for tii in prm.ts.time_keys))  
+println(sum(sum(stt.zhat_rgu[tii])  for tii in prm.ts.time_keys)) 
+println(sum(sum(stt.zhat_rgd[tii])  for tii in prm.ts.time_keys)) 
+println(sum(sum(stt.zhat_scr[tii])  for tii in prm.ts.time_keys)) 
+println(sum(sum(stt.zhat_nsc[tii])  for tii in prm.ts.time_keys)) 
+println(sum(sum(stt.zhat_rruon[tii])   for tii in prm.ts.time_keys))  
+println(sum(sum(stt.zhat_rruoff[tii])  for tii in prm.ts.time_keys)) 
+println(sum(sum(stt.zhat_rrdon[tii])   for tii in prm.ts.time_keys)) 
+println(sum(sum(stt.zhat_rrdoff[tii])  for tii in prm.ts.time_keys)) 
+println(sum(sum(stt.zhat_pmax[tii])    for tii in prm.ts.time_keys))    
+println(sum(sum(stt.zhat_pmin[tii])    for tii in prm.ts.time_keys))    
+println(sum(sum(stt.zhat_pmaxoff[tii])    for tii in prm.ts.time_keys)) 
+println(sum(sum(stt.zhat_qmax[tii])    for tii in prm.ts.time_keys))    
+println(sum(sum(stt.zhat_qmin[tii])  for tii in prm.ts.time_keys))      
+println(sum(sum(stt.zhat_qmax_beta[tii])  for tii in prm.ts.time_keys)) 
+println(sum(sum(stt.zhat_qmin_beta[tii]) for tii in prm.ts.time_keys)) 

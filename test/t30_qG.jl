@@ -1,7 +1,7 @@
 using quasiGrad
 using Revise
 
-# common folder for calling
+# %% common folder for calling
 tfp  = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
 
 # call the solver!
@@ -17,6 +17,7 @@ quasiGrad.compute_quasiGrad_solution_practice(InFile1, 1.0, 1, "test", 1)
 # 
 # 
 # =====================================================\\
+tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
 InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N04224D1/scenario_131.json"
 
 # TT: start time
@@ -26,7 +27,7 @@ jsn = quasiGrad.load_json(InFile1)
 adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
     quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
 
-qG.adam_max_time  = 90.0
+qG.adam_max_time  = 120.0
 
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
@@ -54,15 +55,26 @@ quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, s
 # final print
 println("grand time: $(total_time)")
 
-println("ed upper bounds: $(scr[:ed_obj])")
-println("zms: $(scr[:zms])")
-println("zms_p: $(scr[:zms_penalized])")
+#println("ed upper bounds: $(scr[:ed_obj])")
+#println("zms: $(scr[:zms])")
+#println("zms_p: $(scr[:zms_penalized])")
+#
+#println("zp: $(scr[:zp])")
+#println("zq: $(scr[:zq])")
+#
+#println("zs_acline: $(scr[:acl])")
+#println("zs_xfm: $(scr[:xfm])")
+#
+#println("z_enpr: $(scr[:enpr])")
+#println("z_encs: $(scr[:encs])")
 
-println("zp: $(scr[:zp])")
-println("zq: $(scr[:zq])")
+# %% =====================
+# finally, update states
+# qG.skip_ctg_eval = true
+# qG.eval_grad     = false
+# quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+# qG.skip_ctg_eval = false
+# qG.eval_grad     = true
 
-println("zs_acline: $(scr[:acl])")
-println("zs_xfm: $(scr[:xfm])")
-
-println("z_enpr: $(scr[:enpr])")
-println("z_encs: $(scr[:encs])")
+# solution_file = "C3E3N04224D1_scenario_131_solution.json"
+# quasiGrad.write_solution(solution_file, prm, qG, stt, sys)

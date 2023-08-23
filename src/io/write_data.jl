@@ -148,6 +148,9 @@ function post_process_stats(
             println(" • z (max starts): $zhmxst")
             println(" • z (ctg -- min): $zctgmin")
             println(" • z (ctg -- average): $zctgavg")
+
+            # also, run a diagnostic breakdown
+            quasiGrad.print_penalty_breakdown(qG, scr)
         end
     end
 end

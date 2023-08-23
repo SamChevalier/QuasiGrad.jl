@@ -118,7 +118,7 @@ function compute_quasiGrad_solution_practice(InFile1::String, NewTimeLimitInSeco
 
     jsn = quasiGrad.load_json(InFile1)
     adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
-        quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true);
+        quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true, line_switching=AllowSwitching);
     
     qG.adam_max_time  = 90.0
     

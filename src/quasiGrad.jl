@@ -16,6 +16,8 @@ using InvertedIndices
 using Preconditioners
 using IterativeSolvers
 using LoopVectorization
+
+using BenchmarkTools
 # don't call => using LimitedLDLFactorizations
 
 # call this first
@@ -150,6 +152,7 @@ precompile(post_process_stats,(Bool, quasiGrad.ConstantGrad, quasiGrad.Contingen
 precompile(power_balance!,(quasiGrad.Grad, quasiGrad.Index, quasiGrad.Param, quasiGrad.QG, quasiGrad.State, quasiGrad.System))
 precompile(pq_sums!,(Int64, quasiGrad.Index, quasiGrad.State, Int8))
 precompile(prepare_solution,(quasiGrad.Param, quasiGrad.State, quasiGrad.System, quasiGrad.QG))
+precompile(print_penalty_breakdown,(quasiGrad.QG, Dict{Symbol, Float64},))
 precompile(print_zms,(quasiGrad.QG, Dict{Symbol, Float64}))
 precompile(project!,(Float64, quasiGrad.Index, quasiGrad.Param, quasiGrad.QG, quasiGrad.State, quasiGrad.System, Dict{Symbol, Vector{Vector{Int64}}}, Bool))
 precompile(quadratic_distance!,(quasiGrad.LBFGS, quasiGrad.MasterGrad, quasiGrad.Param, quasiGrad.QG, quasiGrad.State))

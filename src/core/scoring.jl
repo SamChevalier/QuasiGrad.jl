@@ -278,3 +278,57 @@ function soft_abs_ctg_grad(x::Float64, qG::quasiGrad.QG)
     # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
     return x/(quasiGrad.LoopVectorization.sqrt_fast(quasiGrad.LoopVectorization.pow_fast(x,2) + qG.ctg_grad_eps2))
 end
+
+function print_penalty_breakdown(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
+    println("=== === Scoring Report (**run after post-process routine**) === === ")
+    println(" • zms: $(scr[:zms]) %")
+    println(" • ed: $(scr[:ed_obj])%")
+    gap = round(100.0*scr[:zms]/scr[:ed_obj], sigdigits = 5)
+    println(" • gap: $gap %")
+    println("")
+
+    # infeasibilities
+    infeasibility_penalties = scr[:zt_penalty] - qG.constraint_grad_weight*scr[:zhat_mxst]
+    println("Infeasibility penalties: $infeasibility_penalties")
+    println("")
+
+    # rewards
+    rewards        = scr[:zsus] + scr[:encs]
+    sus_percent    = round(100.0*scr[:zsus]/rewards, sigdigits = 5)
+    energy_percent = round(100.0*scr[:encs]/rewards, sigdigits = 5)
+
+    println("Rewards: $rewards")
+    println(" • energy: $energy_percent %")
+    println(" • sus: $sus_percent %")
+    println("")
+
+    # penalties
+    penalties = scr[:enpr] + scr[:zoud] + scr[:acl] + scr[:xfm] + scr[:rsv] +
+                    + scr[:zp] + scr[:zq] + scr[:zone] + scr[:z_enmax] + scr[:z_enmin] + scr[:zctg_min] + scr[:zctg_avg]
+    energy_percent     = round(100.0*scr[:enpr]/penalties, sigdigits = 5)  
+    on_up_down_percent = round(100.0*scr[:zoud]/penalties, sigdigits = 5)  
+    acline_percent     = round(100.0*scr[:acl]/penalties, sigdigits = 5)  
+    xfm_percent        = round(100.0*scr[:xfm]/penalties, sigdigits = 5)  
+    reserve_percent    = round(100.0*scr[:rsv]/penalties, sigdigits = 5)  
+    pb_percent         = round(100.0*scr[:zp]/penalties, sigdigits = 5)  
+    qb_percent         = round(100.0*scr[:zq]/penalties, sigdigits = 5)  
+    zone_percent       = round(100.0*scr[:zone]/penalties, sigdigits = 5)
+    enmax_percent      = round(100.0*scr[:z_enmax]/penalties, sigdigits = 5)  
+    enmin_percent      = round(100.0*scr[:z_enmin]/penalties, sigdigits = 5)
+    ctg_min_percent    = round(100.0*scr[:zctg_min]/penalties, sigdigits = 5)  
+    ctg_avg_percent    = round(100.0*scr[:zctg_avg]/penalties, sigdigits = 5)
+
+    println("Penalties: $penalties")
+    println(" • energy: $energy_percent %")
+    println(" • on/up/down: $on_up_down_percent %")
+    println(" • acline: $acline_percent %")
+    println(" • xfm: $xfm_percent %")
+    println(" • reserve costs: $reserve_percent %")
+    println(" • power balance (P): $pb_percent %")
+    println(" • power balance (Q): $qb_percent %")
+    println(" • zonal penalties: $zone_percent %")
+    println(" • maximum energy: $enmax_percent %")
+    println(" • minimum energy: $enmin_percent %")
+    println(" • ctg min: $ctg_min_percent %")
+    println(" • ctg avg: $ctg_avg_percent %")
+end
