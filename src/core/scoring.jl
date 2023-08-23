@@ -280,6 +280,10 @@ function soft_abs_ctg_grad(x::Float64, qG::quasiGrad.QG)
 end
 
 function print_penalty_breakdown(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
+    println("")
+    println("")
+    println(".")
+    println(".")
     println("=== === Scoring Report (**run after post-process routine**) === === ")
     println(" • zms: $(scr[:zms]) %")
     println(" • ed: $(scr[:ed_obj])%")
@@ -304,7 +308,7 @@ function print_penalty_breakdown(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
 
     # penalties
     penalties = scr[:enpr] + scr[:zoud] + scr[:acl] + scr[:xfm] + scr[:rsv] +
-                    + scr[:zp] + scr[:zq] + scr[:zone] + scr[:z_enmax] + scr[:z_enmin] + scr[:zctg_min] + scr[:zctg_avg]
+                    scr[:zp] + scr[:zq] + scr[:zone] + scr[:z_enmax] + scr[:z_enmin] + scr[:zctg_min] + scr[:zctg_avg]
     energy_percent     = round(100.0*scr[:enpr]/penalties, sigdigits = 5)  
     on_up_down_percent = round(100.0*scr[:zoud]/penalties, sigdigits = 5)  
     acline_percent     = round(100.0*scr[:acl]/penalties, sigdigits = 5)  
