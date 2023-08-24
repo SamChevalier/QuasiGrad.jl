@@ -1085,12 +1085,16 @@ function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::qu
     # use "flw.theta[tii]" as the phase angle buffer (also used in ctg analysis)
     Threads.@threads for tii in prm.ts.time_keys
         # first, update the xfm phase shifters (whatever they may be..)
+        #
+        # actually -- turn them off, if possible :)
+        stt.phi[tii]                .= 0.0
+        stt.phi[tii]                .= clamp.(stt.phi[tii], prm.xfm.ta_lb, prm.xfm.ta_ub)
         flw.ac_phi[tii][idx.ac_phi] .= copy.(stt.phi[tii])
 
         # loop over each bus
         for bus in 1:sys.nb
             # active power balance -- just devices
-            # !! don't include shunt or dc constributions, 
+            # !! don't include shunt or dc constributions,
             #    since power might not balance !!
             stt.pinj_dc[tii][bus] = 
                 sum(stt.dev_p[tii][pr] for pr in idx.pr[bus]; init=0.0) - 
@@ -1133,12 +1137,11 @@ function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::qu
             # update -- before updating, make sure that the largest 
             # phase angle differences are smaller than pi/3! if they are not
             # then scale the entire thing :)
-            max_delta = maximum(abs.((@view stt.va[tii][idx.ac_fr_bus]) .- (@view stt.va[tii][idx.ac_fr_bus]) .- flw.ac_phi[tii]))
-
-            if max_delta > pi/3
-                # downscale! otherwise, you could have a really bad linearization!
-                stt.va[tii][2:end] .= flw.theta[tii].*((pi/3)/max_delta)
-                stt.va[tii][1]      = 0.0 # make sure
+            max_delta = maximum(abs.((@view stt.va[tii][idx.ac_fr_bus]) .- (@view stt.va[tii][idx.ac_to_bus]) .- flw.ac_phi[tii]))
+            
+            if max_delta > 2.8*pi/10.0 # about 50 degrees
+                # forget! otherwise, you could have a really bad linearization!
+                stt.va[tii] .= 0.0
             else
                 stt.va[tii][2:end] .= copy.(flw.theta[tii])
                 stt.va[tii][1]      = 0.0 # make sure

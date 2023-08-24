@@ -459,7 +459,7 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
             
             if first_solve == true
                 obj = @expression(model,
-                    100*(vm_penalty'*vm_penalty) + x_in'*x_in +
+                    1e3*(vm_penalty'*vm_penalty) + x_in'*x_in +
                     (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
                     10.0*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
                     # => (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 

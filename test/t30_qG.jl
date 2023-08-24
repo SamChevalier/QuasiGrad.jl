@@ -1,5 +1,4 @@
 using quasiGrad
-using BenchmarkTools
 using Revise
 
 # %% common folder for calling
@@ -43,6 +42,8 @@ for tii in prm.ts.time_keys
     stt.vm[tii] .= 1.0
     #stt.dev_q[tii] .= 0.0
 end
+
+
 #=
 vm_pf_t0      = 1e-4
 va_pf_t0      = 1e-4
@@ -135,6 +136,10 @@ quasiGrad.cleanup_constrained_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
 quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
+# %%
+@time quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+# %%
+
 total_time = time() - start_time
 
 # post process
@@ -182,3 +187,130 @@ for tii in prm.ts.time_keys
         end
     end
 end
+
+# %% ============================================
+# pf test
+
+# =====================================================\\
+tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
+InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N06049D1/scenario_031.json"
+
+jsn = quasiGrad.load_json(InFile1)
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
+    quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
+
+# ed
+quasiGrad.solve_economic_dispatch!(idx, prm, qG, scr, stt, sys, upd; include_sus_in_ed=true)
+stt0 = deepcopy(stt);
+
+# %% ===
+qG.print_zms                     = true # print zms at every adam iteration?
+qG.print_final_stats             = true # print stats at the end?
+qG.print_linear_pf_iterations    = true
+
+# %% ============== test 1
+stt = deepcopy(stt0);
+
+quasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys; balanced=true)
+
+# %% ===
+stt = deepcopy(stt0);
+
+qG.adam_max_time  = 100.0
+quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+
+# %%
+quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys; first_solve = true)
+
+# %%
+vm_pf_t0      = 1e-4
+va_pf_t0      = 1e-4
+phi_pf_t0     = 1e-4
+tau_pf_t0     = 1e-4
+dc_pf_t0      = 1e-2
+power_pf_t0   = 1e-2
+bin_pf_t0     = 1e-3 # bullish!!!
+qG.alpha_pf_t0 = Dict(
+               :vm     => vm_pf_t0,
+               :va     => va_pf_t0,
+               # xfm
+               :phi    => phi_pf_t0,
+               :tau    => tau_pf_t0,
+               # dc
+               :dc_pfr => dc_pf_t0,
+               :dc_qto => dc_pf_t0,
+               :dc_qfr => dc_pf_t0,
+               # powers
+               :dev_q  => power_pf_t0,
+               :p_on   => power_pf_t0/2.5, # downscale active power!!!!
+               # bins
+               :u_step_shunt => bin_pf_t0)
+
+
+# %% for tii in prm.ts.time_keys
+#    stt.va[tii] .= 0.0
+#    stt.vm[tii] .= 1.0
+#    #stt.dev_q[tii] .= 0.0
+#end
+
+# %% ===
+stt = deepcopy(stt0);
+
+tii = Int8(2)
+
+# first, update the xfm phase shifters (whatever they may be..)
+flw.ac_phi[tii][idx.ac_phi] .= copy.(stt.phi[tii])
+
+# loop over each bus
+for bus in 1:sys.nb
+    # active power balance -- just devices
+    # !! don't include shunt or dc constributions, 
+    #    since power might not balance !!
+    stt.pinj_dc[tii][bus] = 
+        sum(stt.dev_p[tii][pr] for pr in idx.pr[bus]; init=0.0) - 
+        sum(stt.dev_p[tii][cs] for cs in idx.cs[bus]; init=0.0)
+end
+
+# are we dealing with a balanced dcpf? (i.e., does power balance?)
+if balanced == false
+    # get the slack at this time
+    @fastmath p_slack = 
+        sum(@inbounds stt.dev_p[tii][pr] for pr in idx.pr_devs) -
+        sum(@inbounds stt.dev_p[tii][cs] for cs in idx.cs_devs)
+
+    # now, apply this slack power everywhere
+    stt.pinj_dc[tii] .= stt.pinj_dc[tii] .- p_slack/sys.nb
+end
+
+# now, we need to solve Yb*theta = pinj, but we need to 
+# take phase shifters into account first:
+bt = -flw.ac_phi[tii].*ntk.b
+c  = stt.pinj_dc[tii][2:end] - ntk.Er'*bt
+# now, we need to solve Yb_r*theta_r = c via pcg
+
+
+# solve with pcg -- va
+_, ch = quasiGrad.cg!(flw.theta[tii], ntk.Ybr, c, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
+
+# test the krylov solution
+if ~(ch.isconverged)
+    # LU backup
+    @info "Krylov failed -- using LU backup (dcpf)!"
+    flw.theta[tii] .= ntk.Ybr\c
+end
+
+# update -- before updating, make sure that the largest 
+# phase angle differences are smaller than pi/3! if they are not
+# then scale the entire thing :)
+max_delta = maximum(abs.((@view stt.va[tii][idx.ac_fr_bus]) .- (@view stt.va[tii][idx.ac_to_bus]) .- flw.ac_phi[tii]))
+
+println(max_delta)
+
+if max_delta > pi/3
+    # downscale! otherwise, you could have a really bad linearization!
+    stt.va[tii][2:end] .= 0.0
+else
+    stt.va[tii][2:end] .= copy.(flw.theta[tii])
+    stt.va[tii][1]      = 0.0 # make sure
+end
+
