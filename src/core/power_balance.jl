@@ -50,49 +50,49 @@ function pq_sums!(bus::Int64, idx::quasiGrad.Index, stt::quasiGrad.State, tii::I
     stt.qb_slack[tii][bus] = 0.0
 
     # consumers -- positive
-    @inbounds for cs in idx.cs[bus]
+    @fastmath @inbounds for cs in idx.cs[bus]
         stt.pb_slack[tii][bus] += stt.dev_p[tii][cs]
         stt.qb_slack[tii][bus] += stt.dev_q[tii][cs]
     end
 
     # shunts -- positive
-    @inbounds for sh in idx.sh[bus]
+    @fastmath @inbounds for sh in idx.sh[bus]
         stt.pb_slack[tii][bus] += stt.sh_p[tii][sh]
         stt.qb_slack[tii][bus] += stt.sh_q[tii][sh]
     end
 
     # acline -- positive
-    @inbounds for acl in idx.bus_is_acline_frs[bus]
+    @fastmath @inbounds for acl in idx.bus_is_acline_frs[bus]
         stt.pb_slack[tii][bus] += stt.acline_pfr[tii][acl]
         stt.qb_slack[tii][bus] += stt.acline_qfr[tii][acl]
     end
-    @inbounds for acl in idx.bus_is_acline_tos[bus]
+    @fastmath @inbounds for acl in idx.bus_is_acline_tos[bus]
         stt.pb_slack[tii][bus] += stt.acline_pto[tii][acl]
         stt.qb_slack[tii][bus] += stt.acline_qto[tii][acl]
     end
 
     # xfm -- positive
-    @inbounds for xfm in idx.bus_is_xfm_frs[bus]
+    @fastmath @inbounds for xfm in idx.bus_is_xfm_frs[bus]
         stt.pb_slack[tii][bus] += stt.xfm_pfr[tii][xfm]
         stt.qb_slack[tii][bus] += stt.xfm_qfr[tii][xfm]
     end
-    @inbounds for xfm in idx.bus_is_xfm_tos[bus]
+    @fastmath @inbounds for xfm in idx.bus_is_xfm_tos[bus]
         stt.pb_slack[tii][bus] += stt.xfm_pto[tii][xfm]
         stt.qb_slack[tii][bus] += stt.xfm_qto[tii][xfm]
     end
 
     # dcline -- positive
-    @inbounds for dc in idx.bus_is_dc_frs[bus]
+    @fastmath @inbounds for dc in idx.bus_is_dc_frs[bus]
         stt.pb_slack[tii][bus] += stt.dc_pfr[tii][dc]
         stt.qb_slack[tii][bus] += stt.dc_qfr[tii][dc]
     end
-    @inbounds for dc in idx.bus_is_dc_tos[bus] 
+    @fastmath @inbounds for dc in idx.bus_is_dc_tos[bus] 
         stt.pb_slack[tii][bus] += stt.dc_pto[tii][dc]
         stt.qb_slack[tii][bus] += stt.dc_qto[tii][dc]
     end
 
     # producer -- NEGATIVE
-    @inbounds for pr in idx.pr[bus]
+    @fastmath @inbounds for pr in idx.pr[bus]
         stt.pb_slack[tii][bus] -= stt.dev_p[tii][pr]
         stt.qb_slack[tii][bus] -= stt.dev_q[tii][pr]
     end

@@ -88,7 +88,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # amount to de-prioritize binary selection over continuous variables
     # note: we don't actually care about binary values, other than the fact
     # that they imply su and sd power values
-    binary_projection_weight = 0.1
+    binary_projection_weight = 1.0 # this was 0.1 for a long time!!
 
     # amount to prioritize power selection over other variables
     p_on_projection_weight   = 10.0
