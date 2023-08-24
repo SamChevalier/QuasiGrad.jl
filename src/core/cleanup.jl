@@ -891,6 +891,9 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiGra
 
     @info "Running constrained, linearized power flow cleanup across $(sys.nT) time periods."
 
+    # defined a "clean_up_failed" vector -- if any is true (1), then we must re-run
+    clean_up_failed = zeros(sys.nT)
+
     # loop over time
     for tii in prm.ts.time_keys
 
@@ -1120,11 +1123,17 @@ function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiGra
             else
                 # the solution is NOT valid, so we should increase bounds and try again
                 @warn "Constrained power flow cleanup failed at $(tii)! What a shame.."
-                # quasiGrad.single_shot_pf_cleanup!(idx, Jac, prm, qG, stt, sys, tii)
+                clean_up_failed[tii] = 1.0
+                # => quasiGrad.single_shot_pf_cleanup!(idx, Jac, prm, qG, stt, sys, tii)
 
                 # all done with this time period -- move on
                 run_pf = false
             end
         end
+    end
+
+    # was there a failure? If so, re-project
+    if sum(clean_up_failed) > 0.0
+        quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
     end
 end

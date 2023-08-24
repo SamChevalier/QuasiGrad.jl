@@ -25,7 +25,7 @@ function project!(pct_round::Float64, idx::quasiGrad.Index, prm::quasiGrad.Param
 
     # 2. fix binaries which are closest to their Gurobi solutions
     if final_projection == false
-        # only batch fix if this is the last iteration
+        # only batch fix if this is NOT the last iteration
         quasiGrad.batch_fix!(pct_round, prm, stt, sys, upd)
     end
 
