@@ -859,7 +859,7 @@ function single_shot_pf_cleanup!(idx::quasiGrad.Index, Jac::quasiGrad.SparseArra
     end
 end
 
-function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System)
+function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # **NOTE**: this is necessarily a *serial* solver -- each time period is linked
     
     # ask Gurobi to solve a linearize power flow. two options here:

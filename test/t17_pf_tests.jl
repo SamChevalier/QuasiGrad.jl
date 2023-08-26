@@ -23,7 +23,7 @@ stt0 = deepcopy(stt)
 stt = deepcopy(stt0)
 
 # %% solve pf with GRB
-quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
+quasiGrad.solve_parallel_linear_pf_with_Gurobi!(flw, grd, idx, ntk, prm, qG, stt, sys)
 
 
 # %% basically, lower the active power weight, so power moves more

@@ -45,7 +45,7 @@ function update_penalties!(prm::quasiGrad.Param, qG::quasiGrad.QG, tnow::Float64
 end
 
 
-function adam_step_decay!(qG::quasiGrad.QG, tnow::Float64, t0::Float64, tf::Float64; adam_pf::Bool=false)
+function adam_step_decay!(qG::quasiGrad.QG, tnow::Float64, t0::Float64, tf::Float64; adam_pf::Bool=false, first_solve::Bool=false)
     # depending on where we are between t0 and tf, compute a normalized
     # scalar value beta which acts as a homotopy parameter
     tnorm = 2.0*(tnow-t0)/(tf - t0) - 1.0 # scale between -1 and 1
@@ -53,9 +53,17 @@ function adam_step_decay!(qG::quasiGrad.QG, tnow::Float64, t0::Float64, tf::Floa
 
     if adam_pf == true
         # ***************** special case *****************
-        for stp_key in qG.adam_pf_variables
-            log_stp_ratio          = log10(qG.alpha_pf_t0[stp_key]/qG.alpha_pf_tf[stp_key])
-            qG.alpha_tnow[stp_key] = 10.0 ^ (-beta*log_stp_ratio + log10(qG.alpha_pf_t0[stp_key]))
+        if first_solve == true
+            # use MUCH more aggressive adam steps here to quickly knowck down error
+            for stp_key in qG.adam_pf_variables
+                log_stp_ratio          = log10(qG.alpha_pf_t0_FIRST[stp_key]/qG.alpha_pf_tf_FIRST[stp_key])
+                qG.alpha_tnow[stp_key] = 10.0 ^ (-beta*log_stp_ratio + log10(qG.alpha_pf_t0_FIRST[stp_key]))
+            end
+        else
+            for stp_key in qG.adam_pf_variables
+                log_stp_ratio          = log10(qG.alpha_pf_t0[stp_key]/qG.alpha_pf_tf[stp_key])
+                qG.alpha_tnow[stp_key] = 10.0 ^ (-beta*log_stp_ratio + log10(qG.alpha_pf_t0[stp_key]))
+            end
         end
     else
         # loop and compute the homotopy based on a log-transformation fall-off

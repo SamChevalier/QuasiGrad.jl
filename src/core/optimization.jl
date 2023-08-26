@@ -161,9 +161,9 @@ function run_adam!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiG
     qG.skip_ctg_eval = false
 end
 
-function run_adam_pf!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function run_adam_pf!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; first_solve::Bool = false)
     # here we go! basically, we only compute a small subset of pf-relevant gradients
-    @info "Running powerflow-adam for $(qG.adam_max_time) seconds!"
+    @info "Running adam-powerflow for $(qG.adam_max_time) seconds!"
 
         # re-initialize
         qG.adm_step      = 0
@@ -186,7 +186,7 @@ function run_adam_pf!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::qua
             qG.adm_step += 1
 
             # step decay
-            quasiGrad.adam_step_decay!(qG, time(), adam_start, adam_start+qG.adam_max_time; adam_pf=true)
+            quasiGrad.adam_step_decay!(qG, time(), adam_start, adam_start+qG.adam_max_time; adam_pf=true, first_solve=first_solve)
 
             # decay beta and pre-compute
             qG.beta1_decay         = qG.beta1_decay*qG.beta1
@@ -198,7 +198,8 @@ function run_adam_pf!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::qua
             quasiGrad.update_penalties!(prm, qG, time(), adam_start, adam_start+qG.adam_max_time)
 
             # compute all states and grads
-            quasiGrad.update_states_and_grads_for_adam_pf!(grd, idx, mgd, prm, qG, scr, stt, sys)
+            #quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+            quasiGrad.update_states_and_grads_for_adam_pf!(cgd, grd, idx, mgd, prm, qG, scr, stt, sys)
 
             # take an adam step
             quasiGrad.adam_pf!(adm, mgd, prm, qG, stt, upd)
@@ -278,7 +279,7 @@ function update_states_and_grads!(
     quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 end
 
-function update_states_and_grads_for_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
+function update_states_and_grads_for_adam_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
     # update the non-device states which affect power balance
     #
     # if we are here, we want to make sure we are NOT running su/sd updates
@@ -299,6 +300,7 @@ function update_states_and_grads_for_adam_pf!(grd::quasiGrad.Grad, idx::quasiGra
     # device powers
     quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
     quasiGrad.device_reactive_powers!(idx, prm, qG, stt)
+    # => quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
 
     # now, we can compute the power balances
     quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
@@ -310,7 +312,7 @@ function update_states_and_grads_for_adam_pf!(grd::quasiGrad.Grad, idx::quasiGra
     quasiGrad.print_zms_adam_pf(qG, scr)
 
     # compute the master grad
-    quasiGrad.master_grad_adam_pf!(grd, idx, mgd, prm, qG, stt, sys)
+    quasiGrad.master_grad_adam_pf!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 end
 
 function batch_fix!(pct_round::Float64, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
@@ -386,6 +388,8 @@ function solution_status(model::quasiGrad.Model)
             soln_valid = true
         else
             soln_valid = false
+            println(termination_status(model))
+            println(Int(termination_status(model)))
         end
     end
 

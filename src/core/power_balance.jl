@@ -3,17 +3,19 @@ function power_balance!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGra
     cp = prm.vio.p_bus * qG.scale_c_pbus_testing
     cq = prm.vio.q_bus * qG.scale_c_qbus_testing
 
-    # loop over each time period and compute the power balance
-    @batch per=core for tii in prm.ts.time_keys
-    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
-        # duration
-        dt = prm.ts.duration[tii]
-
-        # loop over each bus and aggregate powers
-        for bus in 1:sys.nb
+    # loop over each bus and aggregate powers
+    Threads.@threads for bus in 1:sys.nb
+        # loop over each time period and compute the power balance
+        for tii in prm.ts.time_keys
             quasiGrad.pq_sums!(bus, idx, stt, tii)
         end
+    end
 
+    # now, loop over time
+    Threads.@threads for tii in prm.ts.time_keys
+        # duration
+        dt = prm.ts.duration[tii]
+        
         # actual mismatch penalty
         @turbo stt.zp[tii] .= abs.(stt.pb_slack[tii]).*(cp*dt)
         @turbo stt.zq[tii] .= abs.(stt.qb_slack[tii]).*(cq*dt)
@@ -24,8 +26,8 @@ function power_balance!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGra
                 @turbo grd.zp.pb_slack[tii] .= (cp*dt).*sign.(stt.pb_slack[tii])
                 @turbo grd.zq.qb_slack[tii] .= (cq*dt).*sign.(stt.qb_slack[tii])
             elseif qG.pqbal_grad_type == "soft_abs"
-                @turbo grd.zp.pb_slack[tii] .= (qG.pqbal_grad_weight_p*dt).*stt.pb_slack[tii]./(quasiGrad.LoopVectorization.sqrt_fast.(quasiGrad.LoopVectorization.pow_fast.(stt.pb_slack[tii],2) .+ qG.pqbal_grad_eps2))
-                @turbo grd.zq.qb_slack[tii] .= (qG.pqbal_grad_weight_q*dt).*stt.qb_slack[tii]./(quasiGrad.LoopVectorization.sqrt_fast.(quasiGrad.LoopVectorization.pow_fast.(stt.qb_slack[tii],2) .+ qG.pqbal_grad_eps2))
+                @turbo grd.zp.pb_slack[tii] .= (qG.pqbal_grad_weight_p*dt).*(stt.pb_slack[tii]./(quasiGrad.LoopVectorization.sqrt_fast.(quasiGrad.LoopVectorization.pow_fast.(stt.pb_slack[tii],2) .+ qG.pqbal_grad_eps2)))
+                @turbo grd.zq.qb_slack[tii] .= (qG.pqbal_grad_weight_q*dt).*(stt.qb_slack[tii]./(quasiGrad.LoopVectorization.sqrt_fast.(quasiGrad.LoopVectorization.pow_fast.(stt.qb_slack[tii],2) .+ qG.pqbal_grad_eps2)))
             elseif qG.pqbal_grad_type == "quadratic_for_lbfgs"
                 @turbo grd.zp.pb_slack[tii] .= (cp*dt).*stt.pb_slack[tii]
                 @turbo grd.zq.qb_slack[tii] .= (cq*dt).*stt.qb_slack[tii]

@@ -804,7 +804,7 @@ first_solve = true
             end
 
 # %%
-quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys; first_solve = false)
+quasiGrad.solve_parallel_linear_pf_with_Gurobi!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve = false)
 
 # %%
 # using Plots

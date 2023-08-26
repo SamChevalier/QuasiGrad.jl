@@ -59,7 +59,7 @@ qG.max_linear_pfs = 3
 qG.max_linear_pfs_total = 3
 qG.max_pf_dx = 1e-3
 qG.Gurobi_pf_obj = "test_quad"
-@time quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
+@time quasiGrad.solve_parallel_linear_pf_with_Gurobi!(flw, grd, idx, ntk, prm, qG, stt, sys)
 
 # %% = score!
 quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
@@ -98,7 +98,7 @@ quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG
 # %%
 stt = deepcopy(stt0);
 
-# quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys)
+# quasiGrad.solve_parallel_linear_pf_with_Gurobi!(flw, grd, idx, ntk, prm, qG, stt, sys)
 
 
 qG.initial_pf_lbfgs_step = 1e-3

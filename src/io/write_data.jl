@@ -150,7 +150,7 @@ function post_process_stats(
             println(" • z (ctg -- average): $zctgavg")
 
             # also, run a diagnostic breakdown
-            quasiGrad.print_penalty_breakdown(qG, scr)
+            quasiGrad.print_penalty_breakdown(idx, prm, qG, scr, stt)
         end
     end
 end

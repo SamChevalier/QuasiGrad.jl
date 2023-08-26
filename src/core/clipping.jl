@@ -171,7 +171,7 @@ end
 
 function transpose_binaries!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # across all devices and all times, compute the transposed on, su, sd and u_sum variables
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         @inbounds @simd for dev in prm.dev.dev_keys
             stt.u_on_dev_Trx[dev][tii] = stt.u_on_dev[tii][dev]

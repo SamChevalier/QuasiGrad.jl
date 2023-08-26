@@ -279,14 +279,14 @@ function soft_abs_ctg_grad(x::Float64, qG::quasiGrad.QG)
     return x/(quasiGrad.LoopVectorization.sqrt_fast(quasiGrad.LoopVectorization.pow_fast(x,2) + qG.ctg_grad_eps2))
 end
 
-function print_penalty_breakdown(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
+function print_penalty_breakdown(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State)
     println("")
     println("")
     println(".")
     println(".")
     println("=== === Scoring Report (**run after post-process routine**) === === ")
-    println(" • zms: $(scr[:zms]) %")
-    println(" • ed: $(scr[:ed_obj])%")
+    println(" • zms: $(scr[:zms])")
+    println(" • ed: $(scr[:ed_obj])")
     gap = round(100.0*scr[:zms]/scr[:ed_obj], sigdigits = 5)
     println(" • gap: $gap %")
     println("")
@@ -296,10 +296,22 @@ function print_penalty_breakdown(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
     println("Infeasibility penalties: $infeasibility_penalties")
     println("")
 
+    encs_fixed = 0.0
+    enpr_fixed = 0.0
+    for tii in prm.ts.time_keys
+        encs_fixed += sum(stt.zen_dev[tii][idx.cs_devs][stt.zen_dev[tii][idx.cs_devs] .> 0.0])
+        enpr_fixed -= sum(stt.zen_dev[tii][idx.pr_devs][stt.zen_dev[tii][idx.pr_devs] .> 0.0])
+
+        # now, for the ones with the opposite signs
+        encs_fixed -= sum(stt.zen_dev[tii][idx.cs_devs][stt.zen_dev[tii][idx.cs_devs] .< 0.0])
+        enpr_fixed += sum(stt.zen_dev[tii][idx.pr_devs][stt.zen_dev[tii][idx.pr_devs] .< 0.0])
+    end
+
+
     # rewards
-    rewards        = scr[:zsus] + scr[:encs]
+    rewards        = scr[:zsus] + encs_fixed
     sus_percent    = round(100.0*scr[:zsus]/rewards, sigdigits = 5)
-    energy_percent = round(100.0*scr[:encs]/rewards, sigdigits = 5)
+    energy_percent = round(100.0*encs_fixed/rewards, sigdigits = 5)
 
     println("Rewards: $rewards")
     println(" • energy: $energy_percent %")
@@ -307,9 +319,9 @@ function print_penalty_breakdown(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
     println("")
 
     # penalties
-    penalties = scr[:enpr] + scr[:zoud] + scr[:acl] + scr[:xfm] + scr[:rsv] +
+    penalties = enpr_fixed + scr[:zoud] + scr[:acl] + scr[:xfm] + scr[:rsv] +
                     scr[:zp] + scr[:zq] + scr[:zone] + scr[:z_enmax] + scr[:z_enmin] + scr[:zctg_min] + scr[:zctg_avg]
-    energy_percent     = round(100.0*scr[:enpr]/penalties, sigdigits = 5)  
+    energy_percent     = round(100.0*enpr_fixed/penalties, sigdigits = 5)
     on_up_down_percent = round(100.0*scr[:zoud]/penalties, sigdigits = 5)  
     acline_percent     = round(100.0*scr[:acl]/penalties, sigdigits = 5)  
     xfm_percent        = round(100.0*scr[:xfm]/penalties, sigdigits = 5)  
@@ -335,4 +347,5 @@ function print_penalty_breakdown(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
     println(" • minimum energy: $enmin_percent %")
     println(" • ctg min: $ctg_min_percent %")
     println(" • ctg avg: $ctg_avg_percent %")
+    println("")
 end

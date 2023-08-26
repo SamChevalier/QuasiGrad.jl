@@ -81,6 +81,8 @@ mutable struct QG
     alpha_t0::Dict{Symbol, Float64}
     alpha_pf_t0::Dict{Symbol, Float64}
     alpha_pf_tf::Dict{Symbol, Float64}
+    alpha_pf_t0_FIRST::Dict{Symbol, Float64}
+    alpha_pf_tf_FIRST::Dict{Symbol, Float64}
     alpha_tnow::Dict{Symbol, Float64}
     plot_scale_up::Float64 
     plot_scale_dn::Float64

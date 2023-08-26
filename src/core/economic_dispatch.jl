@@ -1082,6 +1082,9 @@ end
 function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System; balanced::Bool = false)
     # apply dcpf to the economic dispatch solution (see previous versions for a linearized voltage solver -- it doesn't really work)
     #
+    # defined a "clean_up_failed" vector -- if any is true (1), then we throw out all DCPF solutions !!
+    clean_up_failed = zeros(sys.nT)
+    
     # use "flw.theta[tii]" as the phase angle buffer (also used in ctg analysis)
     Threads.@threads for tii in prm.ts.time_keys
         # first, update the xfm phase shifters (whatever they may be..)
@@ -1122,6 +1125,11 @@ function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::qu
             # too few buses -- just use LU
             stt.va[tii][2:end] .= ntk.Ybr\c
             stt.va[tii][1]      = 0.0 # make sure
+            max_delta           = maximum(abs.((@view stt.va[tii][idx.ac_fr_bus]) .- (@view stt.va[tii][idx.ac_to_bus]) .- flw.ac_phi[tii]))
+            if max_delta > 3.0*pi/10.0 # about 54 degrees
+                # forget the solution! otherwise, you could have a really bad linearization!
+                clean_up_failed[tii] = 1.0
+            end
 
         else
             # solve with pcg -- va
@@ -1134,18 +1142,20 @@ function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::qu
                 flw.theta[tii] .= ntk.Ybr\c
             end
 
-            # update -- before updating, make sure that the largest 
-            # phase angle differences are smaller than pi/3! if they are not
-            # then scale the entire thing :)
-            max_delta = maximum(abs.((@view stt.va[tii][idx.ac_fr_bus]) .- (@view stt.va[tii][idx.ac_to_bus]) .- flw.ac_phi[tii]))
-            
-            if max_delta > 2.8*pi/10.0 # about 50 degrees
-                # forget! otherwise, you could have a really bad linearization!
-                stt.va[tii] .= 0.0
-            else
-                stt.va[tii][2:end] .= copy.(flw.theta[tii])
-                stt.va[tii][1]      = 0.0 # make sure
+            # update!
+            stt.va[tii][2:end] .= copy.(flw.theta[tii])
+            stt.va[tii][1]      = 0.0 # make sure
+            max_delta            = maximum(abs.((@view stt.va[tii][idx.ac_fr_bus]) .- (@view stt.va[tii][idx.ac_to_bus]) .- flw.ac_phi[tii]))
+            if max_delta > 3.0*pi/10.0 # about 54 degrees
+                # forget the solution! otherwise, you could have a really bad linearization!
+                clean_up_failed[tii] = 1.0
             end
+        end
+    end
+    if sum(clean_up_failed) > 0.0
+        for tii in prm.ts.time_keys
+            # reset -- fresh start :)
+            stt.va[tii] .= 0.0
         end
     end
 end

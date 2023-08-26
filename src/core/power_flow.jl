@@ -1,4 +1,4 @@
-function solve_power_flow!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow,  grd::quasiGrad.Grad, idx::quasiGrad.Index, lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; first_solve::Bool=true)
+function solve_power_flow!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; first_solve::Bool=true)
     # Note -- this is run *after* DCPF and q/v corrections (maybe..)
     # 
     if first_solve == true
@@ -84,17 +84,17 @@ function solve_power_flow!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg
             end
         else
             # run adam pf :)
-            run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+            run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = true)
         end
 
         # now, run pf with Gurobi
-        quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys; first_solve = true)
+        quasiGrad.solve_parallel_linear_pf_with_Gurobi!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve = true)
     else
         # in this case, cleanup with adam, and then solve
-        quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+        quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = false)
 
         # solve with Gurobi -- no flow limits
-        quasiGrad.solve_parallel_linear_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys; first_solve = false)
+        quasiGrad.solve_parallel_linear_pf_with_Gurobi!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve = false)
     end
 end
 
@@ -238,7 +238,7 @@ function flush_lbfgs!(lbf::quasiGrad.LBFGS, prm::quasiGrad.Param, qG::quasiGrad.
     end
 end
 
-function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System; first_solve::Bool=true)
+function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System; first_solve::Bool=true)
     # Solve linearized power flow with Gurobi -- use margin tinkering to guarentee convergence. 
     # Only consinder upper and lower bounds on the p/q production (no other limits).
     #
@@ -266,6 +266,9 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
         # initialize
         run_pf          = true # used to kill the pf iterations
         pf_itr_cnt      = 0    # total number of successes
+
+        # update phase shifts
+        flw.ac_phi[tii][idx.ac_phi] .= stt.phi[tii]
 
         # update y_bus -- this only needs to be done once per time, 
         # since xfm/shunt values are not changing between iterations
@@ -436,6 +439,9 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
                 @constraint(model,                                 stt.vm[tii] .+ dvm .<= prm.bus.vm_ub)
             end
 
+            # always impose hard limits
+            @constraint(model, 0.9 .* prm.bus.vm_lb .<= stt.vm[tii] .+ dvm .<= 1.1 .* prm.bus.vm_ub)
+
             # mapping
             JacP_noref      = ntk.Jac[tii][1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
             JacQ_noref      = ntk.Jac[tii][(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
@@ -449,26 +455,109 @@ function solve_parallel_linear_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiG
                 JacSfr_xfm_noref = ntk.Jac_sflow_fr[tii][(sys.nl+1):end, [1:sys.nb; (sys.nb+2):end]]
                 @constraint(model, JacSfr_acl_noref*x_in .+ stt.acline_sfr[tii] .<= 1.15 .* prm.acline.mva_ub_nom)
                 @constraint(model, JacSfr_xfm_noref*x_in .+ stt.xfm_sfr[tii]    .<= 1.15 .* prm.xfm.mva_ub_nom)
+
+                # define nodal angles
+                va = Vector{AffExpr}(undef, sys.nb)
+                for bus in 1:sys.nb
+                    va[bus] = stt.va[tii][bus]
+                end
+                va[2:end] .+= dva
+
+                # also, add a phase angle constraint **(~63 degrees)**
+                dth_max = 3.5*pi/10.0
+                @constraint(model, -dth_max .<= (@view va[idx.ac_fr_bus]) .- (@view va[idx.ac_to_bus]) .- flw.ac_phi[tii] .<= dth_max)
             elseif first_solve == true && apply_tight_flow_constraints == false
                 # in this case, convergence failed somehow, so we need to loosen these up (a lot..)
                 JacSfr_acl_noref = ntk.Jac_sflow_fr[tii][1:sys.nl,       [1:sys.nb; (sys.nb+2):end]]
                 JacSfr_xfm_noref = ntk.Jac_sflow_fr[tii][(sys.nl+1):end, [1:sys.nb; (sys.nb+2):end]]
                 @constraint(model, JacSfr_acl_noref*x_in .+ stt.acline_sfr[tii] .<= 2.0 .* prm.acline.mva_ub_nom)
                 @constraint(model, JacSfr_xfm_noref*x_in .+ stt.xfm_sfr[tii]    .<= 2.0 .* prm.xfm.mva_ub_nom)
+
+                # define nodal angles
+                va = Vector{AffExpr}(undef, sys.nb)
+                for bus in 1:sys.nb
+                    va[bus] = stt.va[tii][bus]
+                end
+                va[2:end] .+= dva
+
+                # also, add a phase angle constraint **(~72 degrees)**
+                dth_max     = 4.0*pi/10.0
+                @constraint(model, -dth_max .<= (@view va[idx.ac_fr_bus]) .- (@view va[idx.ac_to_bus]) .- flw.ac_phi[tii] .<= dth_max)
+            else
+                # always, always keep this here
+                va = Vector{AffExpr}(undef, sys.nb)
+                for bus in 1:sys.nb
+                    va[bus] = stt.va[tii][bus]
+                end
+                va[2:end] .+= dva
+
+                # also, add a phase angle constraint **(~72 degrees)**
+                dth_max     = 4.0*pi/10.0
+                @constraint(model, -dth_max .<= (@view va[idx.ac_fr_bus]) .- (@view va[idx.ac_to_bus]) .- flw.ac_phi[tii] .<= dth_max)
             end
+
+            # opf regularization :)
+            #if (first_solve == true)  && (pf_itr_cnt <5)
+                # current energy costs
+                quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
+                zen0 = sum(@view stt.zen_dev[tii][idx.cs_devs]) - sum(@view stt.zen_dev[tii][idx.pr_devs])
+                #println(zen0)
+
+                # new enegy costs
+                zen = AffExpr(0.0)
+                dt  = prm.ts.duration[tii]
+                for dev in prm.dev.dev_keys
+
+                    # active power costs -- these were sorted previously!
+                    cst = @view prm.dev.cum_cost_blocks[dev][tii][1][2:end]  # cost for each block (trim leading 0)
+                    pbk = @view prm.dev.cum_cost_blocks[dev][tii][2][2:end]  # power in each block (trim leading 0)
+                    nbk = length(pbk)
+
+                    # define a set of intermediate vars "p_jtm"
+                    p_jtm = @variable(model, [1:nbk], lower_bound = 0.0)
+                    @constraint(model, p_jtm .<= pbk)
+
+                    # have the blocks sum to the output power
+                    @constraint(model, sum(p_jtm) == dev_p_vars[dev])
+
+                    # compute the cost! -- note: sign convention is opposite!
+                    if dev in idx.cs_devs
+                        # MINUS, because we want to minimize negative revenue from consumers
+                        zen -= dt*sum(cst.*p_jtm)
+                    else
+                        # PLUS, because we want to minimize generator costs
+                        zen += dt*sum(cst.*p_jtm)
+                    end
+                end
+
+                # zen variable
+                @variable(model, zv)
+                @constraint(model, zen <= zv)
+            #end
             
-            if first_solve == true
+            if (first_solve == true)  && (pf_itr_cnt < 5)
                 obj = @expression(model,
-                    1e3*(vm_penalty'*vm_penalty) + x_in'*x_in +
+                    1e3*zv/zen0 +  # this value, 1e3, is super heuristic
+                    1e3*(vm_penalty'*vm_penalty) + 
+                    x_in'*x_in +
                     (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
-                    10.0*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
+                    1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
+                    # => (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
+                    # => (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
+            elseif (first_solve == true)
+                obj = @expression(model,
+                    1e3*(vm_penalty'*vm_penalty) + 
+                    x_in'*x_in +
+                    (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
+                    1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
                     # => (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
                     # => (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
             else
                 obj = @expression(model, 
+                    1e3*zv/zen0 +  # this value, 1e3, is super heuristic
                     x_in'*x_in +
                     (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
-                    10.0*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
+                    1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
                     # => (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
                     # => (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
             end

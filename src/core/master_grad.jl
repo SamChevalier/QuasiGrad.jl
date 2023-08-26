@@ -301,7 +301,7 @@ function master_grad!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::qua
         ######################### Parallel Dev Loops  ###########################
         ######################### ################### ###########################
         # 
-        # compute the final partial derivative contributions -- we need to parallel
+        # compute the final partial derivative contributions -- we need two parallel
         # loop over devices because of the su/sd index sets (among other things..)
         # 
         # => @batch per=core for dev in prm.dev.dev_keys
@@ -330,16 +330,6 @@ function master_grad_solve_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad,
     # => turbo :) @batch per=core for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
     Threads.@threads for tii in prm.ts.time_keys
-        # g1 (zen): nzms => zbase => zt => => zen => (dev_p, u_on_dev)
-        #
-        # all devices
-        if qG.include_energy_costs_lbfgs == true
-            for dev in prm.dev.dev_keys
-                # OG=> alpha = grd[:nzms][:zbase] .* grd[:zbase][:zt] .* grd[:zt][:zen_dev][dev] .* grd.zen_dev.dev_p[tii][dev]
-                alpha = -cgd.dzt_dzen[dev] .* grd.zen_dev.dev_p[tii][dev]
-                dp_alpha!(grd, dev, tii, alpha)
-            end
-        end
 
         # g6 (zs): nzms => zbase => zt => => zs => (all line and xfm variables)
         quasiGrad.master_grad_zs_acline!(tii, idx, grd, mgd, qG, stt, sys)
@@ -361,7 +351,7 @@ function master_grad_solve_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad,
     end
 end
 
-function master_grad_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function master_grad_adam_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # this function takes the gradient of zms with respect to the
     # variables which will help to resolve power flow.
     # Notably, even though we solve time-independent power flow
@@ -370,6 +360,12 @@ function master_grad_adam_pf!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::qu
     # => turbo :) @batch per=core for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
     Threads.@threads for tii in prm.ts.time_keys
+        # all devices
+        # => for dev in prm.dev.dev_keys
+        # =>     # OG=> alpha = grd[:nzms][:zbase] .* grd[:zbase][:zt] .* grd[:zt][:zen_dev][dev] .* grd.zen_dev.dev_p[tii][dev]
+        # =>     alpha = -cgd.dzt_dzen[dev] .* grd.zen_dev.dev_p[tii][dev]
+        # =>     dp_alpha!(grd, dev, tii, alpha)
+        # => end
 
         # g6 (zs): nzms => zbase => zt => => zs => (all line and xfm variables)
         quasiGrad.master_grad_zs_acline!(tii, idx, grd, mgd, qG, stt, sys)

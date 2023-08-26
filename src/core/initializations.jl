@@ -116,8 +116,19 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     min_buses_for_krylov     = 25     # don't use Krylov if there are this many or fewer buses
 
     # adaptively choose the frac of ctgs to keep
-    max_ctg_to_keep     = min(500, length(prm.ctg.id))
-    max_ctg_to_backprop = min(100, length(prm.ctg.id))
+    if num_bus < 1500
+        max_ctg_to_keep     = min(500, length(prm.ctg.id))
+        max_ctg_to_backprop = min(100, length(prm.ctg.id))
+    elseif num_bus < 5000
+        max_ctg_to_keep     = min(350, length(prm.ctg.id))
+        max_ctg_to_backprop = min(80, length(prm.ctg.id))
+    elseif num_bus < 10000
+        max_ctg_to_keep     = min(250, length(prm.ctg.id))
+        max_ctg_to_backprop = min(70, length(prm.ctg.id))
+    else
+        max_ctg_to_keep     = min(150, length(prm.ctg.id))
+        max_ctg_to_backprop = min(25, length(prm.ctg.id))
+    end
     frac_ctg_keep       = max_ctg_to_keep/length(prm.ctg.id)
     frac_ctg_backprop   = max_ctg_to_backprop/length(prm.ctg.id)
     # this is the fraction of ctgs that are scored and differentiated
@@ -187,10 +198,10 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # ====================================================================================== #
     # ====================================================================================== #
     # choose adam step sizes (initial)
-    vm_t0      = 1e-5
-    va_t0      = 1e-5
-    phi_t0     = 1e-5
-    tau_t0     = 1e-5 
+    vm_t0      = 2.5e-5
+    va_t0      = 2.5e-5
+    phi_t0     = 2.5e-5
+    tau_t0     = 2.5e-5
     dc_t0      = 1e-2
     power_t0   = 1e-2
     reserve_t0 = 1e-2
@@ -226,10 +237,10 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
                    :u_on_acline  => bin_t0)
 
     # choose adam step sizes (final)
-    vm_tf      = 1e-7
-    va_tf      = 1e-7
-    phi_tf     = 1e-7
-    tau_tf     = 1e-7
+    vm_tf      = 2.5e-7
+    va_tf      = 2.5e-7
+    phi_tf     = 2.5e-7
+    tau_tf     = 2.5e-7
     dc_tf      = 1e-5 
     power_tf   = 1e-5 
     reserve_tf = 1e-5 
@@ -269,13 +280,13 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # ====================================================================================== #
     # ====================================================================================== #
     # choose adam step sizes for power flow (initial)
-    vm_pf_t0      = 1e-4
-    va_pf_t0      = 1e-4
-    phi_pf_t0     = 1e-4
-    tau_pf_t0     = 1e-4 
-    dc_pf_t0      = 1e-2
-    power_pf_t0   = 1e-2
-    bin_pf_t0     = 1e-2 # bullish!!!
+    vm_pf_t0      = 2.5e-5
+    va_pf_t0      = 2.5e-5
+    phi_pf_t0     = 2.5e-5
+    tau_pf_t0     = 2.5e-5
+    dc_pf_t0      = 1e-3
+    power_pf_t0   = 1e-3
+    bin_pf_t0     = 1e-3 # bullish!!!
     alpha_pf_t0 = Dict(
                    :vm     => vm_pf_t0,
                    :va     => va_pf_t0,
@@ -288,18 +299,18 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
                    :dc_qfr => dc_pf_t0,
                    # powers
                    :dev_q  => power_pf_t0,
-                   :p_on   => power_pf_t0/2.5, # downscale active power!!!!
+                   :p_on   => power_pf_t0/10.0, # downscale active power!!!!
                    # bins
                    :u_step_shunt => bin_pf_t0)
         
-    # choose adam step sizes for power flow (initial)
-    vm_pf_tf      = 1e-6
-    va_pf_tf      = 1e-6
-    phi_pf_tf     = 1e-6
-    tau_pf_tf     = 1e-6
-    dc_pf_tf      = 1e-4
-    power_pf_tf   = 1e-4
-    bin_pf_tf     = 1e-4 # bullish!!!
+    # choose adam step sizes for power flow (final)
+    vm_pf_tf    = 2.5e-7
+    va_pf_tf    = 2.5e-7
+    phi_pf_tf   = 2.5e-7
+    tau_pf_tf   = 2.5e-7
+    dc_pf_tf    = 1e-5
+    power_pf_tf = 1e-5
+    bin_pf_tf   = 1e-5 # bullish!!!
     alpha_pf_tf = Dict(
                     :vm     => vm_pf_tf,
                     :va     => va_pf_tf,
@@ -312,10 +323,66 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
                     :dc_qfr => dc_pf_tf,
                     # powers
                     :dev_q  => power_pf_tf,
-                    :p_on   => power_pf_tf/2.5, # downscale active power!!!!
+                    :p_on   => power_pf_tf/10.0, # downscale active power!!!!
                     # bins
                     :u_step_shunt => bin_pf_tf)
+    # ====================================================================================== #
+    # ====================================================================================== #
 
+    # ====================================================================================== #
+    # ====================================================================================== #
+    # choose adam step sizes for power flow (initial)
+    vm_pf_t0_FIRST    = 5e-5
+    va_pf_t0_FIRST    = 5e-5
+    phi_pf_t0_FIRST   = 5e-5
+    tau_pf_t0_FIRST   = 5e-5 
+    dc_pf_t0_FIRST    = 1e-2
+    power_pf_t0_FIRST = 1e-2
+    bin_pf_t0_FIRST   = 1e-2 # bullish!!!
+    alpha_pf_t0_FIRST = Dict(
+                   :vm     => vm_pf_t0_FIRST,
+                   :va     => va_pf_t0_FIRST,
+                   # xfm
+                   :phi    => phi_pf_t0_FIRST,
+                   :tau    => tau_pf_t0_FIRST,
+                   # dc
+                   :dc_pfr => dc_pf_t0_FIRST,
+                   :dc_qto => dc_pf_t0_FIRST,
+                   :dc_qfr => dc_pf_t0_FIRST,
+                   # powers
+                   :dev_q  => power_pf_t0_FIRST,
+                   :p_on   => power_pf_t0_FIRST/10.0, # downscale active power!!!!
+                   # bins
+                   :u_step_shunt => bin_pf_t0_FIRST)
+        
+    # choose adam step sizes for power flow (final)
+    vm_pf_tf_FIRST    = 1e-6
+    va_pf_tf_FIRST    = 1e-6
+    phi_pf_tf_FIRST   = 1e-6
+    tau_pf_tf_FIRST   = 1e-6
+    dc_pf_tf_FIRST    = 1e-4
+    power_pf_tf_FIRST = 1e-4
+    bin_pf_tf_FIRST   = 1e-4 # bullish!!!
+    alpha_pf_tf_FIRST = Dict(
+                    :vm     => vm_pf_tf_FIRST,
+                    :va     => va_pf_tf_FIRST,
+                    # xfm
+                    :phi    => phi_pf_tf_FIRST,
+                    :tau    => tau_pf_tf_FIRST,
+                    # dc
+                    :dc_pfr => dc_pf_tf_FIRST,
+                    :dc_qto => dc_pf_tf_FIRST,
+                    :dc_qfr => dc_pf_tf_FIRST,
+                    # powers
+                    :dev_q  => power_pf_tf_FIRST,
+                    :p_on   => power_pf_tf_FIRST/10.0, # downscale active power!!!!
+                    # bins
+                    :u_step_shunt => bin_pf_tf_FIRST)
+    # ====================================================================================== #
+    # ====================================================================================== #
+
+    # ====================================================================================== #
+    # ====================================================================================== #
     # choose adam step size (current) -- this will always be overwritten
     alpha_tnow = deepcopy(alpha_tf)
 
@@ -500,6 +567,8 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
         alpha_t0,
         alpha_pf_t0,
         alpha_pf_tf,
+        alpha_pf_t0_FIRST,
+        alpha_pf_tf_FIRST,
         alpha_tnow,
         plot_scale_up, 
         plot_scale_dn, 
