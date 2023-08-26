@@ -282,8 +282,6 @@ end
 function print_penalty_breakdown(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State)
     println("")
     println("")
-    println(".")
-    println(".")
     println("=== === Scoring Report (**run after post-process routine**) === === ")
     println(" • zms: $(scr[:zms])")
     println(" • ed: $(scr[:ed_obj])")

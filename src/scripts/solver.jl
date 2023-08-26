@@ -120,7 +120,8 @@ function compute_quasiGrad_solution_practice(InFile1::String, NewTimeLimitInSeco
     adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
         quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true, line_switching=AllowSwitching);
     
-    qG.adam_max_time  = 90.0
+    qG.adam_max_time  = 60.0
+    qG.print_linear_pf_iterations = true
     
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
     quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
@@ -128,10 +129,17 @@ function compute_quasiGrad_solution_practice(InFile1::String, NewTimeLimitInSeco
     quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
     
     quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    quasiGrad.project!(95.0, idx, prm, qG, stt, sys, upd, final_projection = false)
+    quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
+
+    quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=false)
+    quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+    quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
     quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
     quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
-    # =...
+
     quasiGrad.count_active_binaries!(prm, upd)
+
     quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=false)
     quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
     quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
@@ -160,7 +168,6 @@ function compute_quasiGrad_solution_practice(InFile1::String, NewTimeLimitInSeco
 
     println("z_enpr: $(scr[:enpr])")
     println("z_encs: $(scr[:encs])")
-
 end
 
 function compute_triage_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)

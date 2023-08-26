@@ -17,7 +17,8 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
     NewTimeLimitInSeconds = Float64(TimeLimitInSeconds) - 5.0
 
     # compute the solution
-    quasiGrad.compute_quasiGrad_TIME_23643(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
+    quasiGrad.compute_quasiGrad_solution_practice(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
+        # => quasiGrad.compute_quasiGrad_TIME_23643(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
         # => quasiGrad.compute_quasiGrad_solution_ed_timing(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
         # => quasiGrad.compute_quasiGrad_solution_diagnostics_loop(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
         # => quasiGrad.compute_quasiGrad_solution_diagnostics(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)

@@ -497,7 +497,7 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
             end
 
             # opf regularization :)
-            #if (first_solve == true)  && (pf_itr_cnt <5)
+            if (first_solve == true)  && (pf_itr_cnt == 1)
                 # current energy costs
                 quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
                 zen0 = sum(@view stt.zen_dev[tii][idx.cs_devs]) - sum(@view stt.zen_dev[tii][idx.pr_devs])
@@ -529,15 +529,51 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
                         zen += dt*sum(cst.*p_jtm)
                     end
                 end
+            else
+                # current energy costs
+                quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
+                zen0 = sum(@view stt.zen_dev[tii][idx.cs_devs]) - sum(@view stt.zen_dev[tii][idx.pr_devs])
 
-                # zen variable
-                @variable(model, zv)
-                @constraint(model, zen <= zv)
-            #end
-            
-            if (first_solve == true)  && (pf_itr_cnt < 5)
+                # new enegy costs
+                zen = AffExpr(0.0)
+                dt  = prm.ts.duration[tii]
+                for dev in prm.dev.dev_keys
+
+                    cst = prm.dev.cum_cost_blocks[dev][tii][1]  # cost for each block (leading with 0)
+                    pbk = prm.dev.cum_cost_blocks[dev][tii][2]  # power in each block (leading with 0)
+                    pcm = prm.dev.cum_cost_blocks[dev][tii][3]  # accumulated power for each block!
+                    nbk = length(pbk)
+
+                    # what is our "gradient block" ?
+                    if stt.dev_p[tii][dev] == 0.0
+                        # nothing to do: stt.zen_dev[tii][dev] = 0.0
+                        gradient_block = 2
+                    else
+                        for ii in 2:nbk
+                            if stt.dev_p[tii][dev] > pcm[ii]
+                                # nothing to do
+                            else
+                                gradient_block = ii
+                                break
+                            end
+                        end
+                    end
+
+                    # compute the cost! -- note: sign convention is opposite!
+                    if dev in idx.cs_devs
+                        # MINUS, because we want to minimize negative revenue from consumers
+                        zen -= dt*(dev_p_vars[dev] - stt.dev_p[tii][dev])*cst[gradient_block]
+                    else
+                        # PLUS, because we want to minimize generator costs
+                        zen += dt*(dev_p_vars[dev] - stt.dev_p[tii][dev])*cst[gradient_block]
+                    end
+                end
+            end
+
+            # build the objective function!
+            if (first_solve == true)  && (pf_itr_cnt == 1)
                 obj = @expression(model,
-                    1e3*zv/zen0 +  # this value, 1e3, is super heuristic
+                    1e3*zen/zen0 +  # this value, 1e3, is super heuristic
                     1e3*(vm_penalty'*vm_penalty) + 
                     x_in'*x_in +
                     (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
@@ -546,6 +582,7 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
                     # => (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
             elseif (first_solve == true)
                 obj = @expression(model,
+                    1e3*zen/zen0 +  # this value, 1e3, is super heuristic
                     1e3*(vm_penalty'*vm_penalty) + 
                     x_in'*x_in +
                     (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
@@ -554,7 +591,7 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
                     # => (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
             else
                 obj = @expression(model, 
-                    1e3*zv/zen0 +  # this value, 1e3, is super heuristic
+                    1e3*zen/zen0 +  # this value, 1e3, is super heuristic
                     x_in'*x_in +
                     (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
                     1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))

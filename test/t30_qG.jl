@@ -20,7 +20,8 @@ start_time = time()
 jsn = quasiGrad.load_json(InFile1)
 adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
     quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
-
+    
+qG.print_linear_pf_iterations = true
 qG.adam_max_time  = 70.0
 
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
@@ -72,6 +73,27 @@ println("grand time: $(total_time)")
 
 
 
+
+# %% =========================
+start_time = time()
+jsn = quasiGrad.load_json(InFile1)
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
+    quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
+
+qG.adam_max_time  = 70.0
+
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+
+# %%
+quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = true)
+
+stt0 = deepcopy(stt);
+
+# %% =========================
+stt = deepcopy(stt0);
+qG.print_linear_pf_iterations = true
+
+quasiGrad.solve_parallel_linear_pf_with_Gurobi!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve = true)
 
 # %% =========================
 # TT: start time
