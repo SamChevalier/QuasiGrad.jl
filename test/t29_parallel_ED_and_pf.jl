@@ -827,6 +827,8 @@ for tii in prm.ts.time_keys
 end
 
 # %% ==============
+quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys);
+
 println(sum(sum(stt.zhat_mndn[tii]) for tii in prm.ts.time_keys)) 
 println(sum(sum(stt.zhat_mnup[tii]) for tii in prm.ts.time_keys)) 
 println(sum(sum(stt.zhat_rup[tii])  for tii in prm.ts.time_keys)) 

@@ -6,6 +6,16 @@
 # struct_fields:
     fieldnames(typeof(input_struct))
 
+@batch per=core for tii in prm.ts.time_keys
+    ...
+end
+
+quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
+
+Threads.@threads for tii in prm.ts.time_keys
+    ...
+end
+
 # in this file, we design the function which solves economic dispatch
 function solve_parallel_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; include_sus_in_ed::Bool=true)
     # note: all binaries are LP relaxed (so there is no BaB-ing): 0 < b < 1
@@ -445,3 +455,4 @@ function solve_parallel_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.
     t_ed = time() - t_ed0
     println("Parallel ED finished. Objective value: ", scr[:ed_obj], ". Total time: $t_ed.")
 end
+

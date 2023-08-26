@@ -106,7 +106,7 @@ print("t1: ")
 @btime quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 
 print("t2: ")
-@btime quasiGrad.clip_all!(prm, qG, stt)
+@btime quasiGrad.clip_all!(prm, qG, stt, sys)
 
 print("t3: ")
 @btime quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
@@ -173,8 +173,8 @@ print("t20: ")
 
 
 # %%
-@time quasiGrad.clip_all!(prm, qG, stt)
-@btime quasiGrad.clip_all!(prm, qG, stt)
+@time quasiGrad.clip_all!(prm, qG, stt, sys)
+@btime quasiGrad.clip_all!(prm, qG, stt, sys)
 
 # %% take an adam step
 adm_step    = 0

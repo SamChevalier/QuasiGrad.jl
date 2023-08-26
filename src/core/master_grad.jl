@@ -1015,7 +1015,6 @@ function flush_gradients!(grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, prm::q
         grd.dx.dp[tii]      .= 0.0
         grd.dx.dq[tii]      .= 0.0
     end
-    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 function dp_alpha!(grd::quasiGrad.Grad, dev::Union{Int32,Int64}, tii::Int8, alpha::Float64)

@@ -13,7 +13,7 @@ function acline_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad
     cs = prm.vio.s_flow * qG.scale_c_sflow_testing
     
     # loop over time -- use per=core
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
     
         # duration
@@ -171,9 +171,6 @@ function acline_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad
             end
         end
     end
-    
-    # sleep tasks
-    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 # xfm line flows
@@ -190,7 +187,7 @@ function xfm_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Pa
     cs = prm.vio.s_flow * qG.scale_c_sflow_testing
     
     # loop over time -- use "per=core"
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
     
         # duration
@@ -370,9 +367,6 @@ function xfm_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Pa
             end
         end
     end
-    
-    # sleep tasks
-    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 # acline -- just the flows

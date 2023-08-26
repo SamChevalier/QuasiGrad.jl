@@ -859,9 +859,28 @@ function single_shot_pf_cleanup!(idx::quasiGrad.Index, Jac::quasiGrad.SparseArra
     end
 end
 
-function cleanup_constrained_pf_with_Gurobi!(idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
-    # **NOTE**: this is necessarily a *serial* solver -- each time period is linked
+function cleanup_constrained_pf_with_Gurobi!(    
+    cgd::quasiGrad.ConstantGrad, 
+    ctg::quasiGrad.Contingency,
+    flw::quasiGrad.Flow, 
+    grd::quasiGrad.Grad, 
+    idx::quasiGrad.Index, 
+    mgd::quasiGrad.MasterGrad,
+    ntk::quasiGrad.Network, 
+    prm::quasiGrad.Param, 
+    qG::quasiGrad.QG, 
+    scr::Dict{Symbol, Float64}, 
+    stt::quasiGrad.State,
+    sys::quasiGrad.System, 
+    upd::Dict{Symbol, Vector{Vector{Int64}}})
     
+    # **NOTE**: this is necessarily a *serial* solver -- each time period is linked
+    qG.skip_ctg_eval = true
+    qG.eval_grad     = false
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    qG.skip_ctg_eval = false
+    qG.eval_grad     = true
+
     # ask Gurobi to solve a linearize power flow. two options here:
     #   1) define device variables which are bounded, and then insert them into the power balance expression
     #   2) just define power balance bounds based on device characteristics, and then, at the end, optimally

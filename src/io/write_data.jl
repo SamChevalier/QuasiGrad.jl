@@ -1,7 +1,7 @@
 function prepare_solution(prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, qG::quasiGrad.QG)
     # clip once more, just to be safe
     qG.clip_pq_based_on_bins = true
-    quasiGrad.clip_all!(prm, qG, stt)
+    quasiGrad.clip_all!(prm, qG, stt, sys)
 
     # prepare the solution dictionary
     soln_dict = Dict("time_series_output" => Dict("bus"                        => Array{Dict}(undef,sys.nb),

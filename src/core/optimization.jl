@@ -241,7 +241,7 @@ function update_states_and_grads!(
     quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 
     # clip all basic states (i.e., the states which are iterated on)
-    quasiGrad.clip_all!(prm, qG, stt)
+    quasiGrad.clip_all!(prm, qG, stt, sys)
 
     # compute network flows and injections
     quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
@@ -290,8 +290,8 @@ function update_states_and_grads_for_adam_pf!(cgd::quasiGrad.ConstantGrad, grd::
 
     # clip all basic states (i.e., the states which are iterated on)
     qG.clip_pq_based_on_bins = false
-    quasiGrad.clip_all!(prm, qG, stt)
-    
+    quasiGrad.clip_for_adam_pf!(prm, qG, stt, sys) # no need to touch bins, reserves
+
     # compute network flows and injections
     quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
     quasiGrad.xfm_flows!(grd, idx, prm, qG, stt, sys)

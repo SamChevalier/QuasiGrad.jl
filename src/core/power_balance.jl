@@ -39,9 +39,6 @@ function power_balance!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGra
             end
         end
     end
-
-    # sleep tasks
-    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 # fast sum

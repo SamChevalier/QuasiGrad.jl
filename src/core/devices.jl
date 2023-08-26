@@ -563,7 +563,7 @@ end
 
 function device_reserve_costs!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # compute the costs associated with device reserve offers
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # duration
         dt = prm.ts.duration[tii]
@@ -580,9 +580,6 @@ function device_reserve_costs!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quas
         stt.zqru[tii] .= dt.*prm.dev.q_res_up_cost_tmdv[tii].*stt.q_qru[tii]      
         stt.zqrd[tii] .= dt.*prm.dev.q_res_down_cost_tmdv[tii].*stt.q_qrd[tii]
     end
-    
-    # sleep tasks
-    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 function energy_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
@@ -592,7 +589,7 @@ function energy_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Param, qG::quasiGrad.
         dt = prm.ts.duration[tii]
 
         # devices
-        @batch per=core for dev in prm.dev.dev_keys
+        Threads.@threads for dev in prm.dev.dev_keys
         # => @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
             cst = prm.dev.cum_cost_blocks[dev][tii][1]  # cost for each block (leading with 0)
             pbk = prm.dev.cum_cost_blocks[dev][tii][2]  # power in each block (leading with 0)
@@ -644,9 +641,6 @@ function energy_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Param, qG::quasiGrad.
             end
         end
     end
-
-    # sleep tasks
-    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 function energy_penalties!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
@@ -710,7 +704,7 @@ end
 
 function all_device_statuses_and_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # loop over each time period
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # duration
         dt = prm.ts.duration[tii]
@@ -808,14 +802,11 @@ function all_device_statuses_and_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Para
             stt.zsd_xfm[tii] .= prm.xfm.disconnection_cost.*stt.u_sd_xfm[tii]
         end
     end
-
-    # sleep tasks
-    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 function simple_device_statuses!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # loop over each time period
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # start up and shutdown costs
         if tii == 1
@@ -830,7 +821,7 @@ function simple_device_statuses!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG:
     end
 
     # now, compute the u_sum
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         for dev in prm.dev.dev_keys
             # => T_supc = idx.Ts_supc[dev][tii] # => get_supc(tii, dev, prm)
@@ -848,7 +839,7 @@ function device_active_powers!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::q
         # the following is expensive, so we skip it during power flow solves
         # (and we don't update p_su/p_sd anyways!)
         if qG.run_susd_updates
-            @batch per=core for dev in prm.dev.dev_keys
+            Threads.@threads for dev in prm.dev.dev_keys
             # => @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
                 # first, get the startup power
                 # => T_supc     = idx.Ts_supc[dev][tii]     # => T_supc, p_supc_set   = get_supc(tii, dev, prm)
@@ -875,29 +866,23 @@ function device_active_powers!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::q
         # finally, get the total power balance
         stt.dev_p[tii] .= stt.p_on[tii] .+ stt.p_su[tii] .+ stt.p_sd[tii]
     end
-
-    # sleep tasks
-    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 # reactive power computation
 function device_reactive_powers!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # loop over each time period
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
         # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # => stt.dev_q[tii][idx.J_pqe] .= prm.dev.q_0[idx.J_pqe].*stt.u_sum[tii][idx.J_pqe] .+ prm.dev.beta[idx.J_pqe].*stt.dev_p[tii][idx.J_pqe]
         for dev in idx.J_pqe
             stt.dev_q[tii][dev] = prm.dev.q_0[dev]*stt.u_sum[tii][dev] + prm.dev.beta[dev]*stt.dev_p[tii][dev]
         end
     end
-
-    # sleep tasks
-    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 function device_startup_states!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # before looping over the startup states, flush stt
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         for dev in prm.dev.dev_keys
             stt.zsus_dev_local[tii][dev]  .= 0.0
@@ -906,7 +891,7 @@ function device_startup_states!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::
     end
     
     # parallel loop over devices
-    @batch per=core for dev in prm.dev.dev_keys
+    Threads.@threads for dev in prm.dev.dev_keys
     # => @floop ThreadedEx(basesize = sys.ndev ÷ qG.num_threads) for dev in prm.dev.dev_keys
         # loop over each time period
         for tii in prm.ts.time_keys
@@ -989,9 +974,6 @@ function device_startup_states!(grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::
             end
         end
     end
-
-    # sleep tasks
-    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 # min downtimes:

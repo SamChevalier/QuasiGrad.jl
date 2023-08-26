@@ -210,7 +210,7 @@ end
 
 # %% README: if you perturb over the max power, the device cost will error
 #         out -- this happens a lot.
-#quasiGrad.clip_all!(prm, qG, stt)
+#quasiGrad.clip_all!(prm, qG, stt, sys)
 include("./test_functions.jl")
 
 qG.pg_tol = 0.0

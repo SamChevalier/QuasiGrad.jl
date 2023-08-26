@@ -28,7 +28,7 @@ function solve_ctgs!(
             num_wrst     = Int64(ceil(qG.frac_ctg_keep*sys.nctg/2))  # in case n_ctg is odd, and we want to keep all!
             num_rnd      = Int64(floor(qG.frac_ctg_keep*sys.nctg/2)) # in case n_ctg is odd, and we want to keep all!
             num_ctg      = num_wrst + num_rnd
-            num_backprop = Int64(sys.nctg*qG.frac_ctg_backprop) #, where frac_ctg_backprop <= frac_ctg_keep
+            num_backprop = Int64(round(sys.nctg*qG.frac_ctg_backprop)) #, where frac_ctg_backprop <= frac_ctg_keep
 
             if qG.score_all_ctgs == true
                 ###########################################################
@@ -188,14 +188,11 @@ function solve_ctgs!(
                     end
                 else
                     # initialize -- redone at each time!
-                    @batch per=core for thrID in 1:(qG.num_threads+2) # two extra added, for safety
+                    Threads.@threads for thrID in 1:(qG.num_threads+2) # two extra added, for safety
                         ctg.dz_dpinj_all_threadsum[thrID]    .= 0.0
                         ctg.dsmax_dqfr_flow_threadsum[thrID] .= 0.0
                         ctg.dsmax_dqto_flow_threadsum[thrID] .= 0.0
                     end
-
-                    # sleep tasks
-                    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 
                     # loop over contingency subset
                     # => @floop ThreadedEx(basesize = num_ctg ÷ qG.num_threads) for ctg_ii in @view flw.worst_ctg_ids[tii][1:num_ctg] # first is worst!!
@@ -673,7 +670,7 @@ function initialize_ctg_lists!(cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Conti
     quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
     # next, rank and update "worst_ctg_ids" list
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
         # note: sortperm! has ambiguous documentation re: initialization
         flw.worst_ctg_ids[tii] .= sortperm(stt.zctg[tii])
     end

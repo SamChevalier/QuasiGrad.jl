@@ -299,11 +299,11 @@ function f()
     #quasiGrad.Polyester.reset_threads!()
     #quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
     #quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
-    quasiGrad.clip_all!(prm, qG, stt)
+    quasiGrad.clip_all!(prm, qG, stt, sys)
     quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
     quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
     quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
-    #quasiGrad.clip_all!(prm, qG, stt)
+    #quasiGrad.clip_all!(prm, qG, stt, sys)
 end
 
 # %%
@@ -345,11 +345,11 @@ h()
 
 # %%
 @btime quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
-@btime quasiGrad.clip_all!(prm, qG, stt)
+@btime quasiGrad.clip_all!(prm, qG, stt, sys)
 
 # %%
 @btime quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
-@btime quasiGrad.clip_all!(prm, qG, stt)
+@btime quasiGrad.clip_all!(prm, qG, stt, sys)
 # %%
 
 @benchmark quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
@@ -361,7 +361,7 @@ qG.acflow_grad_is_soft_abs = true
 qG.num_threads = 10
 
 @btime quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
-@btime quasiGrad.clip_all!(prm, qG, stt)
+@btime quasiGrad.clip_all!(prm, qG, stt, sys)
 @btime quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
 @btime quasiGrad.xfm_flows!(grd, idx, prm, qG, stt, sys)
 @btime quasiGrad.shunts!(grd, idx, prm, qG, stt)
@@ -447,7 +447,7 @@ for ii in 1:1000
         # => println("clipping off!!!")
         # => println("bin_clip is true!")
     qG.clip_pq_based_on_bins = false
-    quasiGrad.clip_all!(prm, qG, stt)
+    quasiGrad.clip_all!(prm, qG, stt, sys)
     
     # compute network flows and injections
     quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)

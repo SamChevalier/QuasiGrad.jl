@@ -43,9 +43,9 @@ qG.num_threads = 12
 @btime quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 
 # %% 2)
-#quasiGrad.clip_all!(prm, qG, stt)
+#quasiGrad.clip_all!(prm, qG, stt, sys)
 qG.num_threads = 12
-@btime quasiGrad.clip_all!(prm, qG, stt)
+@btime quasiGrad.clip_all!(prm, qG, stt, sys)
 
 # %% 3)
 qG.num_threads = 1

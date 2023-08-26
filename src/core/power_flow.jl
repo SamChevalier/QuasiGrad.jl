@@ -1,6 +1,10 @@
 function solve_power_flow!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; first_solve::Bool=true)
     # Note -- this is run *after* DCPF and q/v corrections (maybe..)
     # 
+    # potentially, update binaries
+    quasiGrad.clip_all!(prm, qG, stt, sys)
+
+    # run
     if first_solve == true
         if qG.run_lbfgs == true
             # 1. fire up lbfgs, as controlled by adam, WITH regularization + OPF
@@ -677,7 +681,7 @@ function update_states_and_grads_for_solve_pf_lbfgs!(cgd::quasiGrad.ConstantGrad
 
     # clip all basic states (i.e., the states which are iterated on)
     qG.clip_pq_based_on_bins = false
-    quasiGrad.clip_all!(prm, qG, stt)
+    quasiGrad.clip_all!(prm, qG, stt, sys)
     
     # compute network flows and injections
     quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
@@ -765,7 +769,7 @@ function solve_pf_lbfgs!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::q
     else
         # we solve pf at each instant, so loop over all time!
         # => for tii in prm.ts.time_keys
-        @batch per=core for tii in prm.ts.time_keys
+        Threads.@threads for tii in prm.ts.time_keys
         # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
 
             # udpdate the state difference
@@ -870,7 +874,7 @@ function solve_pf_lbfgs!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::q
 end
 
 function quadratic_distance!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # grab the distance between p_on and its initial value -- this is something we 
         # minimize, so the regularization function is positive valued

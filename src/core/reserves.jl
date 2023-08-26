@@ -16,7 +16,7 @@ function reserve_balance!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiG
     cqrd = prm.vio.qrd_zonal
     
     # we need access to the time index itself
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # duration
         dt = prm.ts.duration[tii]
@@ -85,9 +85,6 @@ function reserve_balance!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiG
         stt.zqru_zonal[tii] .= (dt.*cqru).*stt.q_qru_zonal_penalty[tii]
         stt.zqrd_zonal[tii] .= (dt.*cqrd).*stt.q_qrd_zonal_penalty[tii]
     end
-
-    # sleep tasks
-    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
 end
 
 # functions for using polyester, which has a hard time with internal for loops of this sort

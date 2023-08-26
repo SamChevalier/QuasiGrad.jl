@@ -8,7 +8,6 @@ using JSON
 using JuMP
 using Gurobi
 using Random
-using Polyester
 using Statistics
 using SparseArrays
 using LinearAlgebra
@@ -19,6 +18,7 @@ using LoopVectorization
 
 using BenchmarkTools
 # don't call => using LimitedLDLFactorizations
+# don't call => using Polyester
 
 # call this first
 include("./core/structs.jl")
@@ -102,10 +102,10 @@ precompile(build_Jac_and_pq0!,(quasiGrad.Network, quasiGrad.QG, quasiGrad.State,
 precompile(build_Jac_sfr_and_sfr0!,(quasiGrad.Index, quasiGrad.Network, quasiGrad.Param, quasiGrad.State, quasiGrad.System, Int8))
 precompile(build_Jac_sto!,(quasiGrad.Network, quasiGrad.State, quasiGrad.System, Int8))
 precompile(call_adam_states,(quasiGrad.Adam, quasiGrad.MasterGrad, quasiGrad.State, Symbol))
-precompile(cleanup_constrained_pf_with_Gurobi!,(quasiGrad.Index, quasiGrad.Network, quasiGrad.Param, quasiGrad.QG,  quasiGrad.State, quasiGrad.System, Dict{Symbol, Vector{Vector{Int64}}}))
-precompile(clip_all!,(quasiGrad.Param, quasiGrad.QG, quasiGrad.State))
+precompile(cleanup_constrained_pf_with_Gurobi!,(quasiGrad.ConstantGrad, quasiGrad.Contingency, quasiGrad.Flow, quasiGrad.Grad, quasiGrad.Index, quasiGrad.MasterGrad, quasiGrad.Network, quasiGrad.Param, quasiGrad.QG, Dict{Symbol, Float64}, quasiGrad.State, quasiGrad.System, Dict{Symbol, Vector{Vector{Int64}}}))
+precompile(clip_all!,(quasiGrad.Param, quasiGrad.QG, quasiGrad.State, quasiGrad.System))
 precompile(clip_dc!,(quasiGrad.Param, quasiGrad.QG, quasiGrad.State))
-precompile(clip_for_adam_pf!,(quasiGrad.Param, quasiGrad.QG, quasiGrad.State))
+precompile(clip_for_adam_pf!,(quasiGrad.Param, quasiGrad.QG, quasiGrad.State, quasiGrad.System))
 precompile(clip_onoff_binaries!,(quasiGrad.Param, quasiGrad.QG, quasiGrad.State))
 precompile(clip_pq!,(quasiGrad.Param, quasiGrad.QG, quasiGrad.State))
 precompile(clip_reserves!,(quasiGrad.Param, quasiGrad.QG, quasiGrad.State))

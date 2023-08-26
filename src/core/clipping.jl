@@ -1,36 +1,130 @@
-function clip_all!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
+function clip_all!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # sequentially clip -- order does not matter
     #
+    # decrease overhead
+    Threads.@threads for tii in prm.ts.time_keys
+        # dc
+        if sys.nldc > 0
+            stt.dc_qfr[tii] .= clamp.(stt.dc_qfr[tii],  prm.dc.qdc_fr_lb, prm.dc.qdc_fr_ub)
+            stt.dc_qto[tii] .= clamp.(stt.dc_qto[tii],  prm.dc.qdc_to_lb, prm.dc.qdc_to_ub)
+            stt.dc_pfr[tii] .= clamp.(stt.dc_pfr[tii], .-prm.dc.pdc_ub,    prm.dc.pdc_ub )
+            stt.dc_pto[tii] .= .-stt.dc_pfr[tii] # equate from and to end powers -- dc_pfr is the reference, or default
+        end
+
+        # xfm
+        stt.phi[tii] .= clamp.(stt.phi[tii], prm.xfm.ta_lb, prm.xfm.ta_ub)
+        stt.tau[tii] .= clamp.(stt.tau[tii], prm.xfm.tm_lb, prm.xfm.tm_ub)
+
+        # shunt
+        stt.u_step_shunt[tii] .= clamp.(stt.u_step_shunt[tii], prm.shunt.step_lb, prm.shunt.step_ub)
+
+        # voltage
+        stt.vm[tii] .= clamp.(stt.vm[tii], prm.bus.vm_lb, prm.bus.vm_ub)
+
+        # on/off binaries
+        stt.u_on_dev[tii]    .= clamp.(stt.u_on_dev[tii],    0.0, 1.0)
+        stt.u_on_acline[tii] .= clamp.(stt.u_on_acline[tii], 0.0, 1.0)
+        stt.u_on_xfm[tii]    .= clamp.(stt.u_on_xfm[tii],    0.0, 1.0)
+
+        # transpose
+        @inbounds @simd for dev in prm.dev.dev_keys
+            stt.u_on_dev_Trx[dev][tii] = stt.u_on_dev[tii][dev]
+            stt.u_su_dev_Trx[dev][tii] = stt.u_su_dev[tii][dev]
+            stt.u_sd_dev_Trx[dev][tii] = stt.u_sd_dev[tii][dev]
+            stt.u_sum_Trx[dev][tii]    = stt.u_sum[tii][dev]
+        end
+
+        # reserves
+        @turbo stt.p_rgu[tii]     .= max.(stt.p_rgu[tii],0.0)
+        @turbo stt.p_rgd[tii]     .= max.(stt.p_rgd[tii],0.0)
+        @turbo stt.p_scr[tii]     .= max.(stt.p_scr[tii],0.0)
+        @turbo stt.p_nsc[tii]     .= max.(stt.p_nsc[tii],0.0)
+        @turbo stt.p_rru_on[tii]  .= max.(stt.p_rru_on[tii],0.0)
+        @turbo stt.p_rru_off[tii] .= max.(stt.p_rru_off[tii],0.0)
+        @turbo stt.p_rrd_on[tii]  .= max.(stt.p_rrd_on[tii],0.0)
+        @turbo stt.p_rrd_off[tii] .= max.(stt.p_rrd_off[tii],0.0)
+        @turbo stt.q_qru[tii]     .= max.(stt.q_qru[tii],0.0)
+        @turbo stt.q_qrd[tii]     .= max.(stt.q_qrd[tii],0.0)
+
+        # pq
+        if qG.clip_pq_based_on_bins == true
+            @turbo stt.p_on[tii] .= max.(stt.p_on[tii], stt.u_on_dev[tii].*prm.dev.p_lb_tmdv[tii])
+            @turbo stt.p_on[tii] .= min.(stt.p_on[tii], stt.u_on_dev[tii].*prm.dev.p_ub_tmdv[tii])
+        else
+            @turbo stt.p_on[tii] .= max.(stt.p_on[tii], 0.0)
+            @turbo stt.p_on[tii] .= min.(stt.p_on[tii], prm.dev.p_ub_tmdv[tii])
+        end
+        if qG.clip_pq_based_on_bins == true
+            @turbo stt.dev_q[tii] .= max.(stt.dev_q[tii], stt.u_sum[tii].*prm.dev.q_lb_tmdv[tii])
+            @turbo stt.dev_q[tii] .= min.(stt.dev_q[tii], stt.u_sum[tii].*prm.dev.q_ub_tmdv[tii])
+        else
+            @turbo stt.dev_q[tii] .= max.(stt.dev_q[tii], min.(prm.dev.q_lb_tmdv[tii], 0.0))
+            @turbo stt.dev_q[tii] .= min.(stt.dev_q[tii], max.(prm.dev.q_ub_tmdv[tii], 0.0))
+        end
+    end
+
+
     # note: "clamp" is much faster than the alternatives!
-    clip_dc!(prm, qG, stt)
-    clip_xfm!(prm, qG, stt)
-    clip_shunts!(prm, qG, stt)
-    clip_voltage!(prm, qG, stt)
-    clip_onoff_binaries!(prm, qG, stt)
-    transpose_binaries!(prm, qG, stt)
-    clip_reserves!(prm, qG, stt)
+        # => clip_dc!(prm, qG, stt)
+        # => clip_xfm!(prm, qG, stt)
+        # => clip_shunts!(prm, qG, stt)
+        # => clip_voltage!(prm, qG, stt)
+        # => clip_onoff_binaries!(prm, qG, stt)
+        # => transpose_binaries!(prm, qG, stt)
+        # => clip_reserves!(prm, qG, stt)
 
     # clip dev_p and dev_q after binaries, since p_on clipping MAY depend on u_on
-    clip_pq!(prm, qG, stt)
-
-    # sleep tasks
-    quasiGrad.Polyester.ThreadingUtilities.sleep_all_tasks()
+        # => clip_pq!(prm, qG, stt)
 end
 
-function clip_for_adam_pf!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
+function clip_for_adam_pf!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # sequentially clip -- order does not matter
     #
+    Threads.@threads for tii in prm.ts.time_keys
+        # dc
+        if sys.nldc > 0
+            stt.dc_qfr[tii] .= clamp.(stt.dc_qfr[tii],  prm.dc.qdc_fr_lb, prm.dc.qdc_fr_ub)
+            stt.dc_qto[tii] .= clamp.(stt.dc_qto[tii],  prm.dc.qdc_to_lb, prm.dc.qdc_to_ub)
+            stt.dc_pfr[tii] .= clamp.(stt.dc_pfr[tii], .-prm.dc.pdc_ub,    prm.dc.pdc_ub )
+            stt.dc_pto[tii] .= .-stt.dc_pfr[tii] # equate from and to end powers -- dc_pfr is the reference, or default
+        end
+
+        # xfm
+        stt.phi[tii] .= clamp.(stt.phi[tii], prm.xfm.ta_lb, prm.xfm.ta_ub)
+        stt.tau[tii] .= clamp.(stt.tau[tii], prm.xfm.tm_lb, prm.xfm.tm_ub)
+
+        # shunt
+        stt.u_step_shunt[tii] .= clamp.(stt.u_step_shunt[tii], prm.shunt.step_lb, prm.shunt.step_ub)
+
+        # voltage
+        stt.vm[tii] .= clamp.(stt.vm[tii], prm.bus.vm_lb, prm.bus.vm_ub)
+
+        # pq
+        if qG.clip_pq_based_on_bins == true
+            @turbo stt.p_on[tii] .= max.(stt.p_on[tii], stt.u_on_dev[tii].*prm.dev.p_lb_tmdv[tii])
+            @turbo stt.p_on[tii] .= min.(stt.p_on[tii], stt.u_on_dev[tii].*prm.dev.p_ub_tmdv[tii])
+        else
+            @turbo stt.p_on[tii] .= max.(stt.p_on[tii], 0.0)
+            @turbo stt.p_on[tii] .= min.(stt.p_on[tii], prm.dev.p_ub_tmdv[tii])
+        end
+        if qG.clip_pq_based_on_bins == true
+            @turbo stt.dev_q[tii] .= max.(stt.dev_q[tii], stt.u_sum[tii].*prm.dev.q_lb_tmdv[tii])
+            @turbo stt.dev_q[tii] .= min.(stt.dev_q[tii], stt.u_sum[tii].*prm.dev.q_ub_tmdv[tii])
+        else
+            @turbo stt.dev_q[tii] .= max.(stt.dev_q[tii], min.(prm.dev.q_lb_tmdv[tii], 0.0))
+            @turbo stt.dev_q[tii] .= min.(stt.dev_q[tii], max.(prm.dev.q_ub_tmdv[tii], 0.0))
+        end
+    end
     # note: "clamp" is much faster than the alternatives!
-    clip_dc!(prm, qG, stt)
-    clip_xfm!(prm, qG, stt)
-    clip_shunts!(prm, qG, stt)
-    clip_voltage!(prm, qG, stt)
+        # => clip_dc!(prm, qG, stt)
+        # => clip_xfm!(prm, qG, stt)
+        # => clip_shunts!(prm, qG, stt)
+        # => clip_voltage!(prm, qG, stt)
+        # => clip_pq!(prm, qG, stt)
 end
 
 function clip_dc!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
-    @batch per=core for tii in prm.ts.time_keys
-    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
-
+    Threads.@threads for tii in prm.ts.time_keys
         if ~isempty(stt.dc_qfr[tii])
             # clip all flows
                 # stt.dc_qfr[tii] = min.(max.(stt.dc_qfr[tii],  prm.dc.qdc_fr_lb), prm.dc.qdc_fr_ub)
@@ -47,7 +141,7 @@ function clip_dc!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
 end
 
 function clip_xfm!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # stt.phi[tii] = min.(max.(stt.phi[tii], prm.xfm.ta_lb), prm.xfm.ta_ub)
         # stt.tau[tii] = min.(max.(stt.tau[tii], prm.xfm.tm_lb), prm.xfm.tm_ub)
@@ -57,7 +151,7 @@ function clip_xfm!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
 end
 
 function clip_shunts!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         #stt.u_step_shunt[tii] = min.(max.(stt.u_step_shunt[tii], prm.shunt.step_lb), prm.shunt.step_ub)
         stt.u_step_shunt[tii] .= clamp.(stt.u_step_shunt[tii], prm.shunt.step_lb, prm.shunt.step_ub)
@@ -65,7 +159,7 @@ function clip_shunts!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.Sta
 end
 
 function clip_voltage!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # comute the deviation (0 if within bounds!)
         #del = min.(stt.vm[tii] - prm.bus.vm_lb  , 0.0) + max.(stt.vm[tii] - prm.bus.vm_ub, 0.0)
@@ -77,7 +171,7 @@ function clip_voltage!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.St
 end
 
 function clip_reserves!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         @turbo stt.p_rgu[tii]     .= max.(stt.p_rgu[tii],0.0)
         @turbo stt.p_rgd[tii]     .= max.(stt.p_rgd[tii],0.0)
@@ -93,7 +187,7 @@ function clip_reserves!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.S
 end
 
 function clip_onoff_binaries!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         stt.u_on_dev[tii]    .= clamp.(stt.u_on_dev[tii],    0.0, 1.0)
         stt.u_on_acline[tii] .= clamp.(stt.u_on_acline[tii], 0.0, 1.0)
@@ -109,7 +203,7 @@ end
 
 # in the second-to-last iteration, we snap all shunts
 function snap_shunts!(fix::Bool, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}})
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # clamp, to be safe
         stt.u_step_shunt[tii] .= clamp.(stt.u_step_shunt[tii], prm.shunt.step_lb, prm.shunt.step_ub)
@@ -128,7 +222,7 @@ function clip_pq!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
     # qG.clip_pq_based_on_bins: should we clip p and q based on the current values of the binaries?
     #                           there are pros and cons to both decisions, so it is probably best
     #                           to alternate..
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # we also clip p_on, even though its value isn't explicitly set \ge 0
             # for justification, see (254) and (110)

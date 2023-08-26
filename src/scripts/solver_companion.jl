@@ -104,7 +104,7 @@ quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, s
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
 
 # E5. cleanup constrained powerflow
-quasiGrad.cleanup_constrained_pf_with_Gurobi!(idx, ntk, prm, qG, stt, sys, upd)
+quasiGrad.cleanup_constrained_pf_with_Gurobi!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
 # E6. cleanup reserves
 quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
