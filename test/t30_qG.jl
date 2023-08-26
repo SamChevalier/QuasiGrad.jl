@@ -7,10 +7,10 @@ tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
 # call the solver!
 InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N00617D1/scenario_001.json"
 InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N01576D1/scenario_027.json"
-InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N04224D1/scenario_131.json"
-InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N06049D1/scenario_031.json"
-InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N08316D1/scenario_001.json"
-# InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N23643D1/scenario_003.json"
+#InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N04224D1/scenario_131.json"
+#InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N06049D1/scenario_031.json"
+#InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N08316D1/scenario_001.json"
+InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N23643D1/scenario_003.json"
 
 # this is the master function which executes quasiGrad.
 # 
@@ -22,18 +22,9 @@ adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd =
     quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
     
 qG.print_linear_pf_iterations = true
-qG.adam_max_time  = 70.0
+qG.adam_max_time  = 50.0
 
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
-
-# %% ===
-@btime quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
-
-# %% ===
-@btime quasiGrad.reserve_balance!(idx, prm, qG, stt, sys)
-
-# %% ==
-
 quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
 quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
@@ -65,6 +56,9 @@ quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, s
 # final print
 println("grand time: $(total_time)")
 
+# %% =============
+@time quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+
 # %% ============================= test functionally!
 tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
 
@@ -76,19 +70,15 @@ InFile1 = tfp*"C3S4X_20230809/D1/C3S4N00617D1/scenario_963.json" # last
 quasiGrad.compute_quasiGrad_solution_practice(InFile1, 1.0, 1, "test", 1)
 
 
+# %%
+@time quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
+# %% ===
+@time soln_dict = quasiGrad.prepare_blank_solution(prm, stt, sys, qG);
 
+# %%
 
-
-
-
-
-
-
-
-
-
-
+@time quasiGrad.update_solution!(prm, soln_dict, stt, sys, qG);
 
 # %% =========================
 start_time = time()

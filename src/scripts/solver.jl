@@ -128,7 +128,6 @@ function compute_quasiGrad_solution_practice(InFile1::String, NewTimeLimitInSeco
     quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
     quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-    #=
     quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
     quasiGrad.project!(95.0, idx, prm, qG, stt, sys, upd, final_projection = false)
     quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
@@ -148,7 +147,6 @@ function compute_quasiGrad_solution_practice(InFile1::String, NewTimeLimitInSeco
     quasiGrad.cleanup_constrained_pf_with_Gurobi!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
     quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
     quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
-    =#
     total_time = time() - start_time
 
     # post process

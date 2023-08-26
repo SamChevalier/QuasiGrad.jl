@@ -985,7 +985,7 @@ end
 
 # flush the master grad and other key gradients terms :)
 function flush_gradients!(grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System)
-    @batch per=core for tii in prm.ts.time_keys
+    Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # set all to 0
         mgd.vm[tii]           .= 0.0    
