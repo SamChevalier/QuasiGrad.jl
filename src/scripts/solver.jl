@@ -936,3 +936,27 @@ function compute_quasiGrad_solution_one_sweep(InFile1::String, NewTimeLimitInSec
     #println("up time3: $up_time")
 
 end
+
+function compute_quasiGrad_solution_23k_pf(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
+    # this is the master function which executes quasiGrad.
+    # 
+    # 
+    # =====================================================\\
+    # TT: start time
+    start_time = time()
+
+    jsn = quasiGrad.load_json(InFile1)
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
+        quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true, line_switching=AllowSwitching);
+
+    qG.print_linear_pf_iterations = true
+    
+    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    qG.adam_max_time              = 250.0
+    qG.print_linear_pf_iterations = true
+    qG.print_zms                  = true
+    qG.print_freq                 = 2
+
+    quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
+
+end

@@ -447,8 +447,8 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
             @constraint(model, 0.9 .* prm.bus.vm_lb .<= stt.vm[tii] .+ dvm .<= 1.1 .* prm.bus.vm_ub)
 
             # mapping
-            JacP_noref      = ntk.Jac[tii][1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
-            JacQ_noref      = ntk.Jac[tii][(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
+            JacP_noref = ntk.Jac[tii][1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
+            JacQ_noref = ntk.Jac[tii][(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
             @constraint(model, JacP_noref*x_in .+ stt.pinj0[tii] .== nodal_p)
             @constraint(model, JacQ_noref*x_in .+ stt.qinj0[tii] .== nodal_q)
 
@@ -470,6 +470,7 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
                 # also, add a phase angle constraint **(~63 degrees)**
                 dth_max = 3.5*pi/10.0
                 @constraint(model, -dth_max .<= (@view va[idx.ac_fr_bus]) .- (@view va[idx.ac_to_bus]) .- flw.ac_phi[tii] .<= dth_max)
+            
             elseif first_solve == true && apply_tight_flow_constraints == false
                 # in this case, convergence failed somehow, so we need to loosen these up (a lot..)
                 JacSfr_acl_noref = ntk.Jac_sflow_fr[tii][1:sys.nl,       [1:sys.nb; (sys.nb+2):end]]
@@ -487,6 +488,7 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
                 # also, add a phase angle constraint **(~72 degrees)**
                 dth_max     = 4.0*pi/10.0
                 @constraint(model, -dth_max .<= (@view va[idx.ac_fr_bus]) .- (@view va[idx.ac_to_bus]) .- flw.ac_phi[tii] .<= dth_max)
+            
             else
                 # always, always keep this here
                 va = Vector{AffExpr}(undef, sys.nb)
@@ -527,10 +529,10 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
                     # compute the cost! -- note: sign convention is opposite!
                     if dev in idx.cs_devs
                         # MINUS, because we want to minimize negative revenue from consumers
-                        zen -= dt*sum(cst.*p_jtm)
+                        add_to_expression!(zen, -dt*sum(cst.*p_jtm))
                     else
                         # PLUS, because we want to minimize generator costs
-                        zen += dt*sum(cst.*p_jtm)
+                        add_to_expression!(zen, dt*sum(cst.*p_jtm))
                     end
                 end
             else
@@ -566,16 +568,16 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
                     # compute the cost! -- note: sign convention is opposite!
                     if dev in idx.cs_devs
                         # MINUS, because we want to minimize negative revenue from consumers
-                        zen -= dt*(dev_p_vars[dev] - stt.dev_p[tii][dev])*cst[gradient_block]
+                        add_to_expression!(zen, -dt*(dev_p_vars[dev] - stt.dev_p[tii][dev])*cst[gradient_block])
                     else
                         # PLUS, because we want to minimize generator costs
-                        zen += dt*(dev_p_vars[dev] - stt.dev_p[tii][dev])*cst[gradient_block]
+                        add_to_expression!(zen, dt*(dev_p_vars[dev] - stt.dev_p[tii][dev])*cst[gradient_block])
                     end
                 end
             end
 
             # build the objective function!
-            if (first_solve == true)  && (pf_itr_cnt == 1)
+            if (first_solve == true)  && (pf_itr_cnt < 4)
                 obj = @expression(model,
                     1e3*zen/zen0 +  # this value, 1e3, is super heuristic
                     1e3*(vm_penalty'*vm_penalty) + 

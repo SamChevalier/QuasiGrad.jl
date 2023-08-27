@@ -1009,6 +1009,8 @@ function cleanup_constrained_pf_with_Gurobi!(
             set_start_value.(dev_p_vars, stt.dev_p[tii])
             set_start_value.(dev_q_vars, stt.dev_q[tii])
 
+        @constraint(model, dev_p_vars .== stt.dev_p[tii])
+
             # define p_on at this time
             # => p_on = dev_p_vars - stt.p_su[tii] - stt.p_sd[tii]
             p_on = Vector{AffExpr}(undef, sys.ndev)
@@ -1132,6 +1134,59 @@ function cleanup_constrained_pf_with_Gurobi!(
                     @constraint(model, dev_q_vars_future[dev] <= prm.dev.q_0_ub[dev]*stt.u_sum[tii_p1][dev] + prm.dev.beta_ub[dev]*dev_p_vars_future[dev])
                     @constraint(model, prm.dev.q_0_lb[dev]*stt.u_sum[tii_p1][dev] + prm.dev.beta_lb[dev]*dev_p_vars_future[dev] <= dev_p_vars_future[dev])
                 end
+
+                if tii != prm.ts.time_keys[end-1]
+                    # in D1, if tii < 17, then we do a double-look-ahead
+                    #
+                    # in this case, we want to make sure that whatever power values are chosen
+                    # can also be used in the satisfaction of the next time period constraints
+                    tii_p2      = prm.ts.time_keys[tii+2]
+                    dt_future_2 = prm.ts.duration[tii_p2]
+
+                    @variable(model, dev_p_vars_future_2[1:sys.ndev])
+                    @variable(model, dev_q_vars_future_2[1:sys.ndev])
+                    set_start_value.(dev_p_vars_future_2, stt.dev_p[tii_p2])
+                    set_start_value.(dev_q_vars_future_2, stt.dev_q[tii_p2])
+
+                    # define p_on_future
+                    p_on_future_2 = Vector{AffExpr}(undef, sys.ndev)
+                    for dev in 1:sys.ndev
+                        p_on_future_2[dev] = AffExpr(0.0)
+                        add_to_expression!(p_on_future_2[dev], dev_p_vars_future_2[dev])
+                        add_to_expression!(p_on_future_2[dev], -stt.p_su[tii_p2][dev] - stt.p_sd[tii_p2][dev])
+                    end
+
+                    # mapping:
+                        # dt_future         =>    dt_future_2
+                        # tii_p1            =>    tii_p2
+                        # p_on_future       =>    p_on_future_2
+                        # dev_p_vars_future =>    dev_p_vars_future_2
+                        # dev_q_vars_future =>    dev_q_vars_future_2
+                        # dev_p_vars        =>    dev_p_vars_future
+                        # dev_q_vars        =>    dev_q_vars_future
+
+                    # 1. ramp up
+                    @constraint(model, dev_p_vars_future_2 .- dev_p_vars_future .- dt_future_2.*(prm.dev.p_ramp_up_ub.*(stt.u_on_dev[tii_p2] .- stt.u_su_dev[tii_p2]) .+ prm.dev.p_startup_ramp_ub.*(stt.u_su_dev[tii_p2] .+ 1.0 .- stt.u_on_dev[tii_p2])) .<= 0.0)
+                    # 2. ramp down
+                    @constraint(model, dev_p_vars_future .- dev_p_vars_future_2 .- dt_future_2.*(prm.dev.p_ramp_down_ub.*stt.u_on_dev[tii_p2] .+ prm.dev.p_shutdown_ramp_ub.*(1.0 .- stt.u_on_dev[tii_p2])) .<= 0.0)
+                    # 3. pmax
+                    @constraint(model, p_on_future_2 .<= prm.dev.p_ub_tmdv[tii_p2].*stt.u_on_dev[tii_p2])
+                    # 4. pmin
+                    @constraint(model, prm.dev.p_lb_tmdv[tii_p2].*stt.u_on_dev[tii_p2] .<= p_on_future_2)
+                    # 5. qmax
+                    @constraint(model, dev_q_vars_future_2 .<= prm.dev.q_ub_tmdv[tii_p2].*stt.u_sum[tii_p2])
+                    # 6. qmin
+                    @constraint(model, prm.dev.q_lb_tmdv[tii_p2].*stt.u_sum[tii_p2] .<= dev_q_vars_future_2)
+                    # 7. apply additional bounds: J_pqe (equality constraints)
+                    for dev in idx.J_pqe
+                        @constraint(model, dev_q_vars_future_2[dev] - prm.dev.beta[dev]*dev_p_vars_future_2[dev] == prm.dev.q_0[dev]*stt.u_sum[tii_p2][dev])
+                    end
+                    # apply additional bounds: J_pqmin/max (inequality constraints)
+                    for dev in idx.J_pqmax
+                        @constraint(model, dev_q_vars_future_2[dev] <= prm.dev.q_0_ub[dev]*stt.u_sum[tii_p2][dev] + prm.dev.beta_ub[dev]*dev_p_vars_future_2[dev])
+                        @constraint(model, prm.dev.q_0_lb[dev]*stt.u_sum[tii_p2][dev] + prm.dev.beta_lb[dev]*dev_p_vars_future_2[dev] <= dev_p_vars_future_2[dev])
+                    end
+                end
             end
 
             # bound system variables ==============================================
@@ -1143,7 +1198,6 @@ function cleanup_constrained_pf_with_Gurobi!(
             # mapping
             JacP_noref = ntk.Jac[tii][1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
             JacQ_noref = ntk.Jac[tii][(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
-            println("off!!!")
             @constraint(model, JacP_noref*x_in .+ stt.pinj0[tii] .== nodal_p)
             @constraint(model, JacQ_noref*x_in .+ stt.qinj0[tii] .== nodal_q)
 
@@ -1154,7 +1208,7 @@ function cleanup_constrained_pf_with_Gurobi!(
                 (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
                 (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
                 5.0*(stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) + 
-                25.0*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
+                1e4*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
 
             # set the objective
             @objective(model, Min, obj)
@@ -1189,7 +1243,6 @@ function cleanup_constrained_pf_with_Gurobi!(
                 end
                 #
                 # shall we terminate?
-                run_pf = false
                 if (max_dx < qG.max_pf_dx_final_solve) || (pf_cnt == qG.max_linear_pfs_final_solve)
                     run_pf = false
                 end

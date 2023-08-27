@@ -31,7 +31,6 @@ qG.print_linear_pf_iterations = true
 qG.adam_max_time  = 50.0
 
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
-stt0 = deepcopy(stt);
 
 quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
 quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
@@ -52,6 +51,9 @@ quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG
 quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+stt0 = deepcopy(stt)
+
+# %% ===
 quasiGrad.cleanup_constrained_pf_with_Gurobi!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
