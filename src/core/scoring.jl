@@ -299,10 +299,10 @@ function print_penalty_breakdown(idx::quasiGrad.Index, prm::quasiGrad.Param, qG:
     for tii in prm.ts.time_keys
         encs_fixed += sum(stt.zen_dev[tii][idx.cs_devs][stt.zen_dev[tii][idx.cs_devs] .> 0.0])
         enpr_fixed -= sum(stt.zen_dev[tii][idx.pr_devs][stt.zen_dev[tii][idx.pr_devs] .> 0.0])
-
-        # now, for the ones with the opposite signs
-        encs_fixed -= sum(stt.zen_dev[tii][idx.cs_devs][stt.zen_dev[tii][idx.cs_devs] .< 0.0])
-        enpr_fixed += sum(stt.zen_dev[tii][idx.pr_devs][stt.zen_dev[tii][idx.pr_devs] .< 0.0])
+    
+        # now, for the ones with the opposite signs -- this is very tricky :)
+        enpr_fixed += sum(stt.zen_dev[tii][idx.cs_devs][stt.zen_dev[tii][idx.cs_devs] .< 0.0])
+        encs_fixed -= sum(stt.zen_dev[tii][idx.pr_devs][stt.zen_dev[tii][idx.pr_devs] .< 0.0])
     end
 
 

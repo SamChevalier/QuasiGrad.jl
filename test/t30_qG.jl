@@ -51,10 +51,12 @@ quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG
 quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
-stt0 = deepcopy(stt)
+stt0 = deepcopy(stt);
 
 # %% ===
+stt = deepcopy(stt0);
 quasiGrad.cleanup_constrained_pf_with_Gurobi!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+
 quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
@@ -63,7 +65,7 @@ total_time = time() - start_time
 # post process
 quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
-# final print
+# %%final print
 println("grand time: $(total_time)")
 
 # %% =============
@@ -386,3 +388,15 @@ end
 
 # %% ==============
 @time quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
+
+# %%
+encs_fixed = 0.0
+enpr_fixed = 0.0
+for tii in prm.ts.time_keys
+    encs_fixed += sum(stt.zen_dev[tii][idx.cs_devs][stt.zen_dev[tii][idx.cs_devs] .> 0.0])
+    enpr_fixed -= sum(stt.zen_dev[tii][idx.pr_devs][stt.zen_dev[tii][idx.pr_devs] .> 0.0])
+
+    # now, for the ones with the opposite signs
+    enpr_fixed += sum(stt.zen_dev[tii][idx.cs_devs][stt.zen_dev[tii][idx.cs_devs] .< 0.0])
+    encs_fixed -= sum(stt.zen_dev[tii][idx.pr_devs][stt.zen_dev[tii][idx.pr_devs] .< 0.0])
+end

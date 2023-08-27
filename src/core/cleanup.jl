@@ -1084,6 +1084,7 @@ function cleanup_constrained_pf_with_Gurobi!(
                 end
             end
 
+            #=
             # **forward looking constraints**
             if tii != prm.ts.time_keys[end]
                 # in this case, we want to make sure that whatever power values are chosen
@@ -1188,6 +1189,7 @@ function cleanup_constrained_pf_with_Gurobi!(
                     end
                 end
             end
+            =#
 
             # bound system variables ==============================================
             #
