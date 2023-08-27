@@ -957,6 +957,7 @@ function compute_quasiGrad_solution_23k_pf(InFile1::String, NewTimeLimitInSecond
     qG.print_zms                  = true
     qG.print_freq                 = 2
 
-    quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
-
+    qG.adam_max_time              = 15.0
+    quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = true)
+    quasiGrad.solve_parallel_linear_pf_with_Gurobi_23k!(flw, grd, idx, ntk, prm, qG, stt, sys)
 end

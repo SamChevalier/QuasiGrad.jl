@@ -351,7 +351,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
                    :dc_qfr => dc_pf_t0_FIRST,
                    # powers
                    :dev_q  => power_pf_t0_FIRST,
-                   :p_on   => power_pf_t0_FIRST/10.0, # downscale active power!!!!
+                   :p_on   => power_pf_t0_FIRST/5.0, # downscale active power!!!!
                    # bins
                    :u_step_shunt => bin_pf_t0_FIRST)
         
