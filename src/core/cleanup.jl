@@ -1082,6 +1082,58 @@ function cleanup_constrained_pf_with_Gurobi!(
                 end
             end
 
+            # **forward looking constraints**
+            if tii != prm.ts.time_keys[end]
+                # in this case, we want to make sure that whatever power values are chosen
+                # can also be used in the satisfaction of the next time period constraints
+                tii_p1    = prm.ts.time_keys[tii+1]
+                dt_future = prm.ts.duration[tii_p1]
+
+                @variable(model, dev_p_vars_future[1:sys.ndev])
+                @variable(model, dev_q_vars_future[1:sys.ndev])
+                set_start_value.(dev_p_vars_future, stt.dev_p[tii_p1])
+                set_start_value.(dev_q_vars_future, stt.dev_q[tii_p1])
+
+                # define p_on_future
+                p_on_future = Vector{AffExpr}(undef, sys.ndev)
+                for dev in 1:sys.ndev
+                    p_on_future[dev] = AffExpr(0.0)
+                    add_to_expression!(p_on_future[dev], dev_p_vars_future[dev])
+                    add_to_expression!(p_on_future[dev], -stt.p_su[tii_p1][dev] - stt.p_sd[tii_p1][dev])
+                end
+
+                # mapping:
+                    # dt                =>    dt_future
+                    # tii               =>    tii_p1
+                    # p_on              =>    p_on_future
+                    # dev_p_vars        =>    dev_p_vars_future
+                    # dev_q_vars        =>    dev_q_vars_future
+                    # dev_p_previous    =>    dev_p_vars
+                    # dev_q_previous    =>    dev_q_vars
+
+                # 1. ramp up
+                @constraint(model, dev_p_vars_future .- dev_p_vars .- dt_future.*(prm.dev.p_ramp_up_ub.*(stt.u_on_dev[tii_p1] .- stt.u_su_dev[tii_p1]) .+ prm.dev.p_startup_ramp_ub.*(stt.u_su_dev[tii_p1] .+ 1.0 .- stt.u_on_dev[tii_p1])) .<= 0.0)
+                # 2. ramp down
+                @constraint(model, dev_p_vars .- dev_p_vars_future .- dt_future.*(prm.dev.p_ramp_down_ub.*stt.u_on_dev[tii_p1] .+ prm.dev.p_shutdown_ramp_ub.*(1.0 .- stt.u_on_dev[tii_p1])) .<= 0.0)
+                # 3. pmax
+                @constraint(model, p_on_future .<= prm.dev.p_ub_tmdv[tii_p1].*stt.u_on_dev[tii_p1])
+                # 4. pmin
+                @constraint(model, prm.dev.p_lb_tmdv[tii_p1].*stt.u_on_dev[tii_p1] .<= p_on_future)
+                # 5. qmax
+                @constraint(model, dev_q_vars_future .<= prm.dev.q_ub_tmdv[tii_p1].*stt.u_sum[tii_p1])
+                # 6. qmin
+                @constraint(model, prm.dev.q_lb_tmdv[tii_p1].*stt.u_sum[tii_p1] .<= dev_q_vars_future)
+                # 7. apply additional bounds: J_pqe (equality constraints)
+                for dev in idx.J_pqe
+                    @constraint(model, dev_q_vars_future[dev] - prm.dev.beta[dev]*dev_p_vars_future[dev] == prm.dev.q_0[dev]*stt.u_sum[tii_p1][dev])
+                end
+                # apply additional bounds: J_pqmin/max (inequality constraints)
+                for dev in idx.J_pqmax
+                    @constraint(model, dev_q_vars_future[dev] <= prm.dev.q_0_ub[dev]*stt.u_sum[tii_p1][dev] + prm.dev.beta_ub[dev]*dev_p_vars_future[dev])
+                    @constraint(model, prm.dev.q_0_lb[dev]*stt.u_sum[tii_p1][dev] + prm.dev.beta_lb[dev]*dev_p_vars_future[dev] <= dev_p_vars_future[dev])
+                end
+            end
+
             # bound system variables ==============================================
             #
             # bound variables -- voltage
@@ -1091,6 +1143,7 @@ function cleanup_constrained_pf_with_Gurobi!(
             # mapping
             JacP_noref = ntk.Jac[tii][1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
             JacQ_noref = ntk.Jac[tii][(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
+            println("off!!!")
             @constraint(model, JacP_noref*x_in .+ stt.pinj0[tii] .== nodal_p)
             @constraint(model, JacQ_noref*x_in .+ stt.qinj0[tii] .== nodal_q)
 
@@ -1136,6 +1189,7 @@ function cleanup_constrained_pf_with_Gurobi!(
                 end
                 #
                 # shall we terminate?
+                run_pf = false
                 if (max_dx < qG.max_pf_dx_final_solve) || (pf_cnt == qG.max_linear_pfs_final_solve)
                     run_pf = false
                 end

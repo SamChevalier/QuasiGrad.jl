@@ -804,10 +804,12 @@ function all_device_statuses_and_costs!(grd::quasiGrad.Grad, prm::quasiGrad.Para
     end
 end
 
-function simple_device_statuses!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
+function simple_device_statuses_and_transposition!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
+    # this function has caused a lot of bugs -- make sure update 
+    # and transposition ordering are repsected!
+    #
     # loop over each time period
     Threads.@threads for tii in prm.ts.time_keys
-    # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # start up and shutdown costs
         if tii == 1
             # devices
@@ -820,7 +822,16 @@ function simple_device_statuses!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG:
         end
     end
 
-    # now, compute the u_sum
+    # across all devices and all times, compute the transposed on, su, sd and u_sum variables
+    Threads.@threads for tii in prm.ts.time_keys # don't multithread here -- not worth it
+        @inbounds @simd for dev in prm.dev.dev_keys
+            stt.u_on_dev_Trx[dev][tii] = stt.u_on_dev[tii][dev]
+            stt.u_su_dev_Trx[dev][tii] = stt.u_su_dev[tii][dev]
+            stt.u_sd_dev_Trx[dev][tii] = stt.u_sd_dev[tii][dev]
+        end
+    end
+
+    # now, compute the u_sums
     Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         for dev in prm.dev.dev_keys
@@ -828,6 +839,13 @@ function simple_device_statuses!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG:
             # => T_sdpc = idx.Ts_sdpc[dev][tii] # => get_sdpc(tii, dev, prm)
             # => stt.u_sum[tii][dev] = stt.u_on_dev[tii][dev] + sum(stt.u_su_dev_Trx[dev][tii_inst] for tii_inst in T_supc; init=0.0) + sum(stt.u_sd_dev_Trx[dev][tii_inst] for tii_inst in T_sdpc; init=0.0)
             stt.u_sum[tii][dev] = stt.u_on_dev[tii][dev] + quasiGrad.u_sum_supc(dev, idx, stt, tii) + quasiGrad.u_sum_sdpc(dev, idx, stt, tii)
+        end
+    end
+
+    # note -- this must be called AFTER u_sum is populated -- ugly bug!!
+    Threads.@threads for tii in prm.ts.time_keys
+        @inbounds @simd for dev in prm.dev.dev_keys
+            stt.u_sum_Trx[dev][tii] = stt.u_sum[tii][dev]
         end
     end
 end

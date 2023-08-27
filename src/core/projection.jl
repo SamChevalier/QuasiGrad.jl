@@ -11,8 +11,7 @@ function apply_Gurobi_projection_and_states!(idx::quasiGrad.Index, prm::quasiGra
 
     # update the u_sum and powers (used in clipping, so must be correct!)
     qG.run_susd_updates = true
-    quasiGrad.simple_device_statuses!(idx, prm, qG, stt)
-    quasiGrad.transpose_binaries!(prm, qG, stt)
+    quasiGrad.simple_device_statuses_and_transposition!(idx, prm, qG, stt)
     quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
     # reactive powers are all set
 end
@@ -930,7 +929,6 @@ function solve_LP_Gurobi_projection!(idx::quasiGrad.Index, prm::quasiGrad.Param,
 
     # now, directly apply updates
     qG.run_susd_updates = true
-    quasiGrad.simple_device_statuses!(idx, prm, qG, stt)
-    quasiGrad.transpose_binaries!(prm, qG, stt)
+    quasiGrad.simple_device_statuses_and_transposition!(idx, prm, qG, stt)
     quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
 end

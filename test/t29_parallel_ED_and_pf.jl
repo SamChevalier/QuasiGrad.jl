@@ -848,3 +848,36 @@ println(sum(sum(stt.zhat_qmax[tii])    for tii in prm.ts.time_keys))
 println(sum(sum(stt.zhat_qmin[tii])  for tii in prm.ts.time_keys))      
 println(sum(sum(stt.zhat_qmax_beta[tii])  for tii in prm.ts.time_keys)) 
 println(sum(sum(stt.zhat_qmin_beta[tii]) for tii in prm.ts.time_keys)) 
+
+# %% ============
+tii = 17
+dt = prm.ts.duration[tii]
+tii_m1 = prm.ts.time_keys[tii-1]
+dev_p_previous = stt.dev_p[tii_m1]
+p_on = stt.p_on[tii]
+dev_p_vars = stt.dev_p[tii]
+dev_q_vars = stt.dev_q[tii]
+
+# 1. tt
+c1 = dev_p_vars .- dev_p_previous .- dt.*(prm.dev.p_ramp_up_ub.*(stt.u_on_dev[tii] .- stt.u_su_dev[tii]) .+ prm.dev.p_startup_ramp_ub.*(stt.u_su_dev[tii] .+ 1.0 .- stt.u_on_dev[tii]))
+
+# 2. ramp down
+c2 = dev_p_previous .- dev_p_vars .- dt.*(prm.dev.p_ramp_down_ub.*stt.u_on_dev[tii] .+ prm.dev.p_shutdown_ramp_ub.*(1.0 .- stt.u_on_dev[tii]))
+
+# 3. pmax
+c3 = p_on .- prm.dev.p_ub_tmdv[tii].*stt.u_on_dev[tii]
+
+# 4. pmin
+c4 = prm.dev.p_lb_tmdv[tii].*stt.u_on_dev[tii] .- p_on
+
+# 5. qmax
+c5 = dev_q_vars .- prm.dev.q_ub_tmdv[tii].*stt.u_sum[tii]
+
+# 6. qmin
+c6 = prm.dev.q_lb_tmdv[tii].*stt.u_sum[tii] .- dev_q_vars
+ 
+# => # negative
+# => c1 = dev_p_previous .- dev_p_vars .- dt.*(prm.dev.p_ramp_down_ub.*stt.u_on_dev[tii] .+ prm.dev.p_shutdown_ramp_ub.*(1.0 .- stt.u_on_dev[tii]))
+# => 
+# => # negative
+# => c2 = p_on .- prm.dev.p_ub_tmdv[tii].*stt.u_on_dev[tii]

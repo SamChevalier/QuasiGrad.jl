@@ -595,8 +595,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
 
         # update the u_sum and powers (used in clipping, so must be correct!)
         qG.run_susd_updates = true
-        quasiGrad.simple_device_statuses!(idx, prm, qG, stt)
-        quasiGrad.transpose_binaries!(prm, qG, stt)             # huge error: was missing this!!
+        quasiGrad.simple_device_statuses_and_transposition!(idx, prm, qG, stt)
         quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
 
         # update the objective value score
@@ -1181,8 +1180,7 @@ function economic_dispatch_initialization!(cgd::quasiGrad.ConstantGrad, ctg::qua
         
         # 3. update the u_sum and powers (used in clipping, so must be correct!)
         qG.run_susd_updates = true
-        quasiGrad.simple_device_statuses!(idx, prm, qG, stt)
-        quasiGrad.transpose_binaries!(prm, qG, stt)
+        quasiGrad.simple_device_statuses_and_transposition!(idx, prm, qG, stt)
         quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
 
         # now, solve an "unbalanced" dc power flow
