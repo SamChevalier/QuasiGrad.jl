@@ -7,8 +7,8 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
 
     # build and empty the model!
     tstart = time()
-    # => model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => qG.num_threads); add_bridges = false)
-    model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => qG.num_threads); add_bridges = false)
+    model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => qG.num_threads); add_bridges = false)
+    # => model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => qG.num_threads); add_bridges = false)
     set_optimizer_attribute(model, "Method", 3) # force a concurrent solver
     set_string_names_on_creation(model, false)
 

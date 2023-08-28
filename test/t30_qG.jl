@@ -4,7 +4,7 @@ using Revise
 # common folder for calling
 tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
 
-# %% call the solver!
+# call the solver!
 InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N00617D1/scenario_001.json"
 #InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N01576D1/scenario_027.json"
 #InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N04224D1/scenario_131.json"
