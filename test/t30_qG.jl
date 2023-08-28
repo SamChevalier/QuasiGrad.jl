@@ -63,11 +63,9 @@ stt0 = deepcopy(stt);
     #println("grand time: $(total_time)")
     ## %% ===
 
-# %%
-
 stt = deepcopy(stt0);
 @time quasiGrad.cleanup_constrained_pf_with_Gurobi_freeze_subset!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
-# %%
+
 quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 total_time = time() - start_time

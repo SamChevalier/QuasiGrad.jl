@@ -101,8 +101,9 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # mip gap for Gurobi
     mip_gap = 1/100.0
 
-    # Gurobi time limit (projection)
-    time_lim = 3.0
+    # Gurobi time limit (projection) -- set this huge, so a projection never fails,
+    # even if it is running on a slow thread
+    time_lim = 10.0
 
     # for testing:
     scale_c_pbus_testing     = 1.0

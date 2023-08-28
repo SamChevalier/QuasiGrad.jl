@@ -955,9 +955,17 @@ function compute_quasiGrad_solution_23k_pf(InFile1::String, NewTimeLimitInSecond
     qG.adam_max_time              = 250.0
     qG.print_linear_pf_iterations = true
     qG.print_zms                  = true
-    qG.print_freq                 = 2
+    qG.print_freq                 = 5
+    qG.max_linear_pfs             = 4
 
-    qG.adam_max_time              = 15.0
-    quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = true)
-    quasiGrad.solve_parallel_linear_pf_with_Gurobi_23k!(flw, grd, idx, ntk, prm, qG, stt, sys)
+    qG.adam_max_time              = 60.0
+    @time quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = true)
+    @time quasiGrad.solve_parallel_linear_pf_with_Gurobi_23k!(flw, grd, idx, ntk, prm, qG, stt, sys)
+
+    @time quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    @time quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+    @time quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    @time quasiGrad.project!(95.0, idx, prm, qG, stt, sys, upd, final_projection = false)
+    @time quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
+
 end
