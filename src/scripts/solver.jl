@@ -945,8 +945,13 @@ function compute_quasiGrad_solution_23k_pf(InFile1::String, NewTimeLimitInSecond
     # TT: start time
     start_time = time()
 
-    jsn = quasiGrad.load_json(InFile1)
-    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
+    @time jsn = quasiGrad.load_json(InFile1)
+    @time jsn = quasiGrad.load_json(InFile1)
+
+    @time adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
+        quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true, line_switching=AllowSwitching);
+
+    @time adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
         quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true, line_switching=AllowSwitching);
 
     qG.print_linear_pf_iterations = true
@@ -958,7 +963,7 @@ function compute_quasiGrad_solution_23k_pf(InFile1::String, NewTimeLimitInSecond
     qG.print_freq                 = 5
     qG.max_linear_pfs             = 4
 
-    qG.adam_max_time              = 60.0
+    qG.adam_max_time              = 120.0
     @time quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = true)
     @time quasiGrad.solve_parallel_linear_pf_with_Gurobi_23k!(flw, grd, idx, ntk, prm, qG, stt, sys)
 
@@ -967,5 +972,4 @@ function compute_quasiGrad_solution_23k_pf(InFile1::String, NewTimeLimitInSecond
     @time quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
     @time quasiGrad.project!(95.0, idx, prm, qG, stt, sys, upd, final_projection = false)
     @time quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
-
 end
