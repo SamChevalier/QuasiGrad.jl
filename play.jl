@@ -455,3 +455,36 @@ function solve_parallel_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.
     println("Parallel ED finished. Objective value: ", scr[:ed_obj], ". Total time: $t_ed.")
 end
 
+
+# %% =============
+include("./src/quasiGrad.jl")
+
+# %% =============
+using Pkg
+Pkg.activate(DEPOT_PATH[1])
+
+tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
+InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N00617D1/scenario_001.json"
+@time jsn = quasiGrad.load_json(InFile1)
+
+# %%
+
+@time adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
+quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
+
+# %%
+@time quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+
+# %%
+
+using Pkg
+
+for pkg in Pkg.installed()
+   pkgname=pkg[1]; pkgsym=Symbol(pkgname)
+   try
+println("using...$pkgname")
+        eval(:(using $pkgsym))
+   catch
+        println("could not precompile $pkgname")
+   end
+end

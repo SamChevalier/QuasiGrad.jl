@@ -81,7 +81,8 @@ using PrecompileTools
     # call the jsn and initialize
     jsn = quasiGrad.load_json(path)
     adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
-
+    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    
 end
 
 # directly precompile everthing else which is NOT a function of jsn -- move down alphabetically

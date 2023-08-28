@@ -28,27 +28,30 @@ adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd =
     quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
 
 qG.print_linear_pf_iterations = true
-qG.adam_max_time  = 50.0
-
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
-
+qG.adam_max_time  = 20.0
 quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, last_solve=false)
 quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+qG.adam_max_time  = 100.0
 quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.project!(95.0, idx, prm, qG, stt, sys, upd, final_projection = false)
 quasiGrad.snap_shunts!(false, prm, qG, stt, upd)
 
+qG.adam_max_time  = 20.0
 quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=false, last_solve=false)
 quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+qG.adam_max_time  = 100.0
 quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
 quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
 
 quasiGrad.count_active_binaries!(prm, upd)
 
+qG.adam_max_time  = 20.0
 quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=false, last_solve=true)
 quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+qG.adam_max_time  = 100.0
 quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
 stt0 = deepcopy(stt);
@@ -411,3 +414,4 @@ for tii in prm.ts.time_keys
     enpr_fixed += sum(stt.zen_dev[tii][idx.cs_devs][stt.zen_dev[tii][idx.cs_devs] .< 0.0])
     encs_fixed -= sum(stt.zen_dev[tii][idx.pr_devs][stt.zen_dev[tii][idx.pr_devs] .< 0.0])
 end
+
