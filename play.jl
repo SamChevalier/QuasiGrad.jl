@@ -3,6 +3,14 @@
     # julia-1.10 --threads 10 MyJulia_test.jl
     # julia-1.10 --threads 10 MyJulia1.jl
 
+# %%
+const GRB_ENV = Ref{Gurobi.Env}()
+function __init__()
+    GRB_ENV[] = Gurobi.Env()
+    return
+end
+# %%
+
 # struct_fields:
     fieldnames(typeof(input_struct))
 

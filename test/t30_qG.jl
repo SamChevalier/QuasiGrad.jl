@@ -4,16 +4,17 @@ using Revise
 # common folder for calling
 tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
 
-# call the solver!
+# %% call the solver!
 InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N00617D1/scenario_001.json"
-InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N01576D1/scenario_027.json"
-InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N04224D1/scenario_131.json"
-InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N06049D1/scenario_031.json"
-InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N08316D1/scenario_001.json"
-InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N23643D1/scenario_003.json"
+#InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N01576D1/scenario_027.json"
+#InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N04224D1/scenario_131.json"
+#InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N06049D1/scenario_031.json"
+#InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N08316D1/scenario_001.json"
+#InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N23643D1/scenario_003.json"
+#InFile1 = tfp*"C3S3.1_20230606/D1/C3S3N08316D1/scenario_001.json"
+#InFile1 = tfp*"C3S2b_20230316/D1/C3S2N02000D1/scenario_001.json"
+#InFile1 = tfp*"C3S2b_20230316/D1/C3S2N06717D1/scenario_001.json"  # try this agian WITH zonal penalties care
 InFile1 = tfp*"C3S3.1_20230606/D1/C3S3N08316D1/scenario_001.json"
-InFile1 = tfp*"C3S2b_20230316/D1/C3S2N02000D1/scenario_001.json"
-InFile1 = tfp*"C3S2b_20230316/D1/C3S2N06717D1/scenario_001.json"  # try this agian WITH zonal penalties care
 
 #InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N04224D1/scenario_131.json"
 
@@ -29,11 +30,12 @@ adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd =
 
 qG.print_linear_pf_iterations = true
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+
 qG.adam_max_time  = 20.0
 quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, last_solve=false)
 quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-qG.adam_max_time  = 100.0
+qG.adam_max_time  = 30.0
 quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.project!(95.0, idx, prm, qG, stt, sys, upd, final_projection = false)
 quasiGrad.snap_shunts!(false, prm, qG, stt, upd)
@@ -41,7 +43,7 @@ quasiGrad.snap_shunts!(false, prm, qG, stt, upd)
 qG.adam_max_time  = 20.0
 quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=false, last_solve=false)
 quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-qG.adam_max_time  = 100.0
+qG.adam_max_time  = 30.0
 quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
 quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
@@ -51,7 +53,7 @@ quasiGrad.count_active_binaries!(prm, upd)
 qG.adam_max_time  = 20.0
 quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=false, last_solve=true)
 quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-qG.adam_max_time  = 100.0
+qG.adam_max_time  = 30.0
 quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
 stt0 = deepcopy(stt);
@@ -415,3 +417,15 @@ for tii in prm.ts.time_keys
     encs_fixed -= sum(stt.zen_dev[tii][idx.pr_devs][stt.zen_dev[tii][idx.pr_devs] .< 0.0])
 end
 
+# %% ====================
+using Gurobi
+using JuMP
+
+const ttGRB_ENV = Ref{Gurobi.Env}()
+function __init__()
+    ttGRB_ENV[] = Gurobi.Env()
+    return
+end
+
+# %%
+model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(tGRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true); add_bridges = false)

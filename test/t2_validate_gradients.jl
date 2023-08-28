@@ -21,8 +21,10 @@ qG.scale_c_qbus_testing  = 1.0 #1.0 #
 qG.scale_c_sflow_testing = 1.0 #1.0 #
 
 # test
-#
+# %%
 include("./test_functions.jl")
+
+# %%
 # README: 1) make sure the ctg solver has a sufficiently high tolerance setting!
 #         2) make sure standard gradients are being used
 qG.pqbal_grad_type  = "standard"
