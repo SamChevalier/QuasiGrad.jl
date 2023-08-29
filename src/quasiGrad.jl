@@ -1,8 +1,8 @@
 module quasiGrad
 
 # don't call Pkg, don't activate, and don't use Plots
-using Pkg
-Pkg.activate(".")
+# => using Pkg
+# => Pkg.activate(".")
 
 using JSON
 using JuMP

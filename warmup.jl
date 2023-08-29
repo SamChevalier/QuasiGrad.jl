@@ -1,10 +1,10 @@
 using Pkg
 Pkg.activate(DEPOT_PATH[1])
 
-# call quasiGrad
-using quasiGrad
+@info "Running warmup.jl! Good luck." 
 
-# load MyJulia
+# load quasiGrad and MyJulia
+include("./src/quasiGrad.jl")
 include("./MyJulia1.jl")
 
 # execute a minisolver
@@ -14,4 +14,4 @@ Division              = 1
 NetworkModel          = "test"
 AllowSwitching        = 1
 precompile_minisolver = true
-MyJulia1(InFile1, TimeLimitInSeconds, Division, NetworkModel, AllowSwitching, precompile_minisolver=true)
+minisolver(InFile1, TimeLimitInSeconds, Division, NetworkModel, AllowSwitching)

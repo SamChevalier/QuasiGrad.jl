@@ -431,4 +431,43 @@ end
 model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(tGRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true); add_bridges = false)
 
 # %%
-include("../MyJulia1.jl")
+# include("../MyJulia1.jl")
+
+# %% ==================
+using quasiGrad
+using Revise
+
+# common folder for calling
+tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
+
+InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N00617D1/scenario_001.json"
+
+jsn = quasiGrad.load_json(InFile1)
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
+    quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+
+# monster system
+qG.adam_max_time  = 50.0
+qG.max_linear_pfs = 3
+quasiGrad.solve_power_flow_23k!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
+quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+
+qG.adam_max_time  = 70.0
+quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
+quasiGrad.snap_shunts!(true, prm, qG, stt, upd)   
+quasiGrad.count_active_binaries!(prm, upd)
+
+qG.adam_max_time  = 30.0
+qG.max_linear_pfs = 2
+quasiGrad.solve_power_flow_23k!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=false)
+quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+qG.adam_max_time  = 50.0
+quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+
+quasiGrad.cleanup_constrained_pf_with_Gurobi_freeze_subset!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)

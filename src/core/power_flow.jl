@@ -98,6 +98,16 @@ function solve_power_flow!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg
     quasiGrad.solve_parallel_linear_pf_with_Gurobi!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve = first_solve, last_solve = last_solve)
 end
 
+function solve_power_flow_23k!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; first_solve::Bool=false, last_solve::Bool=false)
+    # Note -- this is run *after* DCPF and q/v corrections (maybe..)
+    # 
+    # potentially, update binaries
+    quasiGrad.clip_all!(prm, qG, stt, sys)
+
+    quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = first_solve)
+    quasiGrad.solve_parallel_linear_pf_with_Gurobi_23k!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve = first_solve, last_solve = last_solve)
+end
+
 # correct the reactive power injections into the network
 function apply_q_injections!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # note -- this is a fairly approximate function
@@ -1084,7 +1094,7 @@ function build_Jac_sto!(ntk::quasiGrad.Network, stt::quasiGrad.State, sys::quasi
 end
 
 
-function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System)
+function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System, first_solve::Bool = false)
     # Solve linearized power flow with Gurobi -- use margin tinkering to guarentee convergence. 
     # Only consinder upper and lower bounds on the p/q production (no other limits).
     #
@@ -1222,11 +1232,19 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
             # between the various time windows -- this will be addressed in the
             # final, constrained power flow solve
 
-            # ignore binaries !!!
-            stt.dev_plb[tii] .= 0.0
-            stt.dev_pub[tii] .= prm.dev.p_ub_tmdv[tii]
-            stt.dev_qlb[tii] .= min.(0.0, prm.dev.q_lb_tmdv[tii])
-            stt.dev_qub[tii] .= max.(0.0, prm.dev.q_ub_tmdv[tii])
+            if first_solve == true
+                # ignore binaries !!!
+                stt.dev_plb[tii] .= 0.0
+                stt.dev_pub[tii] .= prm.dev.p_ub_tmdv[tii]
+                stt.dev_qlb[tii] .= min.(0.0, prm.dev.q_lb_tmdv[tii])
+                stt.dev_qub[tii] .= max.(0.0, prm.dev.q_ub_tmdv[tii])
+            else
+                # later on, bound power based on binary values!
+                stt.dev_plb[tii] .= stt.u_on_dev[tii].*prm.dev.p_lb_tmdv[tii]
+                stt.dev_pub[tii] .= stt.u_on_dev[tii].*prm.dev.p_ub_tmdv[tii]
+                stt.dev_qlb[tii] .= stt.u_sum[tii].*prm.dev.q_lb_tmdv[tii]   
+                stt.dev_qub[tii] .= stt.u_sum[tii].*prm.dev.q_ub_tmdv[tii]   
+            end
 
             # first, define p_on at this time
                 # => p_on = dev_p_vars - stt.p_su[tii] - stt.p_sd[tii]
@@ -1259,8 +1277,14 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
 
             # bound system variables ==============================================
             #
-            @constraint(model, prm.bus.vm_lb .- vm_penalty .<= stt.vm[tii] .+ dvm)
-            @constraint(model,                                 stt.vm[tii] .+ dvm .<= prm.bus.vm_ub .+ vm_penalty)
+            # bound variables -- voltage
+            if first_solve == true
+                @constraint(model, prm.bus.vm_lb .- vm_penalty .<= stt.vm[tii] .+ dvm)
+                @constraint(model,                                 stt.vm[tii] .+ dvm .<= prm.bus.vm_ub .+ vm_penalty)
+            else
+                @constraint(model, prm.bus.vm_lb               .<= stt.vm[tii] .+ dvm)
+                @constraint(model,                                 stt.vm[tii] .+ dvm .<= prm.bus.vm_ub)
+            end
 
             # always impose hard limits
             @constraint(model, 0.9 .* prm.bus.vm_lb .<= stt.vm[tii] .+ dvm .<= 1.1 .* prm.bus.vm_ub)
@@ -1271,12 +1295,15 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
             @constraint(model, JacP_noref*x_in .+ stt.pinj0[tii] .== nodal_p)
             @constraint(model, JacQ_noref*x_in .+ stt.qinj0[tii] .== nodal_q)
 
-            JacSfr_acl_noref = ntk.Jac_sflow_fr[tii][1:sys.nl,       [1:sys.nb; (sys.nb+2):end]]
-            JacSfr_xfm_noref = ntk.Jac_sflow_fr[tii][(sys.nl+1):end, [1:sys.nb; (sys.nb+2):end]]
-            @constraint(model, JacSfr_acl_noref*x_in .+ stt.acline_sfr[tii] .<= flow_margin .* prm.acline.mva_ub_nom)
-            @constraint(model, JacSfr_xfm_noref*x_in .+ stt.xfm_sfr[tii]    .<= flow_margin .* prm.xfm.mva_ub_nom)
+            if first_solve == true 
+                JacSfr_acl_noref = ntk.Jac_sflow_fr[tii][1:sys.nl,       [1:sys.nb; (sys.nb+2):end]]
+                JacSfr_xfm_noref = ntk.Jac_sflow_fr[tii][(sys.nl+1):end, [1:sys.nb; (sys.nb+2):end]]
+                @constraint(model, JacSfr_acl_noref*x_in .+ stt.acline_sfr[tii] .<= flow_margin .* prm.acline.mva_ub_nom)
+                @constraint(model, JacSfr_xfm_noref*x_in .+ stt.xfm_sfr[tii]    .<= flow_margin .* prm.xfm.mva_ub_nom)
 
-            flow_margin = flow_margin * 0.8
+                # downgrade the flow margin
+                flow_margin = flow_margin * 0.77
+            end
 
             # define nodal angles
             va = Vector{AffExpr}(undef, sys.nb)
@@ -1290,8 +1317,7 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
             @constraint(model, -dth_max .<= (@view va[idx.ac_fr_bus]) .- (@view va[idx.ac_to_bus]) .- flw.ac_phi[tii] .<= dth_max)
 
             # opf regularization :)
-            #=
-            if (first_solve == true) && (pf_itr_cnt == 1)
+            if first_solve == true
                 # current energy costs
                 quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
                 zen0 = sum(@view stt.zen_dev[tii][idx.cs_devs]) - sum(@view stt.zen_dev[tii][idx.pr_devs])
@@ -1323,56 +1349,23 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
                         add_to_expression!(zen, dt*sum(cst.*p_jtm))
                     end
                 end
-            elseif (last_solve == false)
-                # current energy costs
-                quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
-                zen0 = sum(@view stt.zen_dev[tii][idx.cs_devs]) - sum(@view stt.zen_dev[tii][idx.pr_devs])
-
-                # new enegy costs
-                zen = AffExpr(0.0)
-                dt  = prm.ts.duration[tii]
-                for dev in prm.dev.dev_keys
-
-                    cst = prm.dev.cum_cost_blocks[dev][tii][1]  # cost for each block (leading with 0)
-                    pbk = prm.dev.cum_cost_blocks[dev][tii][2]  # power in each block (leading with 0)
-                    pcm = prm.dev.cum_cost_blocks[dev][tii][3]  # accumulated power for each block!
-                    nbk = length(pbk)
-
-                    # what is our "gradient block" ?
-                    if stt.dev_p[tii][dev] == 0.0
-                        # nothing to do: stt.zen_dev[tii][dev] = 0.0
-                        gradient_block = 2
-                    else
-                        for ii in 2:nbk
-                            if stt.dev_p[tii][dev] > pcm[ii]
-                                # nothing to do
-                            else
-                                gradient_block = ii
-                                break
-                            end
-                        end
-                    end
-
-                    # compute the cost! -- note: sign convention is opposite!
-                    if dev in idx.cs_devs
-                        # MINUS, because we want to minimize negative revenue from consumers
-                        add_to_expression!(zen, -dt*(dev_p_vars[dev] - stt.dev_p[tii][dev])*cst[gradient_block])
-                    else
-                        # PLUS, because we want to minimize generator costs
-                        add_to_expression!(zen, dt*(dev_p_vars[dev] - stt.dev_p[tii][dev])*cst[gradient_block])
-                    end
-                end
-            else
-                # in this case, last_solve = true, so NO opf regularization
             end
-            =#
 
             # build the objective function!
-            obj = @expression(model,
-                1e3*(vm_penalty'*vm_penalty) + 
-                x_in'*x_in +
-                (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
-                1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
+            if first_solve == true 
+                obj = @expression(model,
+                    1e3*zen/zen0 +
+                    1e3*(vm_penalty'*vm_penalty) + 
+                    x_in'*x_in +
+                    (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
+                    1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
+            else
+                obj = @expression(model,
+                    1e3*(vm_penalty'*vm_penalty) + 
+                    x_in'*x_in +
+                    (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
+                    1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
+            end
 
 
             # set the objective
