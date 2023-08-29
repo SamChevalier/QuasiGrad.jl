@@ -6,7 +6,7 @@
 using Pkg
 Pkg.activate(DEPOT_PATH[1])
     # => add quasiGrad
-    # => using quasiGrad
+using quasiGrad
     # => include("./src/quasiGrad.jl")
     # => using Pkg
     # => Pkg.activate(".")

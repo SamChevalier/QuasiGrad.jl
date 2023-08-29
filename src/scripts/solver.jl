@@ -57,7 +57,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
         time_for_final_activities = 50.0
         time_spent = time() - start_time
         time_left  = NewTimeLimitInSeconds - time_spent - time_for_final_activities - time_for_pf
-        if time_for_final_pf < 15.0
+        if time_left > 15.0
             time_for_final_pf   = time_left*0.10
             time_for_final_adam = time_left*0.85
 
@@ -105,7 +105,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
         time_for_final_activities = 100.0
         time_spent = time() - start_time
         time_left  = NewTimeLimitInSeconds - time_spent - time_for_final_activities - time_for_pf
-        if time_for_final_pf < 15.0
+        if time_for_pf > 30.0
             time_for_final_pf   = time_left*0.10
             time_for_final_adam = time_left*0.85
 
