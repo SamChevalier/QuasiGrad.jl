@@ -2,7 +2,7 @@
 #
 # using quasiGrad
 
-# %%
+# %% ===
 using Pkg
 Pkg.activate(DEPOT_PATH[1])
     # => add quasiGrad
@@ -56,10 +56,10 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
         quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
         quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
         quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
-        quasiGrad.cleanup_constrained_pf_with_Gurobi!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+        quasiGrad.cleanup_constrained_pf_with_Gurobi_freeze_subset!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
         quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
         
-        qG.write_location == "local"
+        qG.write_location = "local"
         quasiGrad.write_solution("junk.json", prm, qG, stt, sys)
     end
 end

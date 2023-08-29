@@ -1,5 +1,8 @@
-using quasiGrad
-using Revise
+using Pkg
+Pkg.activate(DEPOT_PATH[1])
+
+# using quasiGrad
+# using Revise
 
 # %% common folder for calling
 tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"

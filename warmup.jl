@@ -3,6 +3,10 @@ Pkg.activate(DEPOT_PATH[1])
 
 @info "Running warmup.jl! Good luck." 
 
+# first, add quasiGrad
+Pkg.add(url="https://github.com/SamChevalier/quasiGrad")
+
+# %% now, precompile
 for pkg in Pkg.installed()
    pkgname=pkg[1]; pkgsym=Symbol(pkgname)
    try
@@ -13,8 +17,8 @@ println("using...$pkgname")
    end
 end
 
-# load quasiGrad and MyJulia
-include("./src/quasiGrad.jl")
+# %% load quasiGrad and MyJulia
+#include("./src/quasiGrad.jl")
 include("./MyJulia1.jl")
 
 # execute a minisolver
