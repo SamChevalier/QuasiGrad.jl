@@ -1552,13 +1552,6 @@ function cleanup_constrained_pf_with_Gurobi_freeze_subset!(
     stt::quasiGrad.State,
     sys::quasiGrad.System, 
     upd::Dict{Symbol, Vector{Vector{Int64}}})
-    
-    # **NOTE**: this is necessarily a *serial* solver -- each time period is linked
-    qG.skip_ctg_eval = true
-    qG.eval_grad     = false
-    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-    qG.skip_ctg_eval = false
-    qG.eval_grad     = true
 
     # ask Gurobi to solve a linearize power flow. two options here:
     #   1) define device variables which are bounded, and then insert them into the power balance expression
@@ -1590,7 +1583,8 @@ function cleanup_constrained_pf_with_Gurobi_freeze_subset!(
     @info "Running constrained, linearized power flow cleanup across $(sys.nT) time periods."
 
     # split into fixed and free devices
-    nD                       = Int64(round(sys.ndev*0.8)) # fixed
+    frac_of_gens_to_fix_p    = 0.8
+    nD                       = Int64(round(sys.ndev*frac_of_gens_to_fix_p)) # fixed
     smallest_to_largest_devs = sortperm(prm.dev.p_ramp_up_ub.*prm.dev.p_ramp_down_ub.*prm.dev.p_startup_ramp_ub.*prm.dev.p_shutdown_ramp_ub)
     fixed_devs               = sort(smallest_to_largest_devs[1:nD])
     free_devs                = sort(smallest_to_largest_devs[(nD+1):end])
@@ -1608,11 +1602,7 @@ function cleanup_constrained_pf_with_Gurobi_freeze_subset!(
         run_pf = true
         pf_cnt = 0
 
-        # 1. update the ideal dispatch point (active power) -- we do this just once
-            # => quasiGrad.ideal_dispatch!(idx, stt, sys, tii)
-            # this is no longer needed, because we penalize device injections directly
-
-        # 2. update y_bus and Jacobian and bias point -- this
+        # update y_bus and Jacobian and bias point -- this
         #    only needs to be done once per time, since xfm/shunt
         #    values are not changing between iterations
         quasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
@@ -1695,7 +1685,7 @@ function cleanup_constrained_pf_with_Gurobi_freeze_subset!(
             set_start_value.(dev_q_vars, stt.dev_q[tii])
 
             # fix a subset of devices
-            @constraint(model, stt.dev_p[tii][fixed_devs] .==  dev_p_vars[fixed_devs])
+            @constraint(model, stt.dev_p[tii][fixed_devs] .== dev_p_vars[fixed_devs])
 
             # define p_on at this time
             # => p_on = dev_p_vars - stt.p_su[tii] - stt.p_sd[tii]
@@ -1722,19 +1712,14 @@ function cleanup_constrained_pf_with_Gurobi_freeze_subset!(
 
             # 1. ramp up
             @constraint(model, dev_p_vars[free_devs] .- dev_p_previous[free_devs] .- dt.*(prm.dev.p_ramp_up_ub[free_devs].*(stt.u_on_dev[tii][free_devs] .- stt.u_su_dev[tii][free_devs]) .+ prm.dev.p_startup_ramp_ub[free_devs].*(stt.u_su_dev[tii][free_devs] .+ 1.0 .- stt.u_on_dev[tii][free_devs])) .<= 0.0)
-
             # 2. ramp down
             @constraint(model, dev_p_previous[free_devs] .- dev_p_vars[free_devs] .- dt.*(prm.dev.p_ramp_down_ub[free_devs].*stt.u_on_dev[tii][free_devs] .+ prm.dev.p_shutdown_ramp_ub[free_devs].*(1.0 .- stt.u_on_dev[tii][free_devs])) .<= 0.0)
-
             # 3. pmax
             @constraint(model, p_on[free_devs] .<= prm.dev.p_ub_tmdv[tii][free_devs].*stt.u_on_dev[tii][free_devs])
-
             # 4. pmin
             @constraint(model, prm.dev.p_lb_tmdv[tii][free_devs].*stt.u_on_dev[tii][free_devs] .<= p_on[free_devs])
-
             # 5. qmax
             @constraint(model, dev_q_vars .<= prm.dev.q_ub_tmdv[tii].*stt.u_sum[tii])
-
             # 6. qmin
             @constraint(model, prm.dev.q_lb_tmdv[tii].*stt.u_sum[tii] .<= dev_q_vars)
             
