@@ -8,15 +8,9 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
     start_time = time()
 
     # =====================================================\\
-    @time jsn = quasiGrad.load_json(InFile1)
-    @time jsn = quasiGrad.load_json(InFile1)
-    @time jsn = quasiGrad.load_json(InFile1)
-
-    @time adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
+    jsn = quasiGrad.load_json(InFile1)
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
         quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
-    @time adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
-        quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
-    println("done timing tests")
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
     if sys.nb < 2500
@@ -113,7 +107,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
         time_for_final_activities = 100.0
         time_spent = time() - start_time
         time_left  = NewTimeLimitInSeconds - time_spent - time_for_final_activities - time_for_pf
-        if time_for_pf > 30.0
+        if time_left > 30.0
             time_for_final_pf   = time_left*0.10
             time_for_final_adam = time_left*0.85
 
