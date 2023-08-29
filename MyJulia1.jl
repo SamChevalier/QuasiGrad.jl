@@ -3,8 +3,8 @@
 # using quasiGrad
 
 # %%
-# using Pkg
-# Pkg.activate(DEPOT_PATH[1])
+using Pkg
+Pkg.activate(DEPOT_PATH[1])
     # => add quasiGrad
     # => using quasiGrad
     # => include("./src/quasiGrad.jl")
