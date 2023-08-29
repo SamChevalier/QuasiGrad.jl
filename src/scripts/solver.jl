@@ -1132,31 +1132,3 @@ function compute_quasiGrad_solution_23k_pf(InFile1::String, NewTimeLimitInSecond
     @time quasiGrad.project!(95.0, idx, prm, qG, stt, sys, upd, final_projection = false)
     @time quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
 end
-
-function pc(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
-    jsn = quasiGrad.load_json(InFile1)
-    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
-        quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
-
-    # assign a short run-time
-    qG.adam_max_time = 3.0
-
-    # in this case, run a minisolve with the 14 bus system
-    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
-    quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
-    quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-    quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-    quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
-    quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
-    quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
-    quasiGrad.count_active_binaries!(prm, upd)
-    quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; last_solve=true)
-    quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-    quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
-    quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
-    quasiGrad.cleanup_constrained_pf_with_Gurobi_freeze_subset!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
-    quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-
-    qG.write_location = "local"
-    quasiGrad.write_solution("junk.json", prm, qG, stt, sys)
-end

@@ -1,31 +1,28 @@
 using Pkg
 Pkg.activate(DEPOT_PATH[1])
 
+using PackageCompiler
+
+# good luck!
 @info "Running warmup.jl! Good luck." 
 
 # first, add quasiGrad
 Pkg.add(url="https://github.com/SamChevalier/quasiGrad")
 
-# %% now, precompile
+# now, precompile
 for pkg in Pkg.installed()
    pkgname=pkg[1]; pkgsym=Symbol(pkgname)
    try
-println("using...$pkgname")
-        eval(:(using $pkgsym))
+         println("using...$pkgname")
+         eval(:(using $pkgsym))
    catch
-        println("could not precompile $pkgname")
+         println("could not precompile $pkgname")
    end
 end
 
-# %% load quasiGrad and MyJulia
-#include("./src/quasiGrad.jl")
+# load MyJulia and warmup_run
 include("./MyJulia1.jl")
+include("./warmup_run.jl")
 
-# execute a minisolver
-InFile1               = "./src/precompile_37bus.json"
-TimeLimitInSeconds    = 1
-Division              = 1
-NetworkModel          = "test"
-AllowSwitching        = 1
-precompile_minisolver = true
-MyJulia1(InFile1, TimeLimitInSeconds, Division, NetworkModel, AllowSwitching; precompile_minisolver=precompile_minisolver)
+# %% create system image
+create_sysimage(sysimage_path="SamChevalier.so", precompile_execution_file="warmup_run.jl")
