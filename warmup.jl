@@ -1,10 +1,6 @@
 using Pkg
 Pkg.activate(DEPOT_PATH[1])
 
-a = b + c
-#=
-using Pkg
-
 for pkg in Pkg.installed()
    pkgname=pkg[1]; pkgsym=Symbol(pkgname)
    try
@@ -28,5 +24,4 @@ Division              = 1
 NetworkModel          = "test"
 AllowSwitching        = 1
 precompile_minisolver = true
-minisolver(InFile1, TimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
-=#
+MyJulia1(InFile1, TimeLimitInSeconds, Division, NetworkModel, AllowSwitching; precompile_minisolver=precompile_minisolver)
