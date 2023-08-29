@@ -1,9 +1,13 @@
-using Pkg
-Pkg.activate(DEPOT_PATH[1])
-
+# using Pkg
+# Pkg.activate(DEPOT_PATH[1])
 # add quasiGrad
 # using quasiGrad
-include("./src/quasiGrad.jl")
+# include("./src/quasiGrad.jl")
+using Pkg
+Pkg.activate(".")
+Pkg.status()
+
+using quasiGrad
 
 function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, NetworkModel::String, AllowSwitching::Int64; precompile_minisolver::Bool = false)
     println("running MyJulia1")
@@ -13,11 +17,24 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
     println("  $(NetworkModel)")
     println("  $(AllowSwitching)")
 
-    # how long did package loading take? Give it 5 sec for now..
-    NewTimeLimitInSeconds = Float64(TimeLimitInSeconds) - 5.0
+    VERSION
 
-    # compute the solution
-    quasiGrad.compute_quasiGrad_solution_23k_pf(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
+    ## how long did package loading take? Give it 1 sec for now..
+    #NewTimeLimitInSeconds = Float64(TimeLimitInSeconds) - 1.0
+#
+    ## which division are we solving?
+    #if Division == 1
+    #    quasiGrad.compute_quasiGrad_solution_d1(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching, precompile_minisolver == precompile_minisolver)
+    #elseif Division == 2
+    #    quasiGrad.compute_quasiGrad_solution_d2(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching, precompile_minisolver == precompile_minisolver)
+    #elseif Division == 3
+    #    quasiGrad.compute_quasiGrad_solution_d3(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching, precompile_minisolver == precompile_minisolver)
+    #else
+    #    println("Division not recognized!")
+    #end
+#
+    ## compute the solution
+    #quasiGrad.compute_quasiGrad_solution_23k_pf(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
         # => quasiGrad.compute_quasiGrad_solution_practice(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
         # => quasiGrad.compute_quasiGrad_TIME_23643(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
         # => quasiGrad.compute_quasiGrad_solution_ed_timing(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)

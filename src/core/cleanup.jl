@@ -874,6 +874,8 @@ function cleanup_constrained_pf_with_Gurobi!(
     sys::quasiGrad.System, 
     upd::Dict{Symbol, Vector{Vector{Int64}}})
     
+    println("not used -- too much infeasibility")
+    
     # **NOTE**: this is necessarily a *serial* solver -- each time period is linked
     qG.skip_ctg_eval = true
     qG.eval_grad     = false
@@ -1276,6 +1278,8 @@ function cleanup_constrained_pf_with_Gurobi_constant_dev_p!(
     stt::quasiGrad.State,
     sys::quasiGrad.System, 
     upd::Dict{Symbol, Vector{Vector{Int64}}})
+
+    println("not used -- too much infeasibility")
     
     # **NOTE**: this is necessarily a *serial* solver -- each time period is linked
     qG.skip_ctg_eval = true
@@ -1530,7 +1534,7 @@ function cleanup_constrained_pf_with_Gurobi_constant_dev_p!(
 
     # was there a failure? If so, re-project
     if sum(clean_up_failed) > 0.0
-        #quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+        quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
     end
 end
 

@@ -1,3 +1,39 @@
+function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64; precompile_minisolver::Bool=false)
+    # this is the master function which executes quasiGrad.
+    # 
+    # 
+    # =====================================================\\
+    # TT: start time
+    start_time = time()
+    jsn = quasiGrad.load_json(InFile1)
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
+        quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true, line_switching=AllowSwitching);
+    
+
+    if precompile_minisolver == true
+        qG.adam_max_time = 3.0
+        # in this case, run a minisolve with the 14 bus system
+        quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+        quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
+        quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+        quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+        quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+        quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
+        quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
+        quasiGrad.count_active_binaries!(prm, upd)
+        quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; last_solve=true)
+        quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+        quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+        quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+        quasiGrad.cleanup_constrained_pf_with_Gurobi!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+        quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+        qG.write_location == "local"
+        quasiGrad.write_solution("junk.json", prm, qG, stt, sys)
+    else
+
+    end
+end
+
 function compute_quasiGrad_solution(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
     # this is the master function which executes quasiGrad.
     # 
