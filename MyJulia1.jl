@@ -1,5 +1,8 @@
 # Note -- all package calling and loading is done in the warmup file!
 #
+using quasiGrad
+
+# %%
     # => using Pkg
     # => Pkg.activate(DEPOT_PATH[1])
     # => add quasiGrad
