@@ -2,7 +2,7 @@
 #
 # using quasiGrad
 
-# %% ===
+# %%
 using Pkg
 Pkg.activate(DEPOT_PATH[1])
     # => add quasiGrad
