@@ -63,11 +63,3 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
         quasiGrad.write_solution("junk.json", prm, qG, stt, sys)
     end
 end
-
-#InFile1               = "./src/precompile_37bus.json"
-#TimeLimitInSeconds    = 1
-#Division              = 1
-#NetworkModel          = "test"
-#AllowSwitching        = 1
-#precompile_minisolver = true
-#MyJulia1(InFile1, TimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
