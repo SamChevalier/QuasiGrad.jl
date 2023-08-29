@@ -104,8 +104,9 @@ function solve_power_flow_23k!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad,
     # potentially, update binaries
     quasiGrad.clip_all!(prm, qG, stt, sys)
 
-    quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = first_solve)
-    quasiGrad.solve_parallel_linear_pf_with_Gurobi_23k!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve = first_solve, last_solve = last_solve)
+    # quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = first_solve)
+    println("456")
+    quasiGrad.solve_parallel_linear_pf_with_Gurobi_23k!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve = first_solve)
 end
 
 # correct the reactive power injections into the network
@@ -1094,7 +1095,7 @@ function build_Jac_sto!(ntk::quasiGrad.Network, stt::quasiGrad.State, sys::quasi
 end
 
 
-function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System, first_solve::Bool = false)
+function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System; first_solve::Bool = false)
     # Solve linearized power flow with Gurobi -- use margin tinkering to guarentee convergence. 
     # Only consinder upper and lower bounds on the p/q production (no other limits).
     #
