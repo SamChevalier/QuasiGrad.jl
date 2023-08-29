@@ -8,9 +8,15 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
     start_time = time()
 
     # =====================================================\\
-    jsn = quasiGrad.load_json(InFile1)
-    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
+    @time jsn = quasiGrad.load_json(InFile1)
+    @time jsn = quasiGrad.load_json(InFile1)
+    @time jsn = quasiGrad.load_json(InFile1)
+
+    @time adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
         quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
+    @time adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
+        quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
+    println("done timing tests")
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
     if sys.nb < 2500
