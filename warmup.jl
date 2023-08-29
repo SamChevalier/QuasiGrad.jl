@@ -25,4 +25,5 @@ include("./MyJulia1.jl")
 include("./warmup_run.jl")
 
 # %% create system image
-create_sysimage(sysimage_path="SamChevalier.so", precompile_execution_file="warmup_run.jl")
+
+create_sysimage(sysimage_path="SamChevalier.so", precompile_execution_file="warmup_run.jl", sysimage_path = DEPOT_PATH[1])
