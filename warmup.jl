@@ -1,8 +1,6 @@
 using Pkg
 Pkg.activate(DEPOT_PATH[1])
 
-using PackageCompiler
-
 # good luck!
 @info "Running warmup.jl! Good luck." 
 
@@ -20,10 +18,10 @@ for pkg in Pkg.installed()
    end
 end
 
-# load MyJulia and warmup_run
-include("./MyJulia1.jl")
-include("./warmup_run.jl")
-
-# %% create system image
-
-create_sysimage(sysimage_path=DEPOT_PATH[1]*"\\SamChevalier.so", precompile_execution_file="warmup_run.jl")
+# => # load MyJulia and warmup_run
+# => include("./MyJulia1.jl")
+# => include("./warmup_run.jl")
+# => 
+# => # %% create system image
+# => using PackageCompiler
+# => create_sysimage(sysimage_path=DEPOT_PATH[1]*"\\SamChevalier.so", precompile_execution_file="warmup_run.jl")
