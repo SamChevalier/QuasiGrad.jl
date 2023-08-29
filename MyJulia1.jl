@@ -1,12 +1,13 @@
-# using Pkg
-# Pkg.activate(DEPOT_PATH[1])
-# add quasiGrad
-# using quasiGrad
-# include("./src/quasiGrad.jl")
-
-# => using Pkg
-# => Pkg.activate(".")
-# => Pkg.status()
+# Note -- all package calling and loading is done in the warmup file!
+#
+    # => using Pkg
+    # => Pkg.activate(DEPOT_PATH[1])
+    # => add quasiGrad
+    # => using quasiGrad
+    # => include("./src/quasiGrad.jl")
+    # => using Pkg
+    # => Pkg.activate(".")
+    # => Pkg.status()
 
 function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, NetworkModel::String, AllowSwitching::Int64; precompile_minisolver::Bool = false)
     println("running MyJulia1")

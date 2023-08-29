@@ -76,7 +76,7 @@ using PrecompileTools
 
 # set up the workload
 @compile_workload begin
-    path = "./src/precompile_14bus.json"
+    path = "./src/precompile_37bus.json"
 
     # call the jsn and initialize
     jsn = quasiGrad.load_json(path)

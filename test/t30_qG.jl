@@ -1,7 +1,7 @@
 using quasiGrad
 using Revise
 
-# common folder for calling
+# %% common folder for calling
 tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
 
 # call the solver!
@@ -14,7 +14,7 @@ InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N00617D1/scenario_001.json"
 #InFile1 = tfp*"C3S3.1_20230606/D1/C3S3N08316D1/scenario_001.json"
 #InFile1 = tfp*"C3S2b_20230316/D1/C3S2N02000D1/scenario_001.json"
 #InFile1 = tfp*"C3S2b_20230316/D1/C3S2N06717D1/scenario_001.json"  # try this agian WITH zonal penalties care
-InFile1 = tfp*"C3S3.1_20230606/D1/C3S3N08316D1/scenario_001.json"
+#InFile1 = tfp*"C3S3.1_20230606/D1/C3S3N08316D1/scenario_001.json"
 
 #InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N04224D1/scenario_131.json"
 
@@ -28,6 +28,7 @@ jsn = quasiGrad.load_json(InFile1)
 adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
     quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
 
+# %%
 qG.print_linear_pf_iterations = true
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 

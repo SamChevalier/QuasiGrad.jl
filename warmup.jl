@@ -18,7 +18,7 @@ include("./src/quasiGrad.jl")
 include("./MyJulia1.jl")
 
 # execute a minisolver
-InFile1               = "./src/precompile_14bus.json"
+InFile1               = "./src/precompile_37bus.json"
 TimeLimitInSeconds    = 1
 Division              = 1
 NetworkModel          = "test"
