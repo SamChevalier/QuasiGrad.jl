@@ -1,10 +1,10 @@
 # Note -- all package calling and loading is done in the warmup file!
 #
-using quasiGrad
+# using quasiGrad
 
 # %%
-    # => using Pkg
-    # => Pkg.activate(DEPOT_PATH[1])
+# using Pkg
+# Pkg.activate(DEPOT_PATH[1])
     # => add quasiGrad
     # => using quasiGrad
     # => include("./src/quasiGrad.jl")
@@ -63,3 +63,11 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
         quasiGrad.write_solution("junk.json", prm, qG, stt, sys)
     end
 end
+
+#InFile1               = "./src/precompile_37bus.json"
+#TimeLimitInSeconds    = 1
+#Division              = 1
+#NetworkModel          = "test"
+#AllowSwitching        = 1
+#precompile_minisolver = true
+#MyJulia1(InFile1, TimeLimitInSeconds, Division, NetworkModel, AllowSwitching)

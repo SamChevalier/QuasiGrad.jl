@@ -1,6 +1,8 @@
 using Pkg
 Pkg.activate(DEPOT_PATH[1])
 
+@info "Running warmup.jl! Good luck." 
+
 for pkg in Pkg.installed()
    pkgname=pkg[1]; pkgsym=Symbol(pkgname)
    try
@@ -10,8 +12,6 @@ println("using...$pkgname")
         println("could not precompile $pkgname")
    end
 end
-
-@info "Running warmup.jl! Good luck." 
 
 # load quasiGrad and MyJulia
 include("./src/quasiGrad.jl")
