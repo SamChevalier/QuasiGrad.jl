@@ -6,6 +6,7 @@
 using Pkg
 Pkg.activate(".")
 Pkg.status()
+Pkg.instantiate()
 
 using quasiGrad
 

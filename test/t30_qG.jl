@@ -429,3 +429,6 @@ end
 
 # %%
 model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(tGRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true); add_bridges = false)
+
+# %%
+include("../MyJulia1.jl")
