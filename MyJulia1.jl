@@ -26,7 +26,6 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
     println("  $(NetworkModel)")
     println("  $(AllowSwitching)")
 
-    #=
     # begin
     t0 = time()
 
@@ -49,7 +48,6 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
     # how long did that take?
     tf = time() - t0
     println("final time: $tf")
-    =#
 end
 
 function pc(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
