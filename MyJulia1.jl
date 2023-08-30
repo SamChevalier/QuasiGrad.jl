@@ -26,19 +26,26 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
     println("  $(NetworkModel)")
     println("  $(AllowSwitching)")
 
+    # run a quick pre-comp
+    pc("./src/precompile_37bus.json", 600.0, 1, "test", 1)
+    println(".")
+    println(".")
+    println(".")
+    println(".")
+
     # begin
     t0 = time()
 
     # how long did package loading take? Give it 1 sec for now..
     @info "remove this!!"
-    TimeLimitInSeconds = 3600.0
+    TimeLimitInSeconds = 3000.0
     NewTimeLimitInSeconds = Float64(TimeLimitInSeconds) - 1.0
 
     # in this case, solve the system -- which division are we solving?
     if Division == 1
-        quasiGrad.compute_quasiGrad_solution_d1(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
+        quasiGrad.compute_quasiGrad_solution_d1(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching; post_process=true)
     elseif (Division == 2) || (Division == 3)
-        quasiGrad.compute_quasiGrad_solution_d23(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
+        quasiGrad.compute_quasiGrad_solution_d23(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching; post_process=true)
         println("Division not recognized!")
     end
 
