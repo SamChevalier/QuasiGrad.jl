@@ -147,6 +147,9 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
         quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
     end
 
+    tf = time() - start_time
+    println("final time (internal): $tf")
+
     # post process?
     if post_process == true
         quasiGrad.post_process_stats(true, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
