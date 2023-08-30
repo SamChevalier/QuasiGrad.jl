@@ -1335,8 +1335,7 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
             @constraint(model, -dth_max .<= (@view va[idx.ac_fr_bus]) .- (@view va[idx.ac_to_bus]) .- flw.ac_phi[tii] .<= dth_max)
 
             # opf regularization :)
-            #=
-            if first_solve == true
+            if (first_solve == true) && (pf_itr_cnt == 1)
                 # current energy costs
                 quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
                 zen0 = sum(@view stt.zen_dev[tii][idx.cs_devs]) - sum(@view stt.zen_dev[tii][idx.pr_devs])
@@ -1369,12 +1368,11 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
                     end
                 end
             end
-            =#
 
             # build the objective function!
-            if first_solve == true 
+            if (first_solve == true) && (pf_itr_cnt == 1)
                 obj = @expression(model,
-                    #1e3*zen/zen0 +
+                    1e3*zen/zen0 +
                     1e3*(vm_penalty'*vm_penalty) + 
                     x_in'*x_in +
                     (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
