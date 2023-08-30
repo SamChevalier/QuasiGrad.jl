@@ -6,6 +6,10 @@
 using Pkg
 Pkg.activate(DEPOT_PATH[1])
 
+readdir(".")
+
+println(readdir("."))
+
 include("./src/quasiGrad.jl")
 # using quasiGrad
 

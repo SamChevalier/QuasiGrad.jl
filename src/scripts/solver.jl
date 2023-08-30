@@ -70,6 +70,9 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             qG.adam_max_time  = time_for_final_adam
             quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+        else
+            # just run a final projection -- this needs to be here!!
+            quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
         end
         
         # final activities
@@ -117,6 +120,9 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
             qG.adam_max_time  = time_for_final_adam
             quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+            quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+        else
+            # just run a final projection -- this needs to be here!!
             quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
         end
         
