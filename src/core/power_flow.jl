@@ -1242,11 +1242,20 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
             # final, constrained power flow solve
 
             if first_solve == true
+                # use a binary mixture
+                if pf_itr_cnt == 1
+                    alpha = 0.9
+                elseif pf_itr_cnt == 2
+                    alpha = 0.5
+                elseif pf_itr_cnt == 3
+                    alpha = 0.1
+                end
+
                 # ignore binaries !!!
-                stt.dev_plb[tii] .= 0.0
-                stt.dev_pub[tii] .= prm.dev.p_ub_tmdv[tii]
-                stt.dev_qlb[tii] .= min.(0.0, prm.dev.q_lb_tmdv[tii])
-                stt.dev_qub[tii] .= max.(0.0, prm.dev.q_ub_tmdv[tii])
+                stt.dev_plb[tii] .= alpha.*(0.0                              ) .+ (1.0 .- alpha).*stt.u_on_dev[tii].*prm.dev.p_lb_tmdv[tii]
+                stt.dev_pub[tii] .= alpha.*(prm.dev.p_ub_tmdv[tii]           ) .+ (1.0 .- alpha).*stt.u_on_dev[tii].*prm.dev.p_ub_tmdv[tii]
+                stt.dev_qlb[tii] .= alpha.*(min.(0.0, prm.dev.q_lb_tmdv[tii])) .+ (1.0 .- alpha).*stt.u_sum[tii].*prm.dev.q_lb_tmdv[tii]   
+                stt.dev_qub[tii] .= alpha.*(max.(0.0, prm.dev.q_ub_tmdv[tii])) .+ (1.0 .- alpha).*stt.u_sum[tii].*prm.dev.q_ub_tmdv[tii]   
             else
                 # later on, bound power based on binary values!
                 stt.dev_plb[tii] .= stt.u_on_dev[tii].*prm.dev.p_lb_tmdv[tii]
@@ -1326,6 +1335,7 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
             @constraint(model, -dth_max .<= (@view va[idx.ac_fr_bus]) .- (@view va[idx.ac_to_bus]) .- flw.ac_phi[tii] .<= dth_max)
 
             # opf regularization :)
+            #=
             if first_solve == true
                 # current energy costs
                 quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
@@ -1359,11 +1369,12 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
                     end
                 end
             end
+            =#
 
             # build the objective function!
             if first_solve == true 
                 obj = @expression(model,
-                    1e3*zen/zen0 +
+                    #1e3*zen/zen0 +
                     1e3*(vm_penalty'*vm_penalty) + 
                     x_in'*x_in +
                     (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
