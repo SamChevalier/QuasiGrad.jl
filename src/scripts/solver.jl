@@ -140,7 +140,10 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
         qG.adam_max_time  = 60.0
         quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
         quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
+        tt = time()
         @time quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+        tp2 = time() - tt
+        println("2nd proj: $tp2")
         quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
         quasiGrad.cleanup_constrained_pf_with_Gurobi_parallelized!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
         quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
