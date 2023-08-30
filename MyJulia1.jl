@@ -6,9 +6,8 @@
 using Pkg
 Pkg.activate(DEPOT_PATH[1])
 
-# include("./src/quasiGrad.jl")
-
-using quasiGrad
+include("./src/quasiGrad.jl")
+# using quasiGrad
 
     # => add quasiGrad
     # @time using quasiGrad
