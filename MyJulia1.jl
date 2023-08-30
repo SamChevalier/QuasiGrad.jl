@@ -31,7 +31,7 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
 
     # how long did package loading take? Give it 1 sec for now..
     @info "remove this!!"
-    TimeLimitInSeconds = 1000.0
+    TimeLimitInSeconds = 2500.0
     NewTimeLimitInSeconds = Float64(TimeLimitInSeconds) - 1.0
 
     # in this case, solve the system -- which division are we solving?
