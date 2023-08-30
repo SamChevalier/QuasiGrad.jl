@@ -513,3 +513,12 @@ end
 # => language=julia
 # => run_warmup=yes
 # => export LD_LIBRARY_PATH=/qfs/projects/goc/share/apps/Ipopt-3.12.13_openblas_gcc492/lib
+
+# %% 
+using Pkg
+Pkg.activate(DEPOT_PATH[1])
+
+include("./linalg_run.jl")
+
+using PackageCompiler
+create_sysimage(["LinearAlgebra"], sysimage_path=DEPOT_PATH[1]*"\\SamChevalier.so", precompile_execution_file="linalg_run.jl")

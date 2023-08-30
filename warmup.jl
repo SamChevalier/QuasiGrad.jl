@@ -22,6 +22,9 @@ end
 include("./MyJulia1.jl")
 include("./warmup_run.jl")
 
-# %% create system image
+# create system image
 using PackageCompiler
-create_sysimage(["quasiGrad"], sysimage_path=DEPOT_PATH[1]*"\\SamChevalier.so", precompile_execution_file="warmup_run.jl")
+create_sysimage(["quasiGrad"], sysimage_path="/qfs/projects/goc/share/apps/Julia/julia-1.10.0-beta1-SamChevalier/share/julia/site/SamChevalierUpdate.so", precompile_execution_file="warmup_run.jl")
+
+readdir(".")
+println(readdir("."))
