@@ -103,9 +103,7 @@ function solve_power_flow_23k!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad,
     # 
     # potentially, update binaries
     quasiGrad.clip_all!(prm, qG, stt, sys)
-
-    # quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = first_solve)
-    println("456")
+    quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = first_solve)
     quasiGrad.solve_parallel_linear_pf_with_Gurobi_23k!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve = first_solve)
 end
 
@@ -1094,7 +1092,6 @@ function build_Jac_sto!(ntk::quasiGrad.Network, stt::quasiGrad.State, sys::quasi
                                               stt.qflow_over_sflow_to[tii].*(@view ntk.Jac_pq_flow_to[tii][(sys.nac+1):end, (sys.nb+1):end])
 end
 
-
 function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System; first_solve::Bool = false)
     # Solve linearized power flow with Gurobi -- use margin tinkering to guarentee convergence. 
     # Only consinder upper and lower bounds on the p/q production (no other limits).
@@ -1135,7 +1132,15 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
         quasiGrad.update_Yflow!(idx, ntk, prm, stt, sys, tii)
 
         # tighten as we go
-        flow_margin = 2.5
+        if first_solve == true
+            flow_margin = 2.5
+        else
+            # in this case, we only do two solves
+            flow_margin = 1.5
+        end
+
+        # apply flow constraints
+        apply_tight_flow_constraints = true
 
         # loop over pf solves
         while run_pf == true
@@ -1147,6 +1152,9 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
 
             # increment
             pf_itr_cnt += 1
+
+            # make sure
+            flow_margin = max(1.0001, flow_margin)
 
             # first, rebuild jacobian, and update base points: stt.pinj0, stt.qinj0
             quasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
@@ -1296,13 +1304,13 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
             @constraint(model, JacP_noref*x_in .+ stt.pinj0[tii] .== nodal_p)
             @constraint(model, JacQ_noref*x_in .+ stt.qinj0[tii] .== nodal_q)
 
-            if first_solve == true 
+            if apply_tight_flow_constraints == true 
                 JacSfr_acl_noref = ntk.Jac_sflow_fr[tii][1:sys.nl,       [1:sys.nb; (sys.nb+2):end]]
                 JacSfr_xfm_noref = ntk.Jac_sflow_fr[tii][(sys.nl+1):end, [1:sys.nb; (sys.nb+2):end]]
                 @constraint(model, JacSfr_acl_noref*x_in .+ stt.acline_sfr[tii] .<= flow_margin .* prm.acline.mva_ub_nom)
                 @constraint(model, JacSfr_xfm_noref*x_in .+ stt.xfm_sfr[tii]    .<= flow_margin .* prm.xfm.mva_ub_nom)
 
-                # downgrade the flow margin
+                # downgrade the flow margin -- always do this, regardless
                 flow_margin = flow_margin * 0.77
             end
 

@@ -8,14 +8,10 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
     start_time = time()
 
     # =====================================================\\
-    @time jsn = quasiGrad.load_json(InFile1)
-    @time jsn = quasiGrad.load_json(InFile1)
-    @time adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
+    jsn = quasiGrad.load_json(InFile1)
+    adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
         quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
-    @time adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
-        quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
-    @time quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
-    @time quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
     if sys.nb < 2500
         # baby systems
@@ -136,7 +132,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
         quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
     else
         # monster system
-        qG.adam_max_time  = 60.0
+        qG.adam_max_time  = 75.0
         qG.max_linear_pfs = 3
         quasiGrad.solve_power_flow_23k!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, last_solve=false)
         quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
