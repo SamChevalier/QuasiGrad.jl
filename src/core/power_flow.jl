@@ -1311,7 +1311,7 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
                 @constraint(model, JacSfr_xfm_noref*x_in .+ stt.xfm_sfr[tii]    .<= flow_margin .* prm.xfm.mva_ub_nom)
 
                 # downgrade the flow margin -- always do this, regardless
-                flow_margin = flow_margin * 0.77
+                flow_margin = flow_margin * 0.8
             end
 
             # define nodal angles

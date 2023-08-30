@@ -132,26 +132,32 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
         quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
     else
         # monster system
-        qG.adam_max_time  = 75.0
+        qG.print_linear_pf_iterations = true
+
+        qG.adam_max_time  = 90.0
         qG.max_linear_pfs = 3
         quasiGrad.solve_power_flow_23k!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, last_solve=false)
         quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
         quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 
-        qG.adam_max_time  = 70.0
+        println("made it 1")
+
+        qG.adam_max_time  = 90.0
         quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
         quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
         quasiGrad.snap_shunts!(true, prm, qG, stt, upd)   
         quasiGrad.count_active_binaries!(prm, upd)
 
-        qG.adam_max_time  = 30.0
+        qG.adam_max_time  = 90.0
         qG.max_linear_pfs = 2
+        println("made it 2")
         quasiGrad.solve_power_flow_23k!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=false, last_solve=true)
         quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
         qG.adam_max_time  = 50.0
         quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
         quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
     
+        println("made it 3")
         quasiGrad.cleanup_constrained_pf_with_Gurobi_freeze_subset!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
         quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
         quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
