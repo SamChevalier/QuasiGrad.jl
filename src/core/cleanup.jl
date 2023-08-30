@@ -2045,3 +2045,315 @@ function cleanup_constrained_pf_with_Gurobi_freeze_subset!(
         quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
     end
 end
+
+function cleanup_constrained_pf_with_Gurobi_parallelized!(    
+    cgd::quasiGrad.ConstantGrad, 
+    ctg::quasiGrad.Contingency,
+    flw::quasiGrad.Flow, 
+    grd::quasiGrad.Grad, 
+    idx::quasiGrad.Index, 
+    mgd::quasiGrad.MasterGrad,
+    ntk::quasiGrad.Network, 
+    prm::quasiGrad.Param, 
+    qG::quasiGrad.QG, 
+    scr::Dict{Symbol, Float64}, 
+    stt::quasiGrad.State,
+    sys::quasiGrad.System, 
+    upd::Dict{Symbol, Vector{Vector{Int64}}})
+
+    # ask Gurobi to solve a linearize power flow. two options here:
+    #   1) define device variables which are bounded, and then insert them into the power balance expression
+    #   2) just define power balance bounds based on device characteristics, and then, at the end, optimally
+    #      dispatch the devices via updating.
+    # 
+    # I am pretty sure 1) is slower, but it is (1) safer, (2) simpler, and (3) more flexible -- and it will
+    # require less trouble-shooting. Plus, it will be easy to update/improve in the future! Go with it.
+    #
+    # here is power balance:
+    #
+    # p_pr - p_cs - pdc = p_lines/xfm/shunt => this is typical.
+    #
+    # vm0 = stt.vm[tii]
+    # va0 = stt.va[tii][2:end-1]
+    #
+    # bias point: stt[:pinj0, qinj0] === Y * stt[:vm, va]
+    qG.compute_pf_injs_with_Jac = true
+
+    @info "Running constrained, linearized power flow cleanup across $(sys.nT) time periods."
+
+    # split into fixed and free devices -- keep the smallest ones fixed in place
+    frac_of_gens_to_fix_p    = 0.20
+    nD                       = Int64(round(sys.ndev*frac_of_gens_to_fix_p)) # fixed
+    smallest_to_largest_devs = sortperm(prm.dev.p_ramp_up_ub.*prm.dev.p_ramp_down_ub.*prm.dev.p_startup_ramp_ub.*prm.dev.p_shutdown_ramp_ub)
+    all_fixed_devs           = sort(smallest_to_largest_devs[1:nD])
+    all_free_devs            = sort(smallest_to_largest_devs[(nD+1):end])
+
+    # split free_devs in two
+    free_devs_A = all_free_devs[1:2:end] # => used in tii = 1:2:t_end
+    tii_A       = prm.ts.time_keys[1:2:end]
+    free_devs_B = all_free_devs[2:2:end] # => used in tii = 2:2:t_end
+    tii_B       = prm.ts.time_keys[2:2:end]
+
+    # defined a "clean_up_failed" vector -- if any is true (1), then we must re-run
+    clean_up_failed = zeros(sys.nT)
+
+    # loop over time
+    Threads.@threads for tii in prm.ts.time_keys
+
+        if tii in tii_A
+            free_devs  = copy(free_devs_A)
+            fixed_devs = sort([free_devs_B; all_fixed_devs])
+        else # (tii in tii_B)
+            free_devs  = copy(free_devs_B)
+            fixed_devs = sort([free_devs_A; all_fixed_devs])
+        end
+
+        # duration
+        dt = prm.ts.duration[tii]
+
+        # initialize
+        run_pf = true
+        pf_cnt = 0
+
+        # update y_bus and Jacobian and bias point -- this
+        #    only needs to be done once per time, since xfm/shunt
+        #    values are not changing between iterations
+        quasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
+
+        # loop over pf solves
+        while run_pf == true
+
+            # build and empty the model!
+            model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => qG.num_threads))
+            set_string_names_on_creation(model, false)
+
+            # set model properties
+            quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+            # => quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+            # => quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
+
+            # increment
+            pf_cnt += 1
+
+            # first, rebuild the jacobian, and update the base points: stt.pinj0, stt.qinj0
+            quasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
+            
+            # empty model
+            empty!(model)
+
+            # define the variables (single time index)
+            @variable(model, x_in[1:(2*sys.nb - 1)])
+
+            # assign
+            dvm = x_in[1:sys.nb]
+            dva = x_in[(sys.nb+1):end]
+            set_start_value.(dvm, stt.vm[tii])
+            set_start_value.(dva, @view stt.va[tii][2:end])
+
+            # now, model all nodal injections from the device/dc line side, all put in nodal_p/q
+            nodal_p = Vector{AffExpr}(undef, sys.nb)
+            nodal_q = Vector{AffExpr}(undef, sys.nb)
+            for bus in 1:sys.nb
+                # now, we need to loop and set the affine expressions to 0, and then add powers
+                #   -> see: https://jump.dev/JuMP.jl/stable/manual/expressions/
+                nodal_p[bus] = AffExpr(0.0)
+                nodal_q[bus] = AffExpr(0.0)
+            end
+
+            # create a flow variable for each dc line and sum these into the nodal vectors
+            if sys.nldc == 0
+                # nothing to see here
+            else
+                # define dc variables
+                @variable(model, pdc_vars[1:sys.nldc])    # oriented so that fr = + !!
+                @variable(model, qdc_fr_vars[1:sys.nldc])
+                @variable(model, qdc_to_vars[1:sys.nldc])
+
+                set_start_value.(pdc_vars, stt.dc_pfr[tii])
+                set_start_value.(qdc_fr_vars, stt.dc_qfr[tii])
+                set_start_value.(qdc_to_vars, stt.dc_qto[tii])
+
+                # bound dc power
+                @constraint(model, -prm.dc.pdc_ub    .<= pdc_vars    .<= prm.dc.pdc_ub)
+                @constraint(model,  prm.dc.qdc_fr_lb .<= qdc_fr_vars .<= prm.dc.qdc_fr_ub)
+                @constraint(model,  prm.dc.qdc_to_lb .<= qdc_to_vars .<= prm.dc.qdc_to_ub)
+
+                # loop and add to the nodal injection vectors
+                for dcl in 1:sys.nldc
+                    add_to_expression!(nodal_p[idx.dc_fr_bus[dcl]], -pdc_vars[dcl])
+                    add_to_expression!(nodal_p[idx.dc_to_bus[dcl]], +pdc_vars[dcl])
+                    add_to_expression!(nodal_q[idx.dc_fr_bus[dcl]], -qdc_fr_vars[dcl])
+                    add_to_expression!(nodal_q[idx.dc_to_bus[dcl]], -qdc_to_vars[dcl])
+                end
+            end
+            
+            # next, deal with devices
+            @variable(model, dev_p_vars[1:sys.ndev])
+            @variable(model, dev_q_vars[1:sys.ndev])
+            set_start_value.(dev_p_vars, stt.dev_p[tii])
+            set_start_value.(dev_q_vars, stt.dev_q[tii])
+
+            # fix a subset of devices
+            @constraint(model, stt.dev_p[tii][fixed_devs] .== dev_p_vars[fixed_devs])
+
+            # define p_on at this time
+            # => p_on = dev_p_vars - stt.p_su[tii] - stt.p_sd[tii]
+            p_on = Vector{AffExpr}(undef, sys.ndev)
+            for dev in 1:sys.ndev
+                # now, we need to loop and set the affine expressions to 0, and then add powers
+                #   -> see: https://jump.dev/JuMP.jl/stable/manual/expressions/
+                p_on[dev] = AffExpr(0.0)
+                add_to_expression!(p_on[dev], dev_p_vars[dev])
+                add_to_expression!(p_on[dev], -stt.p_su[tii][dev] - stt.p_sd[tii][dev])
+            end
+
+            # constraints: 7 types ************ backwards looking!!! ************
+            #
+            # define the previous power value (used by both up and down ramping!)
+            if tii == 1
+                # note: p0 = prm.dev.init_p[dev]
+                dev_p_previous = prm.dev.init_p
+            else
+                # grab previous time
+                tii_m1 = prm.ts.time_keys[tii-1]
+                dev_p_previous = stt.dev_p[tii_m1]
+            end
+
+            # 1. ramp up
+            @constraint(model, dev_p_vars[free_devs] .- dev_p_previous[free_devs] .- dt.*(prm.dev.p_ramp_up_ub[free_devs].*(stt.u_on_dev[tii][free_devs] .- stt.u_su_dev[tii][free_devs]) .+ prm.dev.p_startup_ramp_ub[free_devs].*(stt.u_su_dev[tii][free_devs] .+ 1.0 .- stt.u_on_dev[tii][free_devs])) .<= 0.0)
+            # 2. ramp down
+            @constraint(model, dev_p_previous[free_devs] .- dev_p_vars[free_devs] .- dt.*(prm.dev.p_ramp_down_ub[free_devs].*stt.u_on_dev[tii][free_devs] .+ prm.dev.p_shutdown_ramp_ub[free_devs].*(1.0 .- stt.u_on_dev[tii][free_devs])) .<= 0.0)
+            # 3. pmax
+            @constraint(model, p_on[free_devs] .<= prm.dev.p_ub_tmdv[tii][free_devs].*stt.u_on_dev[tii][free_devs])
+            # 4. pmin
+            @constraint(model, prm.dev.p_lb_tmdv[tii][free_devs].*stt.u_on_dev[tii][free_devs] .<= p_on[free_devs])
+            # 5. qmax
+            @constraint(model, dev_q_vars .<= prm.dev.q_ub_tmdv[tii].*stt.u_sum[tii])
+            # 6. qmin
+            @constraint(model, prm.dev.q_lb_tmdv[tii].*stt.u_sum[tii] .<= dev_q_vars)
+            
+            # 7. additional reactive power constraints!
+            #
+            # ~~~ J_pqe, and J_pqmin/max ~~~
+            #
+            # apply additional bounds: J_pqe (equality constraints)
+            for dev in idx.J_pqe
+                @constraint(model, dev_q_vars[dev] - prm.dev.beta[dev]*dev_p_vars[dev] == prm.dev.q_0[dev]*stt.u_sum[tii][dev])
+                # alternative: @constraint(model, dev_q_vars[idx.J_pqe] .== prm.dev.q_0[idx.J_pqe]*stt.u_sum[tii][idx.J_pqe] + prm.dev.beta[idx.J_pqe]*dev_p_vars[idx.J_pqe])
+            end
+
+            # apply additional bounds: J_pqmin/max (inequality constraints)
+            #
+            # note: when the reserve products are negelected, pr and cs constraints are the same
+            #   remember: idx.J_pqmax == idx.J_pqmin
+            for dev in idx.J_pqmax
+                @constraint(model, dev_q_vars[dev] <= prm.dev.q_0_ub[dev]*stt.u_sum[tii][dev] + prm.dev.beta_ub[dev]*dev_p_vars[dev])
+                @constraint(model, prm.dev.q_0_lb[dev]*stt.u_sum[tii][dev] + prm.dev.beta_lb[dev]*dev_p_vars[dev] <= dev_q_vars[dev])
+            end
+
+            # great, now just update the nodal injection vectors
+            for dev in 1:sys.ndev
+                if dev in idx.pr_devs
+                    # producers
+                    add_to_expression!(nodal_p[idx.device_to_bus[dev]], dev_p_vars[dev])
+                    add_to_expression!(nodal_q[idx.device_to_bus[dev]], dev_q_vars[dev])
+                else
+                    # consumers
+                    add_to_expression!(nodal_p[idx.device_to_bus[dev]], -dev_p_vars[dev])
+                    add_to_expression!(nodal_q[idx.device_to_bus[dev]], -dev_q_vars[dev])
+                end
+            end
+
+            # **forward looking constraints**
+            if tii != prm.ts.time_keys[end]
+                # in this case, we want to make sure that whatever power values are chosen
+                # also satisfy the next time period constraints
+                #
+                # these are either fixed 
+                tii_p1    = prm.ts.time_keys[tii+1]
+                dt_future = prm.ts.duration[tii_p1]
+
+                # 1. ramp up
+                @constraint(model, stt.dev_p[tii_p1][free_devs] .- dev_p_vars[free_devs] .- dt_future.*(prm.dev.p_ramp_up_ub[free_devs].*(stt.u_on_dev[tii_p1][free_devs] .- stt.u_su_dev[tii_p1][free_devs]) .+ prm.dev.p_startup_ramp_ub[free_devs].*(stt.u_su_dev[tii_p1][free_devs] .+ 1.0 .- stt.u_on_dev[tii_p1][free_devs])) .<= 0.0)
+                # 2. ramp down
+                @constraint(model, dev_p_vars[free_devs] .- stt.dev_p[tii_p1][free_devs] .- dt_future.*(prm.dev.p_ramp_down_ub[free_devs].*stt.u_on_dev[tii_p1][free_devs] .+ prm.dev.p_shutdown_ramp_ub[free_devs].*(1.0 .- stt.u_on_dev[tii_p1][free_devs])) .<= 0.0)
+                # 3. pmax
+                @constraint(model, stt.p_on[tii_p1][free_devs] .<= prm.dev.p_ub_tmdv[tii_p1][free_devs].*stt.u_on_dev[tii_p1][free_devs])
+                # 4. pmin
+                @constraint(model, prm.dev.p_lb_tmdv[tii_p1][free_devs].*stt.u_on_dev[tii_p1][free_devs] .<= stt.p_on[tii_p1][free_devs])
+            end
+
+            # bound system variables ==============================================
+            #
+            # bound variables -- voltage
+            @constraint(model, prm.bus.vm_lb .- stt.vm[tii] .<= dvm .<= prm.bus.vm_ub .- stt.vm[tii])
+            # alternative: => @constraint(model, prm.bus.vm_lb .<= stt.vm[tii] + dvm .<= prm.bus.vm_ub)
+
+            # mapping
+            JacP_noref = ntk.Jac[tii][1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
+            JacQ_noref = ntk.Jac[tii][(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
+            @constraint(model, JacP_noref*x_in .+ stt.pinj0[tii] .== nodal_p)
+            @constraint(model, JacQ_noref*x_in .+ stt.qinj0[tii] .== nodal_q)
+
+            # objective: hold p and q close to their initial values (does not converge without v,a regularization)
+                # => || stt.pinj_ideal - (p0 + dp) || + regularization
+            obj = @expression(model,
+                x_in'*x_in +
+                (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
+                (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
+                5.0*(stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) + 
+                1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
+
+            # set the objective
+            @objective(model, Min, obj)
+
+            # solve
+            optimize!(model)
+
+            # test solution!
+            soln_valid = solution_status(model)
+
+            # test validity
+            if soln_valid == true
+                # no matter what, we update the voltage soluion
+                stt.vm[tii]        .= stt.vm[tii]        .+ value.(dvm)
+                stt.va[tii][2:end] .= stt.va[tii][2:end] .+ value.(dva)
+
+                # now, apply the updated injections to the devices
+                stt.dev_p[tii] .= value.(dev_p_vars)
+                stt.p_on[tii]  .= stt.dev_p[tii] .- stt.p_su[tii] .- stt.p_sd[tii]
+                stt.dev_q[tii] .= value.(dev_q_vars)
+                if sys.nldc > 0
+                    stt.dc_pfr[tii] .=  value.(pdc_vars)
+                    stt.dc_pto[tii] .= .-value.(pdc_vars)  # also, performed in clipping
+                    stt.dc_qfr[tii] .= value.(qdc_fr_vars)
+                    stt.dc_qto[tii] .= value.(qdc_to_vars)
+                end
+
+                # take the norm of dv
+                max_dx = maximum(abs.(value.(x_in)))
+                if qG.print_linear_pf_iterations == true
+                    println(termination_status(model),". time: $(tii). objective value: ", round(objective_value(model), sigdigits = 5), ". max dx: ", round(max_dx, sigdigits = 5))
+                end
+                #
+                # shall we terminate?
+                if (max_dx < qG.max_pf_dx_final_solve) || (pf_cnt == qG.max_linear_pfs_final_solve)
+                    run_pf = false
+                end
+            else
+                # the solution is NOT valid, so we should increase bounds and try again
+                @warn "Constrained power flow cleanup failed at $(tii)! What a shame.."
+                clean_up_failed[tii] = 1.0
+                # => quasiGrad.single_shot_pf_cleanup!(idx, Jac, prm, qG, stt, sys, tii)
+
+                # all done with this time period -- move on
+                run_pf = false
+            end
+        end
+    end
+
+    # was there a failure? If so, re-project
+    if sum(clean_up_failed) > 0.0
+        quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+    end
+end

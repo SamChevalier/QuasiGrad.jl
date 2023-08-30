@@ -117,18 +117,34 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     min_buses_for_krylov     = 25     # don't use Krylov if there are this many or fewer buses
 
     # adaptively choose the frac of ctgs to keep
-    if num_bus < 1500
-        max_ctg_to_keep     = min(500, length(prm.ctg.id))
-        max_ctg_to_backprop = min(100, length(prm.ctg.id))
-    elseif num_bus < 5000
-        max_ctg_to_keep     = min(350, length(prm.ctg.id))
-        max_ctg_to_backprop = min(80, length(prm.ctg.id))
-    elseif num_bus < 10000
-        max_ctg_to_keep     = min(250, length(prm.ctg.id))
-        max_ctg_to_backprop = min(70, length(prm.ctg.id))
+    if Div == 1
+        if num_bus < 1500
+            max_ctg_to_keep     = min(500, length(prm.ctg.id))
+            max_ctg_to_backprop = min(100, length(prm.ctg.id))
+        elseif num_bus < 5000
+            max_ctg_to_keep     = min(350, length(prm.ctg.id))
+            max_ctg_to_backprop = min(80, length(prm.ctg.id))
+        elseif num_bus < 10000
+            max_ctg_to_keep     = min(250, length(prm.ctg.id))
+            max_ctg_to_backprop = min(70, length(prm.ctg.id))
+        else
+            max_ctg_to_keep     = min(150, length(prm.ctg.id))
+            max_ctg_to_backprop = min(25, length(prm.ctg.id))
+        end
     else
-        max_ctg_to_keep     = min(150, length(prm.ctg.id))
-        max_ctg_to_backprop = min(25, length(prm.ctg.id))
+        if num_bus < 1500
+            max_ctg_to_keep     = min(600, length(prm.ctg.id))
+            max_ctg_to_backprop = min(200, length(prm.ctg.id))
+        elseif num_bus < 5000
+            max_ctg_to_keep     = min(450, length(prm.ctg.id))
+            max_ctg_to_backprop = min(150, length(prm.ctg.id))
+        elseif num_bus < 10000
+            max_ctg_to_keep     = min(350, length(prm.ctg.id))
+            max_ctg_to_backprop = min(100, length(prm.ctg.id))
+        else
+            max_ctg_to_keep     = min(250, length(prm.ctg.id))
+            max_ctg_to_backprop = min(50, length(prm.ctg.id))
+        end
     end
     frac_ctg_keep       = max_ctg_to_keep/length(prm.ctg.id)
     frac_ctg_backprop   = max_ctg_to_backprop/length(prm.ctg.id)

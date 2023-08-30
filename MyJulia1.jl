@@ -37,11 +37,8 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
     # in this case, solve the system -- which division are we solving?
     if Division == 1
         quasiGrad.compute_quasiGrad_solution_d1(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
-    elseif Division == 2
-        quasiGrad.compute_quasiGrad_solution_d2(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
-    elseif Division == 3
-        quasiGrad.compute_quasiGrad_solution_d3(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
-    else
+    elseif (Division == 2) || (Division == 3)
+        quasiGrad.compute_quasiGrad_solution_d23(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
         println("Division not recognized!")
     end
 
