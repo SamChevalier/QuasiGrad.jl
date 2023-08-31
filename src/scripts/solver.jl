@@ -138,7 +138,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
         qG.max_linear_pfs = 3
         @time quasiGrad.solve_power_flow_23k!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, last_solve=false)
         quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-        qG.adam_max_time  = 60.0
+        qG.adam_max_time  = 75.0
         quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
         @time quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
         @time quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
