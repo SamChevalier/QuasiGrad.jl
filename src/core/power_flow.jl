@@ -517,11 +517,10 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
             end
 
             # opf regularization :)
-            if (first_solve == true) && (pf_itr_cnt == 1)
+            if (first_solve == true)
                 # current energy costs
                 quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
                 zen0 = sum(@view stt.zen_dev[tii][idx.cs_devs]) - sum(@view stt.zen_dev[tii][idx.pr_devs])
-                #println(zen0)
 
                 # new enegy costs
                 zen = AffExpr(0.0)
@@ -593,7 +592,7 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
             end
 
             # build the objective function!
-            if (first_solve == true) && (pf_itr_cnt == 1)
+            if (first_solve == true) #&& (pf_itr_cnt == 1)
                 obj = @expression(model,
                     1e3*zen/zen0 +  # this value, 1e3, is super heuristic
                     1e3*(vm_penalty'*vm_penalty) + 
@@ -602,15 +601,15 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
                     1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
                     # => (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
                     # => (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
-            elseif (first_solve == true)
-                obj = @expression(model,
-                    1e2*zen/zen0 +  # this value, 1e3, is super heuristic
-                    1e3*(vm_penalty'*vm_penalty) + 
-                    x_in'*x_in +
-                    (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
-                    1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
-                    # => (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
-                    # => (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
+            #elseif (first_solve == true)
+            #    obj = @expression(model,
+            #        1e2*zen/zen0 +  # this value, 1e3, is super heuristic
+            #        1e3*(vm_penalty'*vm_penalty) + 
+            #        x_in'*x_in +
+            #        (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
+            #        1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
+            #        # => (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
+            #        # => (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
             elseif (last_solve == false)
                 obj = @expression(model,
                     1e2*zen/zen0 +  # this value, 1e3, is super heuristic

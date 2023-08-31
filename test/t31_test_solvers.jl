@@ -14,7 +14,7 @@ AllowSwitching        = 1
 # %%
 pc("./src/precompile_37bus.json", NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
 
-# common folder for calling
+# %% common folder for calling
 tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
 
 # %% call the solver!
@@ -36,6 +36,8 @@ InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N04224D1/scenario_131.json"
 quasiGrad.compute_quasiGrad_solution_d1(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching; post_process=true)
 tf = time() - t0
 println("total time: $tf")
+
+# rerun with 
 
 # %% === test this first
 t0 = time()
