@@ -2082,16 +2082,12 @@ function cleanup_constrained_pf_with_Gurobi_parallelized!(
     @info "Running constrained, linearized power flow cleanup across $(sys.nT) time periods."
 
     # split into fixed and free devices -- keep the smallest ones fixed in place
-    frac_of_gens_to_fix_p    = 0.20
-    nD                       = Int64(round(sys.ndev*frac_of_gens_to_fix_p)) # fixed
     smallest_to_largest_devs = sortperm(prm.dev.p_ramp_up_ub.*prm.dev.p_ramp_down_ub.*prm.dev.p_startup_ramp_ub.*prm.dev.p_shutdown_ramp_ub)
-    all_fixed_devs           = sort(smallest_to_largest_devs[1:nD])
-    all_free_devs            = sort(smallest_to_largest_devs[(nD+1):end])
 
-    # split free_devs in two
-    free_devs_A = all_free_devs[1:2:end] # => used in tii = 1:2:t_end
+    # split free_devs in two groups
+    free_devs_A = sort(smallest_to_largest_devs[1:2:end])    
+    free_devs_B = sort(smallest_to_largest_devs[2:2:end])    
     tii_A       = prm.ts.time_keys[1:2:end]
-    free_devs_B = all_free_devs[2:2:end] # => used in tii = 2:2:t_end
     tii_B       = prm.ts.time_keys[2:2:end]
 
     # defined a "clean_up_failed" vector -- if any is true (1), then we must re-run
@@ -2102,10 +2098,10 @@ function cleanup_constrained_pf_with_Gurobi_parallelized!(
 
         if tii in tii_A
             free_devs  = copy(free_devs_A)
-            fixed_devs = sort([free_devs_B; all_fixed_devs])
+            fixed_devs = copy(free_devs_B)
         else # (tii in tii_B)
             free_devs  = copy(free_devs_B)
-            fixed_devs = sort([free_devs_A; all_fixed_devs])
+            fixed_devs = copy(free_devs_A)
         end
 
         # duration
@@ -2302,7 +2298,7 @@ function cleanup_constrained_pf_with_Gurobi_parallelized!(
                 (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
                 (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
                 1e1*(stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) + 
-                2.5e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
+                1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
 
             # set the objective
             @objective(model, Min, obj)

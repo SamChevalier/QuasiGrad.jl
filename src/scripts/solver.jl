@@ -112,7 +112,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
         time_left  = NewTimeLimitInSeconds - time_spent - time_for_final_activities - time_for_pf
         if time_left > 30.0
             time_for_final_pf   = time_left*0.10
-            time_for_final_adam = time_left*0.85
+            time_for_final_adam = time_left*0.80
 
             qG.adam_max_time  = time_for_final_pf
             qG.max_linear_pfs = 1

@@ -1,22 +1,11 @@
-# Note -- all package calling and loading is done in the warmup file!
-#
-# using quasiGrad
-
-# ============
 using Pkg
 Pkg.activate(DEPOT_PATH[1])
 
-# readdir(".")
-# println(readdir("."))
-# 
-include("./src/quasiGrad.jl")
-# using quasiGrad
+# if we're using the sysimage, call quasiGrad directly
+using quasiGrad
 
-    # => add quasiGrad
-    # @time using quasiGrad
-    # => using Pkg
-    # => Pkg.activate(".")
-    # => Pkg.status()
+# otherwise, include it directy!
+# => include("./src/quasiGrad.jl")
 
 function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
     println("running MyJulia1")
@@ -26,19 +15,10 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
     println("  $(NetworkModel)")
     println("  $(AllowSwitching)")
 
-    # run a quick pre-comp
-    pc("./src/precompile_37bus.json", 600.0, 1, "test", 1)
-    println(".")
-    println(".")
-    println(".")
-    println(".")
-
     # begin
     t0 = time()
 
     # how long did package loading take? Give it 1 sec for now..
-    @info "remove this!!"
-    TimeLimitInSeconds = 4000.0
     NewTimeLimitInSeconds = Float64(TimeLimitInSeconds) - 1.0
 
     # in this case, solve the system -- which division are we solving?

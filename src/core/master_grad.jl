@@ -372,10 +372,10 @@ function master_grad_adam_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, 
         quasiGrad.master_grad_zs_xfm!(tii, idx, grd, mgd, qG, stt, sys)
 
         # g15 (zp): nzms => zbase => zt => zp => (all p injection variables)
-        quasiGrad.master_grad_zp!(tii, prm, idx, grd, mgd, sys)
+        quasiGrad.master_grad_zp!(tii, prm, idx, grd, mgd, sys; run_devs=false)
 
         # g16 (zq): nzms => zbase => zt => zq => (all q injection variables)
-        quasiGrad.master_grad_zq!(tii, prm, idx, grd, mgd, sys)
+        quasiGrad.master_grad_zq!(tii, prm, idx, grd, mgd, sys; run_devs=false)
 
         # loop over devices
         for dev in prm.dev.dev_keys
