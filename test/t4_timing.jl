@@ -366,7 +366,7 @@ tii = :t1
 
 # %%
 
-function f(stt::quasiGrad.State, idx::quasiGrad.Index, dev::Union{Int32,Int64}, tii::Int8, ii::Int64)
+function f(stt::quasiGrad.State, idx::quasiGrad.Index, dev::Int64, tii::Int8, ii::Int64)
     argmax(@view stt.u_on_dev[dev][idx.Ts_sus_jft[dev][tii][ii]])
 end
 
@@ -447,7 +447,7 @@ end
 @btime fr(kk, kk2, prm, sys)
 
 # %%
-function ff(t::Union{Int32,Int64})
+function ff(t::Int64)
     println(typeof(t))
     t^2
     println(t)

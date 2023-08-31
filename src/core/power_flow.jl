@@ -1178,7 +1178,9 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
             set_start_value.(dva, @view stt.va[tii][2:end])
 
             # voltage penalty -- penalizes voltages out-of-bounds
-            @variable(model, vm_penalty[1:sys.nb])
+            if first_solve == true
+                @variable(model, vm_penalty[1:sys.nb])
+            end
 
             # note:
             # vm   = vm0   + dvm
@@ -1385,9 +1387,14 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
                     x_in'*x_in +
                     (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
                     1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
-            else
+            elseif first_solve == true
                 obj = @expression(model,
                     1e3*(vm_penalty'*vm_penalty) + 
+                    x_in'*x_in +
+                    (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
+                    1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
+            else
+                obj = @expression(model,
                     x_in'*x_in +
                     (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
                     1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))

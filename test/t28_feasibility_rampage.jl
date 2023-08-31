@@ -324,7 +324,7 @@ for dev in prm.dev.dev_keys
     z_sus[dev]   = AffExpr(0.0)
 end
 
-u_sus = Dict{Int32, Vector{Vector{quasiGrad.VariableRef}}}(tii => [@variable(model, [sus = 1:prm.dev.num_sus[dev]], Bin) for dev in 1:sys.ndev] for tii in prm.ts.time_keys)  
+u_sus = Dict{Int64, Vector{Vector{quasiGrad.VariableRef}}}(tii => [@variable(model, [sus = 1:prm.dev.num_sus[dev]], Bin) for dev in 1:sys.ndev] for tii in prm.ts.time_keys)  
 
 for dev in prm.dev.dev_keys
     # loop over each time period and define the hard constraints

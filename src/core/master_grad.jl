@@ -390,7 +390,7 @@ end
 
 function master_grad_zs_acline!(tii::Int8, idx::quasiGrad.Index, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
     # =========== =========== =========== #
-                # zs (acline flows)
+               # zs (acline flows)
     # =========== =========== =========== #
     #
     # common master grad
@@ -885,7 +885,7 @@ function master_grad_zq!(tii::Int8, prm::quasiGrad.Param, idx::quasiGrad.Index, 
     end
 end
 
-function apply_dev_p_grads!(tii::Int8, prm::quasiGrad.Param, qG::quasiGrad.QG, idx::quasiGrad.Index, stt::quasiGrad.State, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, dev::Union{Int32,Int64}, alpha::Float64)
+function apply_dev_p_grads!(tii::Int8, prm::quasiGrad.Param, qG::quasiGrad.QG, idx::quasiGrad.Index, stt::quasiGrad.State, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, dev::Int64, alpha::Float64)
     # this function computes the partial derivative of dev_p:
     # stt.dev_p[tii] = stt.p_on[tii] + stt.p_su[tii] + stt.p_sd[tii]
     #
@@ -927,7 +927,7 @@ function apply_dev_p_grads!(tii::Int8, prm::quasiGrad.Param, qG::quasiGrad.QG, i
     end
 end
 
-function apply_dev_q_grads!(tii::Int8, prm::quasiGrad.Param, qG::quasiGrad.QG, idx::quasiGrad.Index, stt::quasiGrad.State, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, dev::Union{Int32,Int64}, alpha::Float64)
+function apply_dev_q_grads!(tii::Int8, prm::quasiGrad.Param, qG::quasiGrad.QG, idx::quasiGrad.Index, stt::quasiGrad.State, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, dev::Int64, alpha::Float64)
     # if the device is not in idx.J_pqe, then "dev_q" is just a state variable!
     if dev in idx.J_pqe
         # in this case, we take the derivatives of "dev_q" wrt
@@ -950,7 +950,7 @@ function apply_dev_q_grads!(tii::Int8, prm::quasiGrad.Param, qG::quasiGrad.QG, i
     end
 end
 
-function du_sum!(tii::Int8, prm::quasiGrad.Param, stt::quasiGrad.State, mgd::quasiGrad.MasterGrad, dev::Union{Int32,Int64}, alpha::Float64, T_supc::Vector{Int8}, T_sdpc::Vector{Int8})
+function du_sum!(tii::Int8, prm::quasiGrad.Param, stt::quasiGrad.State, mgd::quasiGrad.MasterGrad, dev::Int64, alpha::Float64, T_supc::Vector{Int8}, T_sdpc::Vector{Int8})
     # this function takes the derivative of the commonly used "u_sum"
     # term, and it applies the derivatives across mgd
     #
@@ -1017,7 +1017,7 @@ function flush_gradients!(grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad, prm::q
     end
 end
 
-function dp_alpha!(grd::quasiGrad.Grad, dev::Union{Int32,Int64}, tii::Int8, alpha::Float64)
+function dp_alpha!(grd::quasiGrad.Grad, dev::Int64, tii::Int8, alpha::Float64)
     # this is an intersting function: it collects the partial
     # derivative coefficients which scale dx/dp terms:
     #   alpha1 = (dz/dzb)(dzb/dzF)(dF/dp)
@@ -1028,7 +1028,7 @@ function dp_alpha!(grd::quasiGrad.Grad, dev::Union{Int32,Int64}, tii::Int8, alph
     grd.dx.dp[tii][dev] += alpha
 end
 
-function dq_alpha!(grd::quasiGrad.Grad, dev::Union{Int32,Int64}, tii::Int8, alpha::Float64)
+function dq_alpha!(grd::quasiGrad.Grad, dev::Int64, tii::Int8, alpha::Float64)
     # this is an intersting function: it collects the partial
     # derivative coefficients which scale dx/dq terms:
     #   alpha1 = (dz/dzb)(dzb/dzF)(dF/dq)

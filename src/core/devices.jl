@@ -999,7 +999,7 @@ end
     # T1_start = 0          T1_end = 0.25
     # T2_start = 0.25       T2_end = 0.5
     # T3_start = 0.5        T3_end = 0.75..
-function get_tmindn(tii::Int8, dev::Union{Int32,Int64}, prm::quasiGrad.Param)
+function get_tmindn(tii::Int8, dev::Int64, prm::quasiGrad.Param)
     # get current start time
     current_start_time = prm.ts.start_time[tii]
 
@@ -1012,7 +1012,7 @@ function get_tmindn(tii::Int8, dev::Union{Int32,Int64}, prm::quasiGrad.Param)
 end
 
 # min uptimes
-function get_tminup(tii::Int8, dev::Union{Int32,Int64}, prm::quasiGrad.Param)
+function get_tminup(tii::Int8, dev::Int64, prm::quasiGrad.Param)
     # get current start time
     current_start_time = prm.ts.start_time[tii]
 
@@ -1025,7 +1025,7 @@ function get_tminup(tii::Int8, dev::Union{Int32,Int64}, prm::quasiGrad.Param)
 end
 
 # get the startup production curve power values
-function get_supc(tii::Int8, dev::Union{Int32,Int64}, prm::quasiGrad.Param)
+function get_supc(tii::Int8, dev::Int64, prm::quasiGrad.Param)
     # get current end time
     current_end_time = prm.ts.end_time[tii]
 
@@ -1041,7 +1041,7 @@ function get_supc(tii::Int8, dev::Union{Int32,Int64}, prm::quasiGrad.Param)
 end
 
 # get the shutdown production curve power values
-function get_sdpc(tii::Int8, dev::Union{Int32,Int64}, prm::quasiGrad.Param)
+function get_sdpc(tii::Int8, dev::Int64, prm::quasiGrad.Param)
     # get current end time
     current_end_time = prm.ts.end_time[tii]
 
@@ -1061,7 +1061,7 @@ function get_sdpc(tii::Int8, dev::Union{Int32,Int64}, prm::quasiGrad.Param)
 end
 
 # startup state time periods
-function get_tsus_sets(tii::Int8, dev::Union{Int32,Int64}, prm::quasiGrad.Param, ii::Int64)
+function get_tsus_sets(tii::Int8, dev::Int64, prm::quasiGrad.Param, ii::Int64)
     # get current start time
     current_start_time = prm.ts.start_time[tii]
 
@@ -1136,7 +1136,7 @@ function get_tsumax(w_params::Vector{Float64}, prm::quasiGrad.Param)
     return T_su_max
 end
 
-function apply_p_su_grad!(idx::quasiGrad.Index, tii::Int8, dev::Union{Int32,Int64}, alpha::Float64, prm::quasiGrad.Param, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad)
+function apply_p_su_grad!(idx::quasiGrad.Index, tii::Int8, dev::Int64, alpha::Float64, prm::quasiGrad.Param, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad)
     # for a given time and device, call the supc
     T_supc     = idx.Ts_supc[dev][tii]     # => T_supc, p_supc_set = get_supc(tii, dev, prm)
     p_supc_set = idx.ps_supc_set[dev][tii] # => T_supc, p_supc_set = get_supc(tii, dev, prm)
@@ -1151,7 +1151,7 @@ function apply_p_su_grad!(idx::quasiGrad.Index, tii::Int8, dev::Union{Int32,Int6
     end
 end
 
-function apply_p_sd_grad!(idx::quasiGrad.Index, tii::Int8, dev::Union{Int32,Int64}, alpha::Float64, prm::quasiGrad.Param, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad)
+function apply_p_sd_grad!(idx::quasiGrad.Index, tii::Int8, dev::Int64, alpha::Float64, prm::quasiGrad.Param, grd::quasiGrad.Grad, mgd::quasiGrad.MasterGrad)
     # for a given time and device, call the supc
     T_sdpc     = idx.Ts_sdpc[dev][tii]     # => T_sdpc, p_sdpc_set = get_sdpc(tii, dev, prm)
     p_sdpc_set = idx.ps_sdpc_set[dev][tii] # => T_sdpc, p_sdpc_set = get_sdpc(tii, dev, prm)
@@ -1166,15 +1166,15 @@ function apply_p_sd_grad!(idx::quasiGrad.Index, tii::Int8, dev::Union{Int32,Int6
     end
 end
 
-function max_binary(dev::Int32, idx::quasiGrad.Index, ii::Int64, stt::quasiGrad.State, tii::Int8) 
+function max_binary(dev::Int64, idx::quasiGrad.Index, ii::Int64, stt::quasiGrad.State, tii::Int8) 
     # this function is needed because polyester can't deal with internal for loops (of the following form)
     return maximum(stt.u_on_dev_Trx[dev][tij] for tij in idx.Ts_sus_jft[dev][tii][ii])
 end
 
-function u_sum_supc(dev::Int32, idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8)
+function u_sum_supc(dev::Int64, idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8)
     return sum(stt.u_su_dev_Trx[dev][tii_inst] for tii_inst in idx.Ts_supc[dev][tii]; init=0.0)
 end
 
-function u_sum_sdpc(dev::Int32, idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8)
+function u_sum_sdpc(dev::Int64, idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8)
     return sum(stt.u_sd_dev_Trx[dev][tii_inst] for tii_inst in idx.Ts_sdpc[dev][tii]; init=0.0)
 end

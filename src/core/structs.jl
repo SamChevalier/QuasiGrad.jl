@@ -114,7 +114,7 @@ mutable struct QG
     compute_pf_injs_with_Jac::Bool
     max_pf_dx::Float64   
     max_pf_dx_final_solve::Float64
-    max_linear_pfs_final_solve::Float64
+    max_linear_pfs_final_solve::Int64
     max_linear_pfs::Int64
     print_linear_pf_iterations::Bool
     Gurobi_pf_obj::String
@@ -272,7 +272,7 @@ struct Device
     id::Vector{String}
     bus::Vector{String}
     device_type::Vector{String}
-    dev_keys::Vector{Int32}
+    dev_keys::Vector{Int64}
     startup_cost::Vector{Float64}
     startup_states::Vector{Vector{Vector{Float64}}}
     num_sus::Vector{Int64}

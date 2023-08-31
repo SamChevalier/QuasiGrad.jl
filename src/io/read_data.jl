@@ -428,7 +428,7 @@ function parse_json_device(json_data::Dict)
     bus              = [device[ind]["bus"] for ind in device_inds]
     device_type      = [device[ind]["device_type"] for ind in device_inds]
     ndev             = length(device_inds)
-    dev_keys         = Int32.(1:ndev)
+    dev_keys         = Int64.(1:ndev)
 
     # costs -- some of the time interval "ints" are set to "float"
     startup_cost       = Float64.([device[ind]["startup_cost"] for ind in device_inds])
