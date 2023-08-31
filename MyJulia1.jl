@@ -2,10 +2,10 @@ using Pkg
 Pkg.activate(DEPOT_PATH[1])
 
 # if we're using the sysimage, call quasiGrad directly
-using quasiGrad
+# using quasiGrad
 
 # otherwise, include it directy!
-# => include("./src/quasiGrad.jl")
+include("./src/quasiGrad.jl")
 
 function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, NetworkModel::String, AllowSwitching::Int64; run::Bool=true)
     println("running MyJulia1")
@@ -20,6 +20,7 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
 
     # how long did package loading take? Give it 1 sec for now..
     NewTimeLimitInSeconds = Float64(TimeLimitInSeconds) - 1.0
+    NewTimeLimitInSeconds = 1500.0
 
     # run!
     if run == true
@@ -28,6 +29,7 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
             quasiGrad.compute_quasiGrad_solution_d1(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching; post_process=true)
         elseif (Division == 2) || (Division == 3)
             quasiGrad.compute_quasiGrad_solution_d23(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching; post_process=true)
+        else
             println("Division not recognized!")
         end
     else

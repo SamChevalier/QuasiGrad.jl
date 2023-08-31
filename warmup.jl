@@ -6,7 +6,7 @@ Pkg.status()
 @info "Running warmup.jl! Good luck." 
 
 # first, add quasiGrad
-# Pkg.add(url="https://github.com/SamChevalier/quasiGrad")
+Pkg.add(url="https://github.com/SamChevalier/quasiGrad")
 
 # now, precompile
 for pkg in Pkg.installed()

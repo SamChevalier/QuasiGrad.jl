@@ -161,7 +161,7 @@ function run_adam!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiG
     qG.skip_ctg_eval = false
 end
 
-function run_adam_pf!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; first_solve::Bool = false)
+function run_adam_pf!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; first_solve::Bool = false, clip_pq_based_on_bins::Bool=false)
     # here we go! basically, we only compute a small subset of pf-relevant gradients
     @info "Running adam-powerflow for $(qG.adam_max_time) seconds!"
 
@@ -198,8 +198,7 @@ function run_adam_pf!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::qua
             quasiGrad.update_penalties!(prm, qG, time(), adam_start, adam_start+qG.adam_max_time)
 
             # compute all states and grads
-            #quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
-            quasiGrad.update_states_and_grads_for_adam_pf!(cgd, grd, idx, mgd, prm, qG, scr, stt, sys)
+            quasiGrad.update_states_and_grads_for_adam_pf!(cgd, grd, idx, mgd, prm, qG, scr, stt, sys; clip_pq_based_on_bins=clip_pq_based_on_bins)
 
             # take an adam step
             quasiGrad.adam_pf!(adm, mgd, prm, qG, stt, upd)
@@ -279,7 +278,7 @@ function update_states_and_grads!(
     quasiGrad.master_grad!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 end
 
-function update_states_and_grads_for_adam_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
+function update_states_and_grads_for_adam_pf!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System; clip_pq_based_on_bins::Bool=false)
     # update the non-device states which affect power balance
     #
     # if we are here, we want to make sure we are NOT running su/sd updates
@@ -289,7 +288,11 @@ function update_states_and_grads_for_adam_pf!(cgd::quasiGrad.ConstantGrad, grd::
     quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 
     # clip all basic states (i.e., the states which are iterated on)
-    qG.clip_pq_based_on_bins = false
+    if clip_pq_based_on_bins == true
+        qG.clip_pq_based_on_bins = true
+    else
+        qG.clip_pq_based_on_bins = false
+    end
     quasiGrad.clip_for_adam_pf!(prm, qG, stt, sys) # no need to touch bins, reserves
 
     # compute network flows and injections
