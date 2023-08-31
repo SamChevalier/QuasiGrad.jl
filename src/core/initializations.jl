@@ -349,13 +349,13 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     # ====================================================================================== #
     # ====================================================================================== #
     # choose adam step sizes for power flow (initial)
-    vm_pf_t0_FIRST    = 2.5e-4
-    va_pf_t0_FIRST    = 2.5e-4
-    phi_pf_t0_FIRST   = 2.5e-4
-    tau_pf_t0_FIRST   = 2.5e-4
-    dc_pf_t0_FIRST    = 2e-2
-    power_pf_t0_FIRST = 2e-2
-    bin_pf_t0_FIRST   = 2e-2 # bullish!!!
+    vm_pf_t0_FIRST    = 1e-4
+    va_pf_t0_FIRST    = 1e-4
+    phi_pf_t0_FIRST   = 1e-4
+    tau_pf_t0_FIRST   = 1e-4
+    dc_pf_t0_FIRST    = 1e-2
+    power_pf_t0_FIRST = 1e-2
+    bin_pf_t0_FIRST   = 1e-2 # bullish!!!
     alpha_pf_t0_FIRST = Dict(
                    :vm     => vm_pf_t0_FIRST,
                    :va     => va_pf_t0_FIRST,

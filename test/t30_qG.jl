@@ -31,7 +31,7 @@ adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd =
 qG.print_linear_pf_iterations = true
 quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
-qG.adam_max_time  = 20.0
+qG.adam_max_time = 20.0
 quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, last_solve=false)
 quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)

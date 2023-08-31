@@ -603,7 +603,7 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
                     # => (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
             elseif (first_solve == true)
                 obj = @expression(model,
-                    1e3*zen/zen0 +  # this value, 1e3, is super heuristic
+                    50.0*zen/zen0 +  # this value, 1e3, is super heuristic
                     1e3*(vm_penalty'*vm_penalty) + 
                     x_in'*x_in +
                     (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
@@ -612,7 +612,7 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
                     # => (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
             elseif (last_solve == false)
                 obj = @expression(model,
-                    1e3*zen/zen0 +  # this value, 1e3, is super heuristic
+                    50.0*zen/zen0 +  # this value, 1e3, is super heuristic
                     x_in'*x_in +
                     (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) +
                     1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))

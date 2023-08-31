@@ -293,3 +293,13 @@ end
 quasiGrad.cleanup_constrained_pf_with_Gurobi_parallelized!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+
+# %%
+println(sum(sum(stt.zrgu_zonal[tii]) for tii in prm.ts.time_keys))
+println(sum(sum(stt.zrgd_zonal[tii]) for tii in prm.ts.time_keys))
+println(sum(sum(stt.zscr_zonal[tii]) for tii in prm.ts.time_keys))
+println(sum(sum(stt.znsc_zonal[tii]) for tii in prm.ts.time_keys))
+println(sum(sum(stt.zrru_zonal[tii]) for tii in prm.ts.time_keys))
+println(sum(sum(stt.zrrd_zonal[tii]) for tii in prm.ts.time_keys))
+println(sum(sum(stt.zqru_zonal[tii]) for tii in prm.ts.time_keys))
+println(sum(sum(stt.zqrd_zonal[tii]) for tii in prm.ts.time_keys))
