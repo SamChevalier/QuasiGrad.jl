@@ -10,7 +10,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
     # =====================================================\\
     jsn = quasiGrad.load_json(InFile1)
     adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
-        quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
+        quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true);
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
     if sys.nb < 2500
@@ -134,14 +134,16 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
         # monster system
         qG.print_linear_pf_iterations = true
 
-        qG.adam_max_time  = 60.0
+        qG.adam_max_time  = 45.0
         qG.max_linear_pfs = 3
         @time quasiGrad.solve_power_flow_23k!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, last_solve=false)
+        quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
         qG.adam_max_time  = 60.0
         quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
         @time quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
         @time quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
         quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
+        qG.max_linear_pfs = 2
         @time quasiGrad.cleanup_constrained_pf_with_Gurobi_parallelized!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
         @time quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
         quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
@@ -167,7 +169,7 @@ function compute_quasiGrad_solution_d23(InFile1::String, NewTimeLimitInSeconds::
     # =====================================================\\
     jsn = quasiGrad.load_json(InFile1)
     adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
-        quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
+        quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true);
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
     if sys.nb < 10000

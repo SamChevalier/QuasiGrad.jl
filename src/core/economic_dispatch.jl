@@ -626,14 +626,14 @@ function solve_parallel_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.
         t_keys = [prm.ts.time_keys]
     elseif sys.nT == 42
         parallel_runs = 1:3
-        t_keys = [prm.ts.time_keys[1:14];
-                  prm.ts.time_keys[15:28];
-                  prm.ts.time_keys[29:42]]
+        t_keys = [[prm.ts.time_keys[1:14]];
+                  [prm.ts.time_keys[15:28]];
+                  [prm.ts.time_keys[29:42]]]
     elseif sys.nT == 48
         parallel_runs = 1:3
-        t_keys = [prm.ts.time_keys[1:16];
-                  prm.ts.time_keys[17:32];
-                  prm.ts.time_keys[33:48]]
+        t_keys = [[prm.ts.time_keys[1:16]];
+                  [prm.ts.time_keys[17:32]];
+                  [prm.ts.time_keys[33:48]]]
     else
         # just in case -- solve one at a time
         println("Hmmm -- solving parallel EDs in a serial fashion.")
@@ -1077,7 +1077,6 @@ function solve_parallel_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.
     t_ed = time() - t_ed0
     println("Parallel ED finished. Objective value: ", scr[:ed_obj], ". Total time: $t_ed.")
 end
-
 
 function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System; balanced::Bool = false)
     # apply dcpf to the economic dispatch solution (see previous versions for a linearized voltage solver -- it doesn't really work)

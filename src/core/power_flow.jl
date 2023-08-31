@@ -270,7 +270,9 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
     @info "Running parallel linearized power flows across $(sys.nT) time periods."
     
     # loop over time
-    Threads.@threads for tii in prm.ts.time_keys
+    #Threads.@threads 
+    for tii in prm.ts.time_keys[4:5]
+        println(tii)
 
         # initialize
         run_pf          = true # used to kill the pf iterations
