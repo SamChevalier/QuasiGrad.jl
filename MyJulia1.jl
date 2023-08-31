@@ -47,6 +47,7 @@ function pc(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, Ne
         quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
 
     # call this, but don't actually run it
+    TimeLimitInSeconds = 600
     MyJulia1(InFile1, TimeLimitInSeconds, Division, NetworkModel, AllowSwitching; run=false)
 
     # assign a short run-time
