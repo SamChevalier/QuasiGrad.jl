@@ -278,6 +278,9 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
         run_pf          = true # used to kill the pf iterations
         pf_itr_cnt      = 0    # total number of successes
 
+        # define an initial flow margin -- don't call more than 3 solves!
+        flow_margin = 1.5
+
         # update phase shifts
         flw.ac_phi[tii][idx.ac_phi] .= stt.phi[tii]
 
@@ -306,6 +309,9 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
 
             # increment
             pf_itr_cnt += 1
+
+            # make sure
+            flow_margin = max(1.01, flow_margin)
 
             # first, rebuild jacobian, and update base points: stt.pinj0, stt.qinj0
             quasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
@@ -464,8 +470,11 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
             if first_solve == true && apply_tight_flow_constraints == true
                 JacSfr_acl_noref = ntk.Jac_sflow_fr[tii][1:sys.nl,       [1:sys.nb; (sys.nb+2):end]]
                 JacSfr_xfm_noref = ntk.Jac_sflow_fr[tii][(sys.nl+1):end, [1:sys.nb; (sys.nb+2):end]]
-                @constraint(model, JacSfr_acl_noref*x_in .+ stt.acline_sfr[tii] .<= 1.15 .* prm.acline.mva_ub_nom)
-                @constraint(model, JacSfr_xfm_noref*x_in .+ stt.xfm_sfr[tii]    .<= 1.15 .* prm.xfm.mva_ub_nom)
+                @constraint(model, JacSfr_acl_noref*x_in .+ stt.acline_sfr[tii] .<= flow_margin .* prm.acline.mva_ub_nom)
+                @constraint(model, JacSfr_xfm_noref*x_in .+ stt.xfm_sfr[tii]    .<= flow_margin .* prm.xfm.mva_ub_nom)
+
+                # downgrade the flow margin -- always do this, regardless
+                flow_margin = flow_margin * 0.9
 
                 # define nodal angles
                 va = Vector{AffExpr}(undef, sys.nb)
@@ -1156,7 +1165,7 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
             pf_itr_cnt += 1
 
             # make sure
-            flow_margin = max(1.0001, flow_margin)
+            flow_margin = max(1.01, flow_margin)
 
             # first, rebuild jacobian, and update base points: stt.pinj0, stt.qinj0
             quasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)

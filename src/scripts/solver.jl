@@ -175,7 +175,7 @@ function compute_quasiGrad_solution_d23(InFile1::String, NewTimeLimitInSeconds::
     if sys.nb < 10000
         # baby systems
         qG.max_linear_pfs = 3
-        qG.adam_max_time  = 10.0*30.0
+        qG.adam_max_time  = 5.0*30.0
         quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
         quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
         quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
@@ -184,7 +184,7 @@ function compute_quasiGrad_solution_d23(InFile1::String, NewTimeLimitInSeconds::
         quasiGrad.project!(50.0, idx, prm, qG, stt, sys, upd, final_projection = false)
         quasiGrad.snap_shunts!(false, prm, qG, stt, upd)   
 
-        qG.adam_max_time  = 10.0*5.0
+        qG.adam_max_time  = 5.0*5.0
         quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
         quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
         qG.adam_max_time  = 10.0*60.0
@@ -192,7 +192,7 @@ function compute_quasiGrad_solution_d23(InFile1::String, NewTimeLimitInSeconds::
         quasiGrad.project!(75.0, idx, prm, qG, stt, sys, upd, final_projection = false)
         quasiGrad.snap_shunts!(false, prm, qG, stt, upd)   
 
-        qG.adam_max_time  = 10.0*5.0
+        qG.adam_max_time  = 5.0*5.0
         quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
         quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
         qG.adam_max_time  = 10.0*60.0
@@ -200,7 +200,7 @@ function compute_quasiGrad_solution_d23(InFile1::String, NewTimeLimitInSeconds::
         quasiGrad.project!(90.0, idx, prm, qG, stt, sys, upd, final_projection = false)
         quasiGrad.snap_shunts!(false, prm, qG, stt, upd)  
 
-        qG.adam_max_time  = 10.0*5.0
+        qG.adam_max_time  = 5.0*5.0
         quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
         quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
         qG.adam_max_time  = 10.0*60.0
@@ -208,7 +208,7 @@ function compute_quasiGrad_solution_d23(InFile1::String, NewTimeLimitInSeconds::
         quasiGrad.project!(99.0, idx, prm, qG, stt, sys, upd, final_projection = false)
         quasiGrad.snap_shunts!(false, prm, qG, stt, upd)   
 
-        qG.adam_max_time  = 10.0*5.0
+        qG.adam_max_time  = 5.0*5.0
         quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
         quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
         qG.adam_max_time  = 10.0*60.0
@@ -284,6 +284,9 @@ function compute_quasiGrad_solution_d23(InFile1::String, NewTimeLimitInSeconds::
             quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
             qG.adam_max_time  = time_for_final_adam
             quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+            quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+        else
+            # just run a final projection -- this needs to be here!!
             quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
         end
         
