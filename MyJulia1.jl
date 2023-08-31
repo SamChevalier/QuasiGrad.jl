@@ -7,7 +7,7 @@ using quasiGrad
 # otherwise, include it directy!
 # => include("./src/quasiGrad.jl")
 
-function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, NetworkModel::String, AllowSwitching::Int64)
+function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, NetworkModel::String, AllowSwitching::Int64; run::Bool=true)
     println("running MyJulia1")
     println("  $(InFile1)")
     println("  $(TimeLimitInSeconds)")
@@ -21,12 +21,19 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
     # how long did package loading take? Give it 1 sec for now..
     NewTimeLimitInSeconds = Float64(TimeLimitInSeconds) - 1.0
 
-    # in this case, solve the system -- which division are we solving?
-    if Division == 1
-        quasiGrad.compute_quasiGrad_solution_d1(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching; post_process=true)
-    elseif (Division == 2) || (Division == 3)
-        quasiGrad.compute_quasiGrad_solution_d23(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching; post_process=true)
-        println("Division not recognized!")
+    # run!
+    if run == true
+        # in this case, solve the system -- which division are we solving?
+        if Division == 1
+            quasiGrad.compute_quasiGrad_solution_d1(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching; post_process=true)
+        elseif (Division == 2) || (Division == 3)
+            quasiGrad.compute_quasiGrad_solution_d23(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching; post_process=true)
+            println("Division not recognized!")
+        end
+    else
+        # this is just a precompilation trick
+        quasiGrad.compute_quasiGrad_solution_d1(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching; post_process=true, run=false)
+        quasiGrad.compute_quasiGrad_solution_d23(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching; post_process=true, run=false)
     end
 
     # how long did that take?
@@ -39,12 +46,16 @@ function pc(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, Ne
     adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
         quasiGrad.base_initialization(jsn, Div=1, hpc_params=true);
 
+    # call this, but don't actually run it
+    MyJulia1(InFile1, TimeLimitInSeconds, Division, NetworkModel, AllowSwitching; run=false)
+
     # assign a short run-time
     qG.adam_max_time = 3.0
 
     # in this case, run a minisolve with the 14 bus system
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
     quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
+    quasiGrad.solve_power_flow_23k!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, last_solve=false)
     quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
     quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
@@ -55,7 +66,7 @@ function pc(InFile1::String, NewTimeLimitInSeconds::Float64, Division::Int64, Ne
     quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
     quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
     quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
-    quasiGrad.cleanup_constrained_pf_with_Gurobi_freeze_subset!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+    quasiGrad.cleanup_constrained_pf_with_Gurobi_parallelized!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
     quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
 
     qG.write_location = "local"
