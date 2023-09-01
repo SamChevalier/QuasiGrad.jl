@@ -2059,7 +2059,8 @@ function cleanup_constrained_pf_with_Gurobi_parallelized!(
     scr::Dict{Symbol, Float64}, 
     stt::quasiGrad.State,
     sys::quasiGrad.System, 
-    upd::Dict{Symbol, Vector{Vector{Int64}}})
+    upd::Dict{Symbol, Vector{Vector{Int64}}};
+    flip_groups::Bool=false)
 
     # ask Gurobi to solve a linearize power flow. two options here:
     #   1) define device variables which are bounded, and then insert them into the power balance expression
@@ -2085,10 +2086,17 @@ function cleanup_constrained_pf_with_Gurobi_parallelized!(
     smallest_to_largest_devs = sortperm(prm.dev.p_ramp_up_ub.*prm.dev.p_ramp_down_ub.*prm.dev.p_startup_ramp_ub.*prm.dev.p_shutdown_ramp_ub)
 
     # split free_devs in two groups
-    free_devs_A = sort(smallest_to_largest_devs[1:2:end])    
-    free_devs_B = sort(smallest_to_largest_devs[2:2:end])    
-    tii_A       = prm.ts.time_keys[1:2:end]
-    tii_B       = prm.ts.time_keys[2:2:end]
+    if flip_groups == false
+        free_devs_A = sort(smallest_to_largest_devs[1:2:end])    
+        free_devs_B = sort(smallest_to_largest_devs[2:2:end])    
+        tii_A       = prm.ts.time_keys[1:2:end]
+        tii_B       = prm.ts.time_keys[2:2:end]
+    else
+        free_devs_B = sort(smallest_to_largest_devs[1:2:end])    
+        free_devs_A = sort(smallest_to_largest_devs[2:2:end])    
+        tii_A       = prm.ts.time_keys[1:2:end]
+        tii_B       = prm.ts.time_keys[2:2:end]
+    end
 
     # defined a "clean_up_failed" vector -- if any is true (1), then we must re-run
     clean_up_failed = zeros(sys.nT)
@@ -2591,8 +2599,8 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_23kd1!(
         # alternative: => @constraint(model, prm.bus.vm_lb .<= stt.vm[tii] + dvm .<= prm.bus.vm_ub)
 
         # mapping -- penalized
-        @variable(model, slack_p)
-        @variable(model, slack_q)
+        @variable(model, slack_p[1:sys.nb])
+        @variable(model, slack_q[1:sys.nb])
 
         JacP_noref = ntk.Jac[tii][1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
         JacQ_noref = ntk.Jac[tii][(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
@@ -2605,10 +2613,10 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_23kd1!(
             x_in'*x_in +
             (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
             (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
-            # 1e1*(stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) + 
+            (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) + 
             1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars) +
-            2.5e4*slack_p'*slack_p + 
-            2.5e4*slack_q'*slack_q)
+            1e4*(slack_p'*slack_p) + 
+            1e4*(slack_q'*slack_q))
 
         # set the objective
         @objective(model, Min, obj)

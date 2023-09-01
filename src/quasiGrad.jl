@@ -104,7 +104,7 @@ precompile(build_Jac_sfr_and_sfr0!,(quasiGrad.Index, quasiGrad.Network, quasiGra
 precompile(build_Jac_sto!,(quasiGrad.Network, quasiGrad.State, quasiGrad.System, Int8))
 precompile(call_adam_states,(quasiGrad.Adam, quasiGrad.MasterGrad, quasiGrad.State, Symbol))
 precompile(cleanup_constrained_pf_with_Gurobi!,(quasiGrad.ConstantGrad, quasiGrad.Contingency, quasiGrad.Flow, quasiGrad.Grad, quasiGrad.Index, quasiGrad.MasterGrad, quasiGrad.Network, quasiGrad.Param, quasiGrad.QG, Dict{Symbol, Float64}, quasiGrad.State, quasiGrad.System, Dict{Symbol, Vector{Vector{Int64}}}))
-precompile(cleanup_constrained_pf_with_Gurobi_parallelized!,(quasiGrad.ConstantGrad, quasiGrad.Contingency, quasiGrad.Flow, quasiGrad.Grad, quasiGrad.Index, quasiGrad.MasterGrad, quasiGrad.Network, quasiGrad.Param, quasiGrad.QG, Dict{Symbol, Float64}, quasiGrad.State, quasiGrad.System, Dict{Symbol, Vector{Vector{Int64}}}))
+precompile(cleanup_constrained_pf_with_Gurobi_parallelized!,(quasiGrad.ConstantGrad, quasiGrad.Contingency, quasiGrad.Flow, quasiGrad.Grad, quasiGrad.Index, quasiGrad.MasterGrad, quasiGrad.Network, quasiGrad.Param, quasiGrad.QG, Dict{Symbol, Float64}, quasiGrad.State, quasiGrad.System, Dict{Symbol, Vector{Vector{Int64}}}, Bool))
 precompile(clip_all!,(quasiGrad.Param, quasiGrad.QG, quasiGrad.State, quasiGrad.System))
 precompile(clip_dc!,(quasiGrad.Param, quasiGrad.QG, quasiGrad.State))
 precompile(clip_for_adam_pf!,(quasiGrad.Param, quasiGrad.QG, quasiGrad.State, quasiGrad.System))
