@@ -20,7 +20,6 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
 
     # how long did package loading take? Give it 1 sec for now..
     NewTimeLimitInSeconds = Float64(TimeLimitInSeconds) - 1.0
-    # NewTimeLimitInSeconds = 1500.0
 
     # run!
     if run == true
