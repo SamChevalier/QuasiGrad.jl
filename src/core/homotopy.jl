@@ -22,7 +22,7 @@ function update_penalties!(prm::quasiGrad.Param, qG::quasiGrad.QG, tnow::Float64
     qG.constraint_grad_eps2 = esp2_update
     qG.acflow_grad_eps2     = esp2_update
     qG.ctg_grad_eps2        = esp2_update
-    qG.reserve_grad_eps2    = esp2_update
+    qG.reserve_grad_eps2    = 1e-9 # => esp2_update keep this locked -- we have zonal trouble
 
     # alternative, linear update rule:
         # => qG.pqbal_grad_eps2      = 1e-2 * (1.0-beta) + beta * 1e-7

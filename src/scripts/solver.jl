@@ -81,7 +81,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
             quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
 
-        elseif sys.nb < 10000
+        elseif sys.nb < 12000
             # larger systems
             qG.max_linear_pfs = 3
             qG.adam_max_time  = 30.0
@@ -135,14 +135,14 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             # monster system
             qG.print_linear_pf_iterations = true
 
-            qG.adam_max_time  = 40.0
+            qG.adam_max_time  = 35.0
             quasiGrad.solve_power_flow_23k!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, last_solve=false)
-            quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-            qG.adam_max_time  = 75.0
+            # => quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+            qG.adam_max_time  = 60.0
             quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
             
-            qG.adam_max_time  = 40.0
+            qG.adam_max_time  = 35.0
             quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, clip_pq_based_on_bins=true)
             qG.max_linear_pfs = 1
             quasiGrad.solve_parallel_linear_pf_with_Gurobi_23k!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve=false)
@@ -150,6 +150,8 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
             quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
             
+            # save a little time..
+            qG.max_linear_pfs_final_solve = 2
             quasiGrad.cleanup_constrained_pf_with_Gurobi_parallelized!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
             quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
@@ -180,7 +182,7 @@ function compute_quasiGrad_solution_d23(InFile1::String, NewTimeLimitInSeconds::
             quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true, line_switching=AllowSwitching);
         quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
 
-        if sys.nb < 10000
+        if sys.nb < 12000
             # baby systems
             qG.max_linear_pfs = 3
             qG.adam_max_time  = 5.0*30.0

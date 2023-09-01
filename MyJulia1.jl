@@ -2,10 +2,10 @@ using Pkg
 Pkg.activate(DEPOT_PATH[1])
 
 # if we're using the sysimage, call quasiGrad directly
-using quasiGrad
+# using quasiGrad
 
 # otherwise, include it directy!
-# => include("./src/quasiGrad.jl")
+include("./src/quasiGrad.jl")
 
 function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, NetworkModel::String, AllowSwitching::Int64; run::Bool=true)
     println("running MyJulia1")
@@ -14,6 +14,10 @@ function MyJulia1(InFile1::String, TimeLimitInSeconds::Int64, Division::Int64, N
     println("  $(Division)")
     println("  $(NetworkModel)")
     println("  $(AllowSwitching)")
+
+    # warmup
+    NewTimeLimitInSeconds = 60.0
+    pc(InFile1, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching)
 
     # begin
     t0 = time()
