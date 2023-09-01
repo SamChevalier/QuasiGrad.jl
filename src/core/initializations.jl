@@ -662,6 +662,7 @@ function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::B
     # switch lines? if so, turn them all on!
     if line_switching == 1
         prm.acline.init_on_status .= 1.0
+        prm.xfm.init_on_status    .= 1.0
         for tii in prm.ts.time_keys
             stt.u_on_acline[tii] .= 1.0
             stt.u_on_xfm[tii] .= 1.0

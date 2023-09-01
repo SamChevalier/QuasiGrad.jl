@@ -6,7 +6,7 @@ Pkg.status()
 @info "Running warmup.jl! Good luck." 
 
 # first, add quasiGrad
-# => Pkg.add(url="https://github.com/SamChevalier/quasiGrad")
+Pkg.add(url="https://github.com/SamChevalier/quasiGrad")
 
 # now, precompile
 for pkg in Pkg.installed()
@@ -19,10 +19,10 @@ for pkg in Pkg.installed()
    end
 end
 
-# => # load MyJulia and warmup_run
-# => include("./MyJulia1.jl")
-# => include("./warmup_run.jl")
-# => 
-# => # create system image
-# => using PackageCompiler
-# => create_sysimage(sysimage_path="/qfs/projects/goc/share/apps/Julia/julia-1.10.0-beta1-SamChevalier/share/julia/site/SamChevalierQG3.so", precompile_execution_file="warmup_run.jl")
+# load MyJulia and warmup_run
+include("./MyJulia1.jl")
+include("./warmup_run.jl")
+
+# create system image
+using PackageCompiler
+create_sysimage(sysimage_path="/qfs/projects/goc/share/apps/Julia/julia-1.10.0-beta1-SamChevalier/share/julia/site/SamChevalierQG4.so", precompile_execution_file="warmup_run.jl")

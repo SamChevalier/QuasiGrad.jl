@@ -85,8 +85,10 @@ function flush_adam!(adm::quasiGrad.Adam, flw::quasiGrad.Flow, prm::quasiGrad.Pa
     end
 end
 
-function run_adam!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
-
+function run_adam!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; clip_pq_based_on_bins::Bool=false)
+    # NOTE -- "clip_pq_based_on_bins = true" is only used once all binaries have been fixed!
+    #         so, use in on the very last adam iteration after binaries have been set.
+    # 
     # here we go!
     @info "Running adam for $(qG.adam_max_time) seconds!"
 
@@ -139,7 +141,7 @@ function run_adam!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiG
             end
 
             # compute all states and grads
-            quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+            quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, clip_pq_based_on_bins=clip_pq_based_on_bins)
 
             # take an adam step
             quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
@@ -227,7 +229,8 @@ function update_states_and_grads!(
     qG::quasiGrad.QG, 
     scr::Dict{Symbol, Float64}, 
     stt::quasiGrad.State,
-    sys::quasiGrad.System)
+    sys::quasiGrad.System;
+    clip_pq_based_on_bins::Bool=false)
 
     # safepoint
     GC.safepoint()
@@ -240,6 +243,11 @@ function update_states_and_grads!(
     quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 
     # clip all basic states (i.e., the states which are iterated on)
+    if clip_pq_based_on_bins == true
+        qG.clip_pq_based_on_bins = true
+    else
+        qG.clip_pq_based_on_bins = false
+    end
     quasiGrad.clip_all!(prm, qG, stt, sys)
 
     # compute network flows and injections
