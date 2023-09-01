@@ -314,3 +314,51 @@ println(sum(sum(stt.zrru_zonal[tii]) for tii in prm.ts.time_keys))
 println(sum(sum(stt.zrrd_zonal[tii]) for tii in prm.ts.time_keys))
 println(sum(sum(stt.zqru_zonal[tii]) for tii in prm.ts.time_keys))
 println(sum(sum(stt.zqrd_zonal[tii]) for tii in prm.ts.time_keys))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# %% test 23k process
+tfp = "C:/Users/Samuel.HORACE/Dropbox (Personal)/Documents/Julia/GO3_testcases/"
+
+InFile1 = tfp*"C3E3.1_20230629/D1/C3E3N06717D1/scenario_031.json"
+start_time = time()
+
+# =====================================================\\
+jsn = quasiGrad.load_json(InFile1)
+adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = 
+    quasiGrad.base_initialization(jsn, Div=Division, hpc_params=true, line_switching=AllowSwitching);
+quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+
+# monster system
+qG.print_linear_pf_iterations = true
+
+qG.adam_max_time  = 40.0
+quasiGrad.solve_power_flow_23k!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, last_solve=false)
+quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+qG.adam_max_time  = 75.0
+quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
+
+qG.adam_max_time  = 40.0
+quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, clip_pq_based_on_bins=true)
+qG.max_linear_pfs = 1
+quasiGrad.solve_parallel_linear_pf_with_Gurobi_23k!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve=false)
+
+quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
+
+quasiGrad.cleanup_constrained_pf_with_Gurobi_parallelized!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
+quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
