@@ -225,6 +225,7 @@ InFile1 = tfp*"C3E3.1_20230629/D2/C3E3N04224D2/scenario_131.json"
 # three network-size rounding schemes: 
 #   - fewer than 10000  buses: 50, 75, 90, 99 100, 100
 #   - more than 10000 buses:   95, 100, 100
+InFile1 = tfp*"C3S4X_20230809/D1/C3S4N00617D1/scenario_941.json" # first
 start_time = time()
 
 # =====================================================\\

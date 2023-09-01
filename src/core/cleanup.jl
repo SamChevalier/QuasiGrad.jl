@@ -326,7 +326,7 @@ function soft_reserve_cleanup!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::q
     # is a penalized solution (not a final, feasible one)
     #
     # penalization constant -- don't set too small (1e5 seems fine)
-    penalty_scalar = 1e4
+    penalty_scalar = 2.5e4
 
     # loop over each time period and define the hard constraints
     # => for tii in prm.ts.time_keys
@@ -2599,13 +2599,12 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_23kd1!(
         # alternative: => @constraint(model, prm.bus.vm_lb .<= stt.vm[tii] + dvm .<= prm.bus.vm_ub)
 
         # mapping -- penalized
-        @variable(model, slack_p[1:sys.nb])
-        @variable(model, slack_q[1:sys.nb])
+        @variable(model, slack_s[1:sys.nb])
 
         JacP_noref = ntk.Jac[tii][1:sys.nb,      [1:sys.nb; (sys.nb+2):end]]
         JacQ_noref = ntk.Jac[tii][(sys.nb+1):end,[1:sys.nb; (sys.nb+2):end]]
-        @constraint(model, JacP_noref*x_in .+ stt.pinj0[tii] .- nodal_p .<= slack_p)
-        @constraint(model, JacQ_noref*x_in .+ stt.qinj0[tii] .- nodal_q .<= slack_q)
+        @constraint(model, JacP_noref*x_in .+ stt.pinj0[tii] .- nodal_p .<= slack_s)
+        @constraint(model, JacQ_noref*x_in .+ stt.qinj0[tii] .- nodal_q .<= slack_s)
 
         # objective: hold p and q close to their initial values (does not converge without v,a regularization)
             # => || stt.pinj_ideal - (p0 + dp) || + regularization
@@ -2615,8 +2614,7 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_23kd1!(
             (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
             (stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) + 
             1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars) +
-            1e4*(slack_p'*slack_p) + 
-            1e4*(slack_q'*slack_q))
+            2.5e4*(slack_s'*slack_s))
 
         # set the objective
         @objective(model, Min, obj)
