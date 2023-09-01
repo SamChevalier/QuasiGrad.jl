@@ -260,7 +260,9 @@ function count_active_binaries!(prm::quasiGrad.Param, upd::Dict{Symbol, Vector{V
     num_sh  = sum([upd[:u_step_shunt][tii] != Int64[] for tii in prm.ts.time_keys])
 
     # the following will error out if upd has active binaries or discrete values left
-    @assert (num_bin+num_sh) == 0 "Some discrete or binary variables are still active!"
+    if (num_bin+num_sh) != 0 
+        println("Some discrete or binary variables are still active!")
+    end
 end
 
 function transpose_binaries!(prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)

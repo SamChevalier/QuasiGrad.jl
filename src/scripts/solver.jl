@@ -264,8 +264,7 @@ function compute_quasiGrad_solution_d23(InFile1::String, NewTimeLimitInSeconds::
             qG.adam_max_time  = 1200.0
             quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.project!(90.0, idx, prm, qG, stt, sys, upd, final_projection = false)
-            quasiGrad.snap_shunts!(true, prm, qG, stt, upd)   
-            quasiGrad.count_active_binaries!(prm, upd)
+            quasiGrad.snap_shunts!(false, prm, qG, stt, upd)   
 
             qG.adam_max_time  = 100.0
             quasiGrad.solve_power_flow_23k!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
@@ -273,8 +272,9 @@ function compute_quasiGrad_solution_d23(InFile1::String, NewTimeLimitInSeconds::
             qG.adam_max_time  = 1200.0
             quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
-            quasiGrad.snap_shunts!(false, prm, qG, stt, upd)   
-
+            quasiGrad.snap_shunts!(true, prm, qG, stt, upd)   
+            quasiGrad.count_active_binaries!(prm, upd)
+            
             qG.adam_max_time  = 100.0
             quasiGrad.solve_power_flow_23k!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=false, last_solve=true)
             quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)

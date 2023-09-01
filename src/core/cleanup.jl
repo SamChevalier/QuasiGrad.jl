@@ -2607,8 +2607,8 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_23kd1!(
             (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
             # 1e1*(stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) + 
             1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars) +
-            2.5e4*slack_p'slack_p + 
-            2.5e4*slack_q'slack_q)
+            2.5e4*slack_p'*slack_p + 
+            2.5e4*slack_q'*slack_q)
 
         # set the objective
         @objective(model, Min, obj)
