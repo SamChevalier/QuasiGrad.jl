@@ -150,8 +150,9 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
             quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
             
-            # save a little time..
-            qG.max_linear_pfs_final_solve = 2
+            # take 1 penalzied pf iteration, and take 1 true iteration
+            quasiGrad.cleanup_constrained_pf_with_Gurobi_parallelized_23kd1!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
+            qG.max_linear_pfs_final_solve = 1
             quasiGrad.cleanup_constrained_pf_with_Gurobi_parallelized!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.reserve_cleanup!(idx, prm, qG, stt, sys, upd)
             quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
