@@ -75,7 +75,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
 
     # penalty gradients are expensive -- only compute the gradient
     # if the constraint is violated by more than this value
-    pg_tol = 1e-9
+    pg_tol = 1e-7
 
     # amount to penalize constraint violations
         # => **replaced by constraint_grad_weight**
@@ -91,8 +91,16 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     binary_projection_weight = 1.0 # this was 0.1 for a long time!!
 
     # amount to prioritize power selection over other variables
-    p_on_projection_weight   = 10.0
-    dev_q_projection_weight  = 5.0
+    if Div == 1
+        p_on_projection_weight   = 10.0
+        dev_q_projection_weight  = 5.0
+        binary_projection_weight = 1.0
+    else
+        # turn these down a bit -- zonal reserves are key
+        p_on_projection_weight   = 5.0
+        dev_q_projection_weight  = 2.5
+        binary_projection_weight = 0.5
+    end
 
     # gurobi feasibility tolerance -- needs to be 1e-8 for GO!
     FeasibilityTol = 9e-9
