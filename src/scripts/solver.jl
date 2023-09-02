@@ -133,7 +133,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
         else
             # monster system
-            qG.print_linear_pf_iterations = true
+            # => qG.print_linear_pf_iterations = true
 
             qG.adam_max_time  = 35.0
             quasiGrad.solve_power_flow_23k!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, last_solve=false)
