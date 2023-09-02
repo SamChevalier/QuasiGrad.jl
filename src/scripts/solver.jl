@@ -21,7 +21,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
             quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
             quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-            qG.adam_max_time  = 60.0
+            qG.adam_max_time  = 55.0
             quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.project!(75.0, idx, prm, qG, stt, sys, upd, final_projection = false)
             quasiGrad.snap_shunts!(false, prm, qG, stt, upd)   
@@ -29,7 +29,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             qG.adam_max_time  = 5.0
             quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-            qG.adam_max_time  = 60.0
+            qG.adam_max_time  = 50.0
             quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.project!(90.0, idx, prm, qG, stt, sys, upd, final_projection = false)
             quasiGrad.snap_shunts!(false, prm, qG, stt, upd)   
@@ -37,7 +37,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             qG.adam_max_time  = 5.0
             quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-            qG.adam_max_time  = 60.0
+            qG.adam_max_time  = 55.0
             quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.project!(99.0, idx, prm, qG, stt, sys, upd, final_projection = false)
             quasiGrad.snap_shunts!(false, prm, qG, stt, upd)   
@@ -45,7 +45,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             qG.adam_max_time  = 5.0
             quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-            qG.adam_max_time  = 60.0
+            qG.adam_max_time  = 55.0
             quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
             quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
@@ -62,7 +62,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             time_left  = NewTimeLimitInSeconds - time_spent - time_for_final_activities - time_for_pf
             if time_left > 15.0
                 time_for_final_pf   = time_left*0.10
-                time_for_final_adam = time_left*0.85
+                time_for_final_adam = time_left*0.80
 
                 qG.adam_max_time  = time_for_final_pf
                 qG.max_linear_pfs = 1
@@ -88,7 +88,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true)
             quasiGrad.initialize_ctg_lists!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
             quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-            qG.adam_max_time  = 60.0
+            qG.adam_max_time  = 55.0
             quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.project!(95.0, idx, prm, qG, stt, sys, upd, final_projection = false)
             quasiGrad.snap_shunts!(false, prm, qG, stt, upd)   
@@ -96,7 +96,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             qG.adam_max_time  = 10.0
             quasiGrad.solve_power_flow!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-            qG.adam_max_time  = 60.0
+            qG.adam_max_time  = 50.0
             quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
             quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
@@ -113,7 +113,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             time_left  = NewTimeLimitInSeconds - time_spent - time_for_final_activities - time_for_pf
             if time_left > 30.0
                 time_for_final_pf   = time_left*0.10
-                time_for_final_adam = time_left*0.85
+                time_for_final_adam = time_left*0.80
 
                 qG.adam_max_time  = time_for_final_pf
                 qG.max_linear_pfs = 1
@@ -135,14 +135,14 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             # monster system
             # => qG.print_linear_pf_iterations = true
 
-            qG.adam_max_time  = 35.0
+            qG.adam_max_time  = 30.0
             quasiGrad.solve_power_flow_23k!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, last_solve=false)
             # => quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-            qG.adam_max_time  = 60.0
+            qG.adam_max_time  = 55.0
             quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
             
-            qG.adam_max_time  = 30.0
+            qG.adam_max_time  = 25.0
             quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, clip_pq_based_on_bins=true)
             qG.max_linear_pfs = 1
             quasiGrad.solve_parallel_linear_pf_with_Gurobi_23k!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve=false)
