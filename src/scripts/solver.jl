@@ -51,8 +51,8 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
 
             # ====================================== #
-            quasiGrad.count_active_binaries!(prm, upd)
-            quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+            # => quasiGrad.count_active_binaries!(prm, upd)
+            # => quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
             # ====================================== #
 
             # time left? save 50 seconds for ramp_constrained solve
@@ -61,7 +61,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             time_spent = time() - start_time
             time_left  = NewTimeLimitInSeconds - time_spent - time_for_final_activities - time_for_pf
             if time_left > 15.0
-                time_for_final_pf   = time_left*0.10
+                time_for_final_pf   = time_left*0.5
                 time_for_final_adam = time_left*0.80
 
                 qG.adam_max_time  = time_for_final_pf
@@ -102,8 +102,8 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             quasiGrad.snap_shunts!(true, prm, qG, stt, upd)
 
             # ====================================== #
-            quasiGrad.count_active_binaries!(prm, upd)
-            quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
+            # => quasiGrad.count_active_binaries!(prm, upd)
+            # => quasiGrad.write_solution("solution.jl", prm, qG, stt, sys)
             # ====================================== #
 
             # time left? save 100 seconds for ramp_constrained solve
@@ -112,7 +112,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             time_spent = time() - start_time
             time_left  = NewTimeLimitInSeconds - time_spent - time_for_final_activities - time_for_pf
             if time_left > 30.0
-                time_for_final_pf   = time_left*0.10
+                time_for_final_pf   = time_left*0.5
                 time_for_final_adam = time_left*0.80
 
                 qG.adam_max_time  = time_for_final_pf
@@ -138,7 +138,7 @@ function compute_quasiGrad_solution_d1(InFile1::String, NewTimeLimitInSeconds::F
             qG.adam_max_time  = 30.0
             quasiGrad.solve_power_flow_23k!(adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve=true, last_solve=false)
             # => quasiGrad.soft_reserve_cleanup!(idx, prm, qG, stt, sys, upd)
-            qG.adam_max_time  = 55.0
+            qG.adam_max_time  = 50.0
             quasiGrad.run_adam!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
             quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = false)
             
