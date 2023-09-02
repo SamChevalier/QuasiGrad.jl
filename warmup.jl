@@ -19,10 +19,10 @@ for pkg in Pkg.installed()
    end
 end
 
-# => # load MyJulia and warmup_run
-# => include("./MyJulia1.jl")
-# => include("./warmup_run.jl")
-# => 
-# => # create system image
-# => using PackageCompiler
-# => create_sysimage(sysimage_path="/qfs/projects/goc/share/apps/Julia/julia-1.10.0-beta1-SamChevalier/share/julia/site/SamChevalierQG6.so", precompile_execution_file="warmup_run.jl")
+# load MyJulia and warmup_run
+include("./MyJulia1.jl")
+include("./warmup_run.jl")
+
+# create system image
+using PackageCompiler
+create_sysimage(sysimage_path="/qfs/projects/goc/share/apps/Julia/julia-1.10.0-beta1-SamChevalier/share/julia/site/SamChevalierQG6b.so", precompile_execution_file="warmup_run.jl")

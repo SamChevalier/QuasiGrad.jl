@@ -2362,8 +2362,7 @@ function cleanup_constrained_pf_with_Gurobi_parallelized!(
     end
 end
 
-#=
-function cleanup_constrained_pf_with_Gurobi_parallelized_reserved!(    
+function cleanup_constrained_pf_with_Gurobi_parallelized_reserve_penalized!(    
     cgd::quasiGrad.ConstantGrad, 
     ctg::quasiGrad.Contingency,
     flw::quasiGrad.Flow, 
@@ -2397,7 +2396,7 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_reserved!(
     # bias point: stt[:pinj0, qinj0] === Y * stt[:vm, va]
     qG.compute_pf_injs_with_Jac = true
 
-    @info "Running constrained, linearized power flow cleanup across $(sys.nT) time periods."
+    @info "Running constrained, linearized power flow (reserve penalized) cleanup across $(sys.nT) time periods."
 
     # split into fixed and free devices -- keep the smallest ones fixed in place
     smallest_to_largest_devs = sortperm(prm.dev.p_ramp_up_ub.*prm.dev.p_ramp_down_ub.*prm.dev.p_startup_ramp_ub.*prm.dev.p_shutdown_ramp_ub)
@@ -2544,7 +2543,6 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_reserved!(
             @constraint(model, dev_p_vars[free_devs] .- dev_p_previous[free_devs] .- dt.*(prm.dev.p_ramp_up_ub[free_devs].*(stt.u_on_dev[tii][free_devs] .- stt.u_su_dev[tii][free_devs]) .+ prm.dev.p_startup_ramp_ub[free_devs].*(stt.u_su_dev[tii][free_devs] .+ 1.0 .- stt.u_on_dev[tii][free_devs])) .<= 0.0)
             # 2. ramp down
             @constraint(model, dev_p_previous[free_devs] .- dev_p_vars[free_devs] .- dt.*(prm.dev.p_ramp_down_ub[free_devs].*stt.u_on_dev[tii][free_devs] .+ prm.dev.p_shutdown_ramp_ub[free_devs].*(1.0 .- stt.u_on_dev[tii][free_devs])) .<= 0.0)
-            
             # 3. pmax
             @constraint(model, p_on[free_devs] .<= prm.dev.p_ub_tmdv[tii][free_devs].*stt.u_on_dev[tii][free_devs])
             # 4. pmin
@@ -2553,7 +2551,35 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_reserved!(
             @constraint(model, dev_q_vars .<= prm.dev.q_ub_tmdv[tii].*stt.u_sum[tii])
             # 6. qmin
             @constraint(model, prm.dev.q_lb_tmdv[tii].*stt.u_sum[tii] .<= dev_q_vars)
+            
+            # add reserve-acknowledged penalties
+            @variable(model, reserve_penalty[1:sys.ndev], lower_bound = 0.0)
 
+            for dev in prm.dev.dev_keys
+                if dev in idx.pr_devs
+                    if dev in free_devs
+                        # 3. pmax
+                        @constraint(model, p_on[dev] + stt.p_rgu[tii][dev] + stt.p_scr[tii][dev] + stt.p_rru_on[tii][dev] - prm.dev.p_ub_tmdv[tii][dev]*stt.u_on_dev[tii][dev] <= reserve_penalty[dev])
+                        # 4. pmin
+                        @constraint(model, prm.dev.p_lb_tmdv[tii][dev]*stt.u_on_dev[tii][dev] + stt.p_rrd_on[tii][dev] + stt.p_rgd[tii][dev] - p_on[dev] <= reserve_penalty[dev])
+                    end
+                    # 5. qmax
+                    @constraint(model, dev_q_vars[dev] + stt.q_qru[tii][dev] - prm.dev.q_ub_tmdv[tii][dev]*stt.u_sum[tii][dev] <= reserve_penalty[dev])
+                    # 6. qmin
+                    @constraint(model, prm.dev.q_lb_tmdv[tii][dev].*stt.u_sum[tii][dev] + stt.q_qrd[tii][dev] - dev_q_vars[dev] <= reserve_penalty[dev])
+                else # dev in idx.cs_devs
+                    if dev in free_devs
+                        # 3. pmax
+                        @constraint(model, p_on[dev] + stt.p_rgd[tii][dev] + stt.p_rrd_on[tii][dev] - prm.dev.p_ub_tmdv[tii][dev].*stt.u_on_dev[tii][dev] <= reserve_penalty[dev])
+                        # 4. pmin
+                        @constraint(model, prm.dev.p_lb_tmdv[tii][dev]*stt.u_on_dev[tii][dev] + stt.p_rgu[tii][dev] + stt.p_scr[tii][dev] + stt.p_rru_on[tii][dev] - p_on[dev] <= reserve_penalty[dev])
+                    end
+                    # 5. qmax
+                    @constraint(model, dev_q_vars[dev] + stt.q_qrd[tii][dev] - prm.dev.q_ub_tmdv[tii][dev]*stt.u_sum[tii][dev] <= reserve_penalty[dev])
+                    # 6. qmin
+                    @constraint(model, prm.dev.q_lb_tmdv[tii][dev]*stt.u_sum[tii][dev] + stt.q_qru[tii][dev] - dev_q_vars[dev] <= reserve_penalty[dev])
+                end
+            end
             
             # 7. additional reactive power constraints!
             #
@@ -2572,6 +2598,14 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_reserved!(
             for dev in idx.J_pqmax
                 @constraint(model, dev_q_vars[dev] <= prm.dev.q_0_ub[dev]*stt.u_sum[tii][dev] + prm.dev.beta_ub[dev]*dev_p_vars[dev])
                 @constraint(model, prm.dev.q_0_lb[dev]*stt.u_sum[tii][dev] + prm.dev.beta_lb[dev]*dev_p_vars[dev] <= dev_q_vars[dev])
+                # add penalties here too!
+                if dev in idx.pr_devs
+                    @constraint(model, dev_q_vars[dev] + stt.q_qru[tii][dev] - prm.dev.q_0_ub[dev]*stt.u_sum[tii][dev] - prm.dev.beta_ub[dev]*dev_p_vars[dev] <= reserve_penalty[dev])
+                    @constraint(model, prm.dev.q_0_lb[dev]*stt.u_sum[tii][dev] + prm.dev.beta_lb[dev]*dev_p_vars[dev] + stt.q_qrd[tii][dev] - dev_q_vars[dev] <= reserve_penalty[dev])
+                else
+                    @constraint(model, dev_q_vars[dev] + stt.q_qrd[tii][dev] - prm.dev.q_0_ub[dev]*stt.u_sum[tii][dev] - prm.dev.beta_ub[dev]*dev_p_vars[dev] <= reserve_penalty[dev])
+                    @constraint(model, prm.dev.q_0_lb[dev]*stt.u_sum[tii][dev] + prm.dev.beta_lb[dev]*dev_p_vars[dev] + stt.q_qru[tii][dev] - dev_q_vars[dev] <= reserve_penalty[dev])
+                end
             end
 
             # great, now just update the nodal injection vectors
@@ -2624,6 +2658,7 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_reserved!(
                 x_in'*x_in +
                 (stt.pinj0[tii] .- nodal_p)'*(stt.pinj0[tii] .- nodal_p) + 
                 (stt.qinj0[tii] .- nodal_q)'*(stt.qinj0[tii] .- nodal_q) + 
+                1e1*(reserve_penalty'*reserve_penalty) + 
                 1e1*(stt.dev_q[tii] .- dev_q_vars)'*(stt.dev_q[tii] .- dev_q_vars) + 
                 1e2*(stt.dev_p[tii] .- dev_p_vars)'*(stt.dev_p[tii] .- dev_p_vars))
 
@@ -2680,7 +2715,6 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_reserved!(
         quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
     end
 end
-=#
 
 function cleanup_constrained_pf_with_Gurobi_parallelized_23kd1!(    
     cgd::quasiGrad.ConstantGrad, 
@@ -2715,7 +2749,7 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_23kd1!(
     # bias point: stt[:pinj0, qinj0] === Y * stt[:vm, va]
     qG.compute_pf_injs_with_Jac = true
 
-    @info "Running constrained, linearized power flow cleanup across $(sys.nT) time periods."
+    @info "Running constrained+penalized linearized power flow cleanup across $(sys.nT) time periods."
 
     # split into fixed and free devices -- keep the smallest ones fixed in place
     smallest_to_largest_devs = sortperm(prm.dev.p_ramp_up_ub.*prm.dev.p_ramp_down_ub.*prm.dev.p_startup_ramp_ub.*prm.dev.p_shutdown_ramp_ub)
