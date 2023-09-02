@@ -136,8 +136,8 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
             max_ctg_to_keep     = min(250, length(prm.ctg.id))
             max_ctg_to_backprop = min(70, length(prm.ctg.id))
         else
-            max_ctg_to_keep     = min(50, length(prm.ctg.id))
-            max_ctg_to_backprop = min(5, length(prm.ctg.id)) # :.(....
+            max_ctg_to_keep     = min(25, length(prm.ctg.id))
+            max_ctg_to_backprop = min(3, length(prm.ctg.id)) # :.(....
         end
     else
         if num_bus < 1500
