@@ -286,27 +286,3 @@ function update_plot!(ax::quasiGrad.Makie.Axis, fig::quasiGrad.Makie.Figure, plt
     z_plt[:prev][:encs] = scale_z(scr[:encs])
     z_plt[:prev][:zsus] = scale_z(scr[:zsus])
 end
-
-# function to rescale scores for plotting :)
-function scale_z(z::Float64)
-    sgn  = sign(z .+ 1e-6)
-    absz = abs(z)
-    if absz < 1000.0 # clip
-        absz = 1000.0
-    end
-    if sgn < 0
-        # shift up two
-        zs = sgn*log10(absz) + 3.0
-    else
-        # shift down two
-        zs = sgn*log10(absz) - 3.0
-        # +10^5 => 2
-        # +10^4 => 1
-        # -10^1/2/3 = +10^1/2/3 => 0
-        # -10^4 => -1
-        # -10^5 => -2
-    end
-
-    # output
-    return zs
-end

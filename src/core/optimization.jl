@@ -163,6 +163,65 @@ function run_adam!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiG
     qG.skip_ctg_eval = false
 end
 
+function run_adam_with_data_collection!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, data_log::Dict{Symbol, Vector{Float64}}, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; clip_pq_based_on_bins::Bool=false)
+    # NOTE -- "clip_pq_based_on_bins = true" is only used once all binaries have been fixed!
+    #         so, use in on the very last adam iteration after binaries have been set.
+    # 
+    # here we go!
+    @info "Running adam for $(qG.adam_max_time) seconds!"
+
+    # flush adam just once!
+    quasiGrad.flush_adam!(adm, flw, prm, upd)
+
+    # loop and solve adam twice: once for an initialization, and once for a true run
+    qG.skip_ctg_eval = false
+
+    # re-initialize
+    qG.adm_step      = 0
+    qG.beta1_decay   = 1.0
+    qG.beta2_decay   = 1.0
+    qG.one_min_beta1 = 1.0 - qG.beta1 # here for testing, in case beta1 is changed before a run
+    qG.one_min_beta2 = 1.0 - qG.beta2 # here for testing, in case beta2 is changed before a run
+    run_adam         = true
+
+    # start the timer!
+    adam_start = time()
+    # loop over adam steps
+    while run_adam
+
+        # increment
+        qG.adm_step += 1
+
+        # step decay
+        quasiGrad.adam_step_decay!(qG, time(), adam_start, adam_start+qG.adam_max_time)
+
+        # decay beta and pre-compute
+        qG.beta1_decay         = qG.beta1_decay*qG.beta1
+        qG.beta2_decay         = qG.beta2_decay*qG.beta2
+        qG.one_min_beta1_decay = (1.0-qG.beta1_decay)
+        qG.one_min_beta2_decay = (1.0-qG.beta2_decay)
+
+        # update weight parameters?
+        if qG.apply_grad_weight_homotopy == true
+            quasiGrad.update_penalties!(prm, qG, time(), adam_start, adam_start+qG.adam_max_time)
+        end
+
+        # compute all states and grads
+        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, clip_pq_based_on_bins=clip_pq_based_on_bins)
+
+        # take an adam step
+        quasiGrad.adam!(adm, mgd, prm, qG, stt, upd)
+        GC.safepoint()
+
+        # stop?
+        run_adam = quasiGrad.adam_termination(adam_start, qG, run_adam, qG.adam_max_time)
+
+        # log adam data for plotting
+        quasiGrad.log_data(data_log, qG, scr)
+    end
+
+end
+
 function run_adam_pf!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; first_solve::Bool = false, clip_pq_based_on_bins::Bool=false)
     # here we go! basically, we only compute a small subset of pf-relevant gradients
     @info "Running adam-powerflow for $(qG.adam_max_time) seconds!"
@@ -528,4 +587,46 @@ function call_adam_states(adm::quasiGrad.Adam, mgd::quasiGrad.MasterGrad, stt::q
 
     # output
     return adam_states, grad, state
+end
+
+function log_data(data_log::Dict{Symbol, Vector{Float64}}, qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
+    data_log[:zms][qG.adm_step]  = scale_z(scr[:zms])
+    data_log[:pzms][qG.adm_step] = scale_z(scr[:zms_penalized])      
+    data_log[:zhat][qG.adm_step] = scale_z(scr[:zt_penalty] - qG.constraint_grad_weight*scr[:zhat_mxst])
+    data_log[:ctg][qG.adm_step]  = scale_z(scr[:zctg_min] + scr[:zctg_avg])
+    data_log[:emnx][qG.adm_step] = scale_z(scr[:emnx])
+    data_log[:zp][qG.adm_step]   = scale_z(scr[:zp])
+    data_log[:zq][qG.adm_step]   = scale_z(scr[:zq])
+    data_log[:acl][qG.adm_step]  = scale_z(scr[:acl])
+    data_log[:xfm][qG.adm_step]  = scale_z(scr[:xfm])
+    data_log[:zoud][qG.adm_step] = scale_z(scr[:zoud])
+    data_log[:zone][qG.adm_step] = scale_z(scr[:zone])
+    data_log[:rsv][qG.adm_step]  = scale_z(scr[:rsv])
+    data_log[:enpr][qG.adm_step] = scale_z(scr[:enpr])
+    data_log[:encs][qG.adm_step] = scale_z(scr[:encs])
+    data_log[:zsus][qG.adm_step] = scale_z(scr[:zsus])
+end
+
+# function to rescale scores for plotting :)
+function scale_z(z::Float64)
+    sgn  = sign(z .+ 1e-6)
+    absz = abs(z)
+    if absz < 1000.0 # clip
+        absz = 1000.0
+    end
+    if sgn < 0
+        # shift up two
+        zs = sgn*log10(absz) + 3.0
+    else
+        # shift down two
+        zs = sgn*log10(absz) - 3.0
+        # +10^5 => 2
+        # +10^4 => 1
+        # -10^1/2/3 = +10^1/2/3 => 0
+        # -10^4 => -1
+        # -10^5 => -2
+    end
+
+    # output
+    return zs
 end

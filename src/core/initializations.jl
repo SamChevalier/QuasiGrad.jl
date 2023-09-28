@@ -212,7 +212,7 @@ function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=fals
     adm_step                = 0
     eps                     = 1e-8  # for numerical stability -- keep at 1e-8 (?)
     beta1                   = 0.9
-    beta2                   = 0.99
+    beta2                   = 0.95
     beta1_decay             = 1.0
     beta2_decay             = 1.0
     one_min_beta1           = 1.0
