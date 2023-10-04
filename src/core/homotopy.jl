@@ -14,15 +14,15 @@ function update_penalties!(prm::quasiGrad.Param, qG::quasiGrad.QG, tnow::Float64
     beta  = exp(5.0*tnorm)/(1.0 + exp(5.0*tnorm))
 
     # modify the epsilon parameters
-    eps2_t0                 = 1e-5#1e-2
-    eps2_tf                 = 1e-10
+    eps2_t0                 = 1e-2
+    eps2_tf                 = 1e-6
     log_eps2_ratio          = log10(eps2_t0/eps2_tf)
     esp2_update             = 10.0 ^ (-beta*log_eps2_ratio + log10(eps2_t0))
     qG.pqbal_grad_eps2      = esp2_update
     qG.constraint_grad_eps2 = esp2_update
     qG.acflow_grad_eps2     = esp2_update
     qG.ctg_grad_eps2        = esp2_update
-    qG.reserve_grad_eps2    = 1e-10 # => esp2_update keep this locked -- we have zonal trouble
+    qG.reserve_grad_eps2    = 1e-6 # => esp2_update keep this locked -- we have zonal trouble
 
     # alternative, linear update rule:
         # => qG.pqbal_grad_eps2      = 1e-2 * (1.0-beta) + beta * 1e-7

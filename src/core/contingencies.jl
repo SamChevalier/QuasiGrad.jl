@@ -306,6 +306,7 @@ function solve_ctgs!(
                                 #   alternative direct solution: 
                                 #       => ctg[:dz_dpinj][tii][ctg_ii] = (quasiGrad.I-ones(sys.nb-1)*ones(sys.nb-1)'/(sys.nb))*(ntk.Ybr_k[ctg_ii]\(ntk.YfrT*alpha_p_flow))
                                 @turbo ctg.dz_dpinj_all_threadsum[thrID] .+= ctg.dz_dpinj[thrID] .- sum(ctg.dz_dpinj[thrID])/sys.nb
+                                # println("this correction may not be needed for phase shifters.. see paper.")
                             end
                         end
 
