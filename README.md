@@ -8,3 +8,9 @@ quasiGrad can be installed using the Julia package manager with
 ```julia
 ] add quasiGrad
 ```
+## Usage
+This package is a work-in-progress, and contributions are more than welcome. Out-of-the-box usage, however, can be acheived via
+
+```julia
+] add quasiGrad
+```
