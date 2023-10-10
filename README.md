@@ -6,5 +6,5 @@ quasiGrad.jl is a parallelized, adam-based solver for reserve and security const
 quasiGrad can be installed using the Julia package manager with
 
 ```julia
-] add PowerModels
+] add quasiGrad
 ```
