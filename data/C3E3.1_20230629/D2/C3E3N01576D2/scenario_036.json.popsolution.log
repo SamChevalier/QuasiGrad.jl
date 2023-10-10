@@ -1,0 +1,2602 @@
+/rcfs/dtn/arpacomp/.conda/envs/goc_eval/lib/python3.10/site-packages/scipy/sparse/linalg/_dsolve/linsolve.py:347: SparseEfficiencyWarning: splu converted its input to CSC format
+  warn('splu converted its input to CSC format', SparseEfficiencyWarning)
+args:
+Namespace(problem_opt=None, problem='/qfs/projects/goc/share/data/C3/E3.1/D2//C3E3N01576D2/scenario_036.json_scrubbed.json', solution='/qfs/projects/goc/share/data/C3/E3.1/D2//C3E3N01576D2/scenario_036.json.pop_solution.json', configuration=None, parameters='{}', summary_csv='summary.csv', summary_json='summary.json', data_errors='data_errors.txt', ignored_errors='ignored_errors.txt', solution_errors='solution_errors.txt', pop_solution=None, scrubbed_problem=None)
+problem data file: /qfs/projects/goc/share/data/C3/E3.1/D2//C3E3N01576D2/scenario_036.json_scrubbed.json
+
+pop solution data file: None
+
+solution data file: /qfs/projects/goc/share/data/C3/E3.1/D2//C3E3N01576D2/scenario_036.json.pop_solution.json
+
+git info: {'C3DataUtilities': {'branch': 'main', 'commit': '59dd7f47974aa54c2f26998163730b14ab3a6b97', 'date': 'Wed Jun 7 09:10:06 2023 -0700', 'query_return_code': 0, 'query_err': '', 'branch_return_code': 0, 'branch_err': '', 'query_path': '/qfs/projects/goc/share/loadbalancing/src/nonmpi-template/Challenge3/C3DataUtilities/datautilities', 'query_out': 'commit 59dd7f47974aa54c2f26998163730b14ab3a6b97\nAuthor: Jesse T Holzer <jesse.holzer@pnnl.gov>\nDate:   Wed Jun 7 09:10:06 2023 -0700\n\n    add git branch to summary output\n', 'branch_out': '  dev\n* main\n'}, 'Bid-DS-data-model': {'branch': None, 'commit': None, 'date': None, 'query_return_code': 128, 'query_err': 'fatal: Not a git repository (or any parent up to mount point /rcfs)\nStopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM not set).\n', 'branch_return_code': None, 'branch_err': None, 'query_path': '/rcfs/dtn/arpacomp/.conda/envs/goc_eval/lib/python3.10/site-packages/datamodel', 'query_out': ''}}
+
+after reading problem without validation, memory info: {'rss bytes': 283537408, 'rss human': '270.4M', 'percent': 0.10496432762541374}
+read problem data file without validation time: 1.1228187084197998
+after reading problem with validation, memory info: {'rss bytes': 593477632, 'rss human': '566.0M', 'percent': 0.21970286405243125}
+load time: 6.694288969039917
+{'error_diagnostics': '',
+ 'general': {'base_norm_mva': 100.0,
+             'day_type': None,
+             'electricity_demand': None,
+             'net_load': None,
+             'season': None,
+             'solar_availability': None,
+             'timestamp_start': None,
+             'timestamp_stop': None,
+             'vre_availability': None,
+             'weather_temperature': None,
+             'wind_availability': None},
+ 'interval durations': [1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0,
+                        1.0],
+ 'num ac lines': 2270,
+ 'num buses': 1576,
+ 'num consuming devices': 1451,
+ 'num contingencies': 147,
+ 'num dc lines': 2,
+ 'num intervals': 48,
+ 'num producing devices': 615,
+ 'num reactive power reserve zones': 2,
+ 'num real power reserve zones': 2,
+ 'num shunts': 68,
+ 'num simple dispatchable devices': 2066,
+ 'num transformers': 157,
+ 'total duration': 48.0,
+ 'violation costs': {'e_vio_cost': 100000.0,
+                     'p_bus_vio_cost': 100000.0,
+                     'q_bus_vio_cost': 100000.0,
+                     's_vio_cost': 100000.0}}
+after read solution without validation, memory info: {'rss bytes': 599695360, 'rss human': '571.9M', 'percent': 0.2220046401865973}
+read solution data file without validation time: 0.24285602569580078
+after read solution with validation, memory info: {'rss bytes': 675119104, 'rss human': '643.8M', 'percent': 0.24992618546626402}
+solution load time: 2.7794032096862793
+after solution_model_checks(), memory info: {'rss bytes': 675389440, 'rss human': '644.1M', 'percent': 0.25002626268948863}
+solution model_checks time: 0.015336275100708008
+{'error_diagnostics': ''}
+after problem_data_array.set_from_data_model(), memory info: {'rss bytes': 701874176, 'rss human': '669.4M', 'percent': 0.25983079792237257}
+convert problem data to numpy arrays time: 0.9495527744293213
+after solution_data_array.set_from_data_model(), memory info: {'rss bytes': 701874176, 'rss human': '669.4M', 'percent': 0.25983079792237257}
+convert solution data to numpy arrays time: 0.0823831558227539
+function: set_summary, time: 0.00018334388732910156
+function: set_problem, time: 9.5367431640625e-07
+function: set_solution, time: 6.4373016357421875e-06
+function: set_solution_zero, time: 0.0006418228149414062
+function: set_work_zero, time: 0.00047469139099121094
+function: set_matrices, time: 0.006262302398681641
+function: __init__, time: 0.007596492767333984
+function: eval_sd_t_d_up_dn, time: 0.0017852783203125
+function: eval_sd_max_startup, time: 0.04777646064758301
+function: eval_sd_t_z_sus, time: 0.03469276428222656
+function: eval_acl_t_p_q_fr_to, time: 0.006453752517700195
+function: eval_xfr_t_p_q_fr_to, time: 0.000579833984375
+function: eval_sd_t_su_sd_trajectories, time: 0.0010542869567871094
+function: eval_sd_max_energy, time: 0.0012540817260742188
+function: eval_sd_min_energy, time: 0.0007741451263427734
+function: eval_sd_t_z_p, time: 0.2861654758453369
+function: eval_bus_t_p, time: 0.002076864242553711
+function: eval_bus_t_q, time: 0.000997304916381836
+sd_t_p_rgu sum: 0.0
+prz_sigma_rgu max: 0.01
+prz_t_p_rgu_req max: 2.7704141101894018
+sd_t_p_rgd sum: 0.0
+prz_sigma_rgd max: 0.01
+prz_t_p_rgd_req max: 2.7704141101894018
+sd_t_p_scr sum: 0.0
+prz_sigma_scr max: 0.5
+prz_t_p_scr_req max: 6.256601349278798
+sd_t_p_nsc sum: 0.0
+prz_sigma_nsc max: 0.5
+prz_t_p_nsc_req max: 6.256601349278798
+sd_t_p_rru sum: 0.0
+prz_t_p_rru_min max: 0.0
+sd_t_p_rrd sum: 0.0
+prz_t_p_rrd_min max: 0.0
+sd_t_p_qru sum: 0.0
+qrz_t_q_qru_min max: 0.0
+sd_t_p_qrd sum: 0.0
+qrz_t_q_qrd_min max: 0.0
+function: get_connected_components, time: 0.007881402969360352
+function: get_bridges, time: 0.027811288833618164
+function: get_connected_components, time: 0.006973981857299805
+function: get_bridges, time: 0.027617692947387695
+function: get_connected_components, time: 0.0068950653076171875
+function: get_bridges, time: 0.027608156204223633
+function: get_connected_components, time: 0.007059335708618164
+function: get_bridges, time: 0.02805185317993164
+function: get_connected_components, time: 0.00706171989440918
+function: get_bridges, time: 0.028019189834594727
+function: get_connected_components, time: 0.006955146789550781
+function: get_bridges, time: 0.02777838706970215
+function: get_connected_components, time: 0.006888151168823242
+function: get_bridges, time: 0.027847766876220703
+function: get_connected_components, time: 0.006937503814697266
+function: get_bridges, time: 0.02775096893310547
+function: get_connected_components, time: 0.006955623626708984
+function: get_bridges, time: 0.02786874771118164
+function: get_connected_components, time: 0.007193803787231445
+function: get_bridges, time: 0.02801346778869629
+function: get_connected_components, time: 0.0071048736572265625
+function: get_bridges, time: 0.02777099609375
+function: get_connected_components, time: 0.007032155990600586
+function: get_bridges, time: 0.027850627899169922
+function: get_connected_components, time: 0.007173776626586914
+function: get_bridges, time: 0.028116464614868164
+function: get_connected_components, time: 0.007253170013427734
+function: get_bridges, time: 0.028304100036621094
+function: get_connected_components, time: 0.007178068161010742
+function: get_bridges, time: 0.028352022171020508
+function: get_connected_components, time: 0.007067441940307617
+function: get_bridges, time: 0.028322696685791016
+function: get_connected_components, time: 0.006983041763305664
+function: get_bridges, time: 0.028589248657226562
+function: get_connected_components, time: 0.007111072540283203
+function: get_bridges, time: 0.028386831283569336
+function: get_connected_components, time: 0.007143735885620117
+function: get_bridges, time: 0.028536081314086914
+function: get_connected_components, time: 0.007121086120605469
+function: get_bridges, time: 0.02849555015563965
+function: get_connected_components, time: 0.0069119930267333984
+function: get_bridges, time: 0.02838277816772461
+function: get_connected_components, time: 0.007248640060424805
+function: get_bridges, time: 0.028185129165649414
+function: get_connected_components, time: 0.00722813606262207
+function: get_bridges, time: 0.028395414352416992
+function: get_connected_components, time: 0.0071713924407958984
+function: get_bridges, time: 0.02809309959411621
+function: get_connected_components, time: 0.0071277618408203125
+function: get_bridges, time: 0.028356552124023438
+function: get_connected_components, time: 0.007161855697631836
+function: get_bridges, time: 0.028519153594970703
+function: get_connected_components, time: 0.007131338119506836
+function: get_bridges, time: 0.028130054473876953
+function: get_connected_components, time: 0.0072100162506103516
+function: get_bridges, time: 0.028348684310913086
+function: get_connected_components, time: 0.007052898406982422
+function: get_bridges, time: 0.02825331687927246
+function: get_connected_components, time: 0.007154941558837891
+function: get_bridges, time: 0.02821063995361328
+function: get_connected_components, time: 0.006955862045288086
+function: get_bridges, time: 0.028024911880493164
+function: get_connected_components, time: 0.007060527801513672
+function: get_bridges, time: 0.028147459030151367
+function: get_connected_components, time: 0.0070116519927978516
+function: get_bridges, time: 0.028191566467285156
+function: get_connected_components, time: 0.007244586944580078
+function: get_bridges, time: 0.028470993041992188
+function: get_connected_components, time: 0.0073015689849853516
+function: get_bridges, time: 0.02827620506286621
+function: get_connected_components, time: 0.007226467132568359
+function: get_bridges, time: 0.028301715850830078
+function: get_connected_components, time: 0.0071713924407958984
+function: get_bridges, time: 0.028668642044067383
+function: get_connected_components, time: 0.007132291793823242
+function: get_bridges, time: 0.028336524963378906
+function: get_connected_components, time: 0.0071506500244140625
+function: get_bridges, time: 0.028339862823486328
+function: get_connected_components, time: 0.0071642398834228516
+function: get_bridges, time: 0.028325319290161133
+function: get_connected_components, time: 0.0069963932037353516
+function: get_bridges, time: 0.028238773345947266
+function: get_connected_components, time: 0.006990671157836914
+function: get_bridges, time: 0.028481006622314453
+function: get_connected_components, time: 0.007031917572021484
+function: get_bridges, time: 0.0284881591796875
+function: get_connected_components, time: 0.007065296173095703
+function: get_bridges, time: 0.028300046920776367
+function: get_connected_components, time: 0.007110595703125
+function: get_bridges, time: 0.028299570083618164
+function: get_connected_components, time: 0.007263898849487305
+function: get_bridges, time: 0.02803516387939453
+function: get_connected_components, time: 0.007104635238647461
+function: get_bridges, time: 0.02790546417236328
+function: get_connected_components, time: 0.006936550140380859
+function: get_bridges, time: 0.02819514274597168
+end of eval_connectedness(), memory info: {'rss bytes': 810504192, 'rss human': '773.0M', 'percent': 0.3000451621214624}
+function: eval_connectedness, time: 1.7655138969421387
+problem dimensions. bus: 1576, acl: 2270, xfr: 157, dcl: 2, k: 147, t: 48
+construct static bus admittance matrix. time: 0.0012907981872558594
+factor static bus admittance matrix. time: 0.00930643081665039
+t_acl_delta_t: [array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64)], t_xfr_delta_t: [array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64)], t_br_delta_t: [array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64), array([], dtype=int64)], acl_delta_t: [], xfr_delta_t: [], br_delta_t: []
+contingency delta branches. acl: 147, xfr: 0, dcl: 0
+construct bus,t-indexed right hand side. time: 0.0006155967712402344
+solve for base case bus,t-indexed theta. time: 0.152754545211792
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 0, time: 0.13197779655456543, memory_info: {'rss bytes': 938348544, 'rss human': '894.9M', 'percent': 0.3473725907773198}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 1, time: 0.11809897422790527, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 2, time: 0.15220308303833008, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 3, time: 0.1361699104309082, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 4, time: 0.10637378692626953, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 5, time: 0.09804201126098633, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 6, time: 0.09374427795410156, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 7, time: 0.10164141654968262, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 8, time: 0.11235809326171875, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 9, time: 0.08596324920654297, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 10, time: 0.08509683609008789, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 11, time: 0.08435654640197754, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 12, time: 0.10417413711547852, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 13, time: 0.07845854759216309, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 14, time: 0.0788116455078125, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 7
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 15, time: 0.07826471328735352, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 7
+num AC branches with possible violations in DCL contingencies: 7
+num AC branches with possible violations in XFR contingencies: 7
+t: 16, time: 0.0786135196685791, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 9
+num AC branches with possible violations in DCL contingencies: 8
+num AC branches with possible violations in XFR contingencies: 8
+t: 17, time: 0.09754323959350586, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 11
+num AC branches with possible violations in DCL contingencies: 8
+num AC branches with possible violations in XFR contingencies: 8
+t: 18, time: 0.07868695259094238, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 12
+num AC branches with possible violations in DCL contingencies: 8
+num AC branches with possible violations in XFR contingencies: 8
+t: 19, time: 0.07814955711364746, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 11
+num AC branches with possible violations in DCL contingencies: 8
+num AC branches with possible violations in XFR contingencies: 8
+t: 20, time: 0.07770419120788574, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 8
+num AC branches with possible violations in DCL contingencies: 7
+num AC branches with possible violations in XFR contingencies: 7
+t: 21, time: 0.10133981704711914, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 7
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 22, time: 0.115936279296875, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 23, time: 0.09485411643981934, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 24, time: 0.07980155944824219, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 25, time: 0.07726430892944336, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 26, time: 0.07734251022338867, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 27, time: 0.07783365249633789, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 28, time: 0.0773763656616211, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 29, time: 0.07748603820800781, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 30, time: 0.07930350303649902, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 31, time: 0.08037757873535156, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 32, time: 0.07859420776367188, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 33, time: 0.0772407054901123, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 34, time: 0.0999307632446289, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 35, time: 0.09375452995300293, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 36, time: 0.076019287109375, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 37, time: 0.07653975486755371, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 38, time: 0.07845258712768555, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 7
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 39, time: 0.08016490936279297, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 7
+num AC branches with possible violations in DCL contingencies: 7
+num AC branches with possible violations in XFR contingencies: 7
+t: 40, time: 0.08058476448059082, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 9
+num AC branches with possible violations in DCL contingencies: 8
+num AC branches with possible violations in XFR contingencies: 8
+t: 41, time: 0.10624337196350098, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 11
+num AC branches with possible violations in DCL contingencies: 8
+num AC branches with possible violations in XFR contingencies: 8
+t: 42, time: 0.07152462005615234, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 12
+num AC branches with possible violations in DCL contingencies: 8
+num AC branches with possible violations in XFR contingencies: 8
+t: 43, time: 0.07337665557861328, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 11
+num AC branches with possible violations in DCL contingencies: 8
+num AC branches with possible violations in XFR contingencies: 8
+t: 44, time: 0.07098698616027832, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 7
+num AC branches with possible violations in DCL contingencies: 7
+num AC branches with possible violations in XFR contingencies: 7
+t: 45, time: 0.07222747802734375, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 7
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 46, time: 0.08243131637573242, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+v_acl_k: [-9.80689002e-05 -8.80981399e-05 -1.18262271e-07 -6.99836682e-04
+ -6.63609266e-04 -1.22707682e-03 -1.22707682e-03 -6.70794450e-04
+ -6.70794450e-04 -6.07198351e-03 -1.74150949e-03 -1.55871670e-06
+ -9.52324817e-06 -1.95907959e-03 -5.78064359e-03 -2.05340018e-03
+ -5.89300591e-04 -1.21037872e-04 -1.21037872e-04 -1.18254185e-04
+ -8.83259549e-05 -4.89372814e-05 -7.87424762e-05 -1.49355785e-04
+ -3.47088491e-03 -3.47088491e-03 -3.51071291e-03 -3.52067041e-03
+ -3.52067041e-03 -3.54700999e-03 -3.62666757e-03 -3.60675198e-03
+ -3.60675198e-03 -3.60675198e-03 -7.66924799e-03 -7.66924799e-03
+ -9.86849934e-04 -1.37217068e-03 -1.37217068e-03 -1.37217068e-03
+ -1.37217068e-03 -5.91654341e-06 -6.16777440e-03 -6.16777440e-03
+ -7.40200464e-10 -6.66752421e-04 -3.96612731e-04 -5.47275069e-04
+ -3.96612731e-04 -5.46454174e-03 -5.48445674e-03 -5.61745953e-03
+ -5.61745953e-03 -4.50188768e-03 -4.55237713e-03 -2.05986902e-02
+ -1.42230496e-02 -1.42230496e-02 -1.41157133e-02 -1.41157133e-02
+ -3.29099446e-03 -3.29099446e-03 -9.59845472e-03 -9.59845472e-03
+ -1.56630591e-03 -1.94342812e-03 -1.47371533e-02 -1.47570671e-02
+ -1.58732319e-03 -7.62520675e-03 -1.35600000e-03 -1.35600000e-03
+ -2.01001795e-03 -5.23217509e-04 -2.00094207e-05 -1.12647199e-05
+ -9.94545632e-03 -8.67430013e-03 -8.60459932e-03 -8.60459932e-03
+ -9.45588804e-03 -3.71546649e-02 -3.23315230e-02 -3.23315230e-02
+ -3.72119828e-02 -1.25058880e-06 -6.05717137e-06 -1.16963057e-02
+ -9.71367446e-07 -4.73164218e-03 -4.73164218e-03 -3.80450200e-03
+ -3.80450200e-03 -3.85428721e-03 -3.64496903e-03 -3.64496903e-03
+ -4.70728875e-03 -4.70728875e-03 -4.65526711e-03 -9.26452136e-04
+ -9.26452136e-04 -9.26452136e-04 -1.10344047e-03 -1.10344047e-03
+ -4.26224985e-05 -7.50995484e-04 -7.50995484e-04 -9.20001268e-03
+ -5.00997690e-02 -7.34823973e-03 -2.41447023e-02 -1.40731694e-02
+ -1.49489630e-03 -2.11488903e-02 -2.11488903e-02 -2.99942442e-02
+ -2.85826300e-05 -4.73583773e-03 -4.74710673e-03 -2.24689915e-02
+ -2.24590346e-02 -1.39413542e-02 -1.39413542e-02 -2.85064016e-02
+ -3.95351593e-03 -3.95351593e-03 -5.49431220e-03 -9.67334153e-03
+ -9.98049205e-03 -2.42333367e-03 -2.40341874e-03 -2.77837055e-02
+ -5.13929896e-05 -1.32185802e-04 -2.30824927e-04 -1.58166096e-04
+ -7.77039089e-03 -2.09114037e-02 -3.00868466e-03 -6.37093333e-03
+ -3.66578082e-03 -3.66578082e-03 -4.10013711e-03 -4.48100100e-03
+ -4.48100100e-03 -4.48100100e-03 -2.57778224e-03]
+acl_u[acl_delta_k]: [1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
+ 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1]
+num AC branches with possible violations in ACL contingencies: 4
+num AC branches with possible violations in DCL contingencies: 4
+num AC branches with possible violations in XFR contingencies: 4
+t: 47, time: 0.07842659950256348, memory_info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+initialize_m_w_time: 0.0007107257843017578
+compute_static_w_time: 0.11237478256225586
+get_time_varying_branch_characteristics_time: 0.0035881996154785156
+construct_a_t_time: 0.024292945861816406
+factor_a_t_time: 0.11104035377502441
+compute_w_with_t_a_solve_time: 2.8717994689941406
+compute_v_t_time: 6.9141387939453125e-06
+compute_w_with_t_smw_time: 1.2636184692382812e-05
+compute_v_time: 0.056671142578125
+compute_bus_theta_with_t_a_solve_time: 0.006583690643310547
+compute_bus_theta_with_t_smw_time: 7.62939453125e-06
+compute_br_p_time: 0.005279541015625
+apply_w_v_wt_time: 0.014218568801879883
+compute_bus_dtheta_rhs_dcl_k_time: 0.007241010665893555
+compute_w_v_wt_xfr_k_time: 0.0067598819732666016
+compute_bus_dtheta_rhs_xfr_k_time: 5.0067901611328125e-06
+compute_br_acl_delta_k_p_delta_time: 0.05282759666442871
+compute_br_dcl_delta_k_p_delta_time: 0.003438234329223633
+compute_br_xfr_delta_k_p_delta_time: 0.0032253265380859375
+filter_branches_acl_k_time: 0.02584695816040039
+filter_branches_dcl_k_time: 0.00878453254699707
+filter_branches_xfr_k_time: 0.008602142333984375
+compute_br_acl_delta_k_p_time: 0.010184288024902344
+compute_br_dcl_delta_k_p_time: 0.00020170211791992188
+compute_br_xfr_delta_k_p_time: 0.0001430511474609375
+compute_br_acl_delta_k_s_over_time: 1.0489201545715332
+compute_br_dcl_delta_k_s_over_time: 0.0016810894012451172
+compute_br_xfr_delta_k_s_over_time: 0.0015168190002441406
+zero_out_time: 0.0002484321594238281
+get_max_br_acl_delta_k_s_over_time: 0.0051212310791015625
+get_max_br_dcl_delta_k_s_over_time: 8.344650268554688e-06
+get_max_br_xfr_delta_k_s_over_time: 5.7220458984375e-06
+compute_br_k_z_time: 0.00592494010925293
+collect_penalties_into_obj_array_time: 0.0006456375122070312
+end of contingency model method 1, memory info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+function: eval_post_contingency_model, time: 4.5884010791778564
+function: eval_post_contingency_model, time: 4.588409185409546
+function: run, time: 6.775745868682861
+after solution_evaluator.run(), memory info: {'rss bytes': 942673920, 'rss human': '899.0M', 'percent': 0.3489738263489136}
+evaluation summary:
+{'feas': 1,
+ 'infeas': 0,
+ 'info_i_i_k_t_disconnected_ctg': {'idx': {0: None, 1: None, 2: None, 3: None},
+                                   'val': 0},
+ 'info_i_i_t_disconnected_base': {'idx': {0: None, 1: None, 2: None}, 'val': 0},
+ 'phys_feas': 0,
+ 'sum_acl_t_u_sd': 0,
+ 'sum_acl_t_u_su': 0,
+ 'sum_acl_t_z_s': 347678697.09031504,
+ 'sum_acl_t_z_sd': 0.0,
+ 'sum_acl_t_z_su': 0.0,
+ 'sum_bus_t_z_p': 2477150301.8641677,
+ 'sum_bus_t_z_q': 990574039.5244242,
+ 'sum_cs_t_z_p': 666491504.5727713,
+ 'sum_pr_t_z_p': 39956374.88377479,
+ 'sum_prz_t_z_nsc': 861712.1401919941,
+ 'sum_prz_t_z_rgd': 109687.9859236597,
+ 'sum_prz_t_z_rgu': 109687.9859236597,
+ 'sum_prz_t_z_rrd': 0.0,
+ 'sum_prz_t_z_rru': 0.0,
+ 'sum_prz_t_z_scr': 437944.5607328268,
+ 'sum_qrz_t_z_qrd': 0.0,
+ 'sum_qrz_t_z_qru': 0.0,
+ 'sum_sd_t_sd': 0,
+ 'sum_sd_t_su': 0,
+ 'sum_sd_t_z_nsc': 0.0,
+ 'sum_sd_t_z_on': 9429473.059848,
+ 'sum_sd_t_z_qrd': 0.0,
+ 'sum_sd_t_z_qru': 0.0,
+ 'sum_sd_t_z_rgd': 0.0,
+ 'sum_sd_t_z_rgu': 0.0,
+ 'sum_sd_t_z_rrd_off': 0.0,
+ 'sum_sd_t_z_rrd_on': 0.0,
+ 'sum_sd_t_z_rru_off': 0.0,
+ 'sum_sd_t_z_rru_on': 0.0,
+ 'sum_sd_t_z_scr': 0.0,
+ 'sum_sd_t_z_sd': 0.0,
+ 'sum_sd_t_z_su': 0.0,
+ 'sum_sd_t_z_sus': 0.0,
+ 'sum_xfr_t_u_sd': 0,
+ 'sum_xfr_t_u_su': 0,
+ 'sum_xfr_t_z_s': 0.0,
+ 'sum_xfr_t_z_sd': 0.0,
+ 'sum_xfr_t_z_su': 0.0,
+ 'time_connectedness': 1.765197992324829,
+ 'time_post_contingency': 4.588407516479492,
+ 'time_run': 6.775744438171387,
+ 'total_switches': 0,
+ 'viol_acl_acl_t_s_max_ctg': {'idx': {0: 'acl_2264', 1: 'acl_1939', 2: 0},
+                              'val': 4.714010964930415},
+ 'viol_acl_dcl_t_s_max_ctg': {'idx': {0: None, 1: None, 2: None}, 'val': 0.0},
+ 'viol_acl_t_s_max': {'idx': {0: 'acl_2264', 1: 0}, 'val': 20.86739025733685},
+ 'viol_acl_t_u_sd_max': {'idx': {0: 'acl_0000', 1: 0}, 'val': 0},
+ 'viol_acl_t_u_su_max': {'idx': {0: 'acl_0000', 1: 0}, 'val': 0},
+ 'viol_acl_xfr_t_s_max_ctg': {'idx': {0: None, 1: None, 2: None}, 'val': 0.0},
+ 'viol_bus_t_p_balance_max': {'idx': {0: 'bus_1493', 1: 0},
+                              'val': 71.64827323671079},
+ 'viol_bus_t_p_balance_min': {'idx': {0: 'bus_1505', 1: 43},
+                              'val': -77.89185671960054},
+ 'viol_bus_t_q_balance_max': {'idx': {0: 'bus_1505', 1: 0},
+                              'val': 25.78902420122088},
+ 'viol_bus_t_q_balance_min': {'idx': {0: 'bus_0394', 1: 0},
+                              'val': -3.895473664775446},
+ 'viol_bus_t_v_max': {'idx': {0: 'bus_0000', 1: 0}, 'val': 0.0},
+ 'viol_bus_t_v_min': {'idx': {0: 'bus_0000', 1: 0}, 'val': 0.0},
+ 'viol_cs_t_p_off_max': {'idx': {0: 'sd_0615', 1: 0}, 'val': 0.0},
+ 'viol_cs_t_p_off_min': {'idx': {0: 'sd_0615', 1: 0}, 'val': 0.0},
+ 'viol_cs_t_p_on_max': {'idx': {0: 'sd_0615', 1: 0}, 'val': 0.0},
+ 'viol_cs_t_p_on_min': {'idx': {0: 'sd_0615', 1: 0}, 'val': 0.0},
+ 'viol_cs_t_q_max': {'idx': {0: 'sd_0615', 1: 0}, 'val': 0.0},
+ 'viol_cs_t_q_min': {'idx': {0: 'sd_0615', 1: 0}, 'val': 0.0},
+ 'viol_cs_t_q_p_max': {'idx': {0: None, 1: None}, 'val': None},
+ 'viol_cs_t_q_p_min': {'idx': {0: None, 1: None}, 'val': None},
+ 'viol_dcl_t_p_max': {'idx': {0: 'dcl_0', 1: 0}, 'val': 0.0},
+ 'viol_dcl_t_p_min': {'idx': {0: 'dcl_0', 1: 0}, 'val': 0.0},
+ 'viol_dcl_t_q_fr_max': {'idx': {0: 'dcl_0', 1: 0}, 'val': 0.0},
+ 'viol_dcl_t_q_fr_min': {'idx': {0: 'dcl_0', 1: 0}, 'val': 0.0},
+ 'viol_dcl_t_q_to_max': {'idx': {0: 'dcl_0', 1: 0}, 'val': 0.0},
+ 'viol_dcl_t_q_to_min': {'idx': {0: 'dcl_0', 1: 0}, 'val': 0.0},
+ 'viol_pr_t_p_off_max': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_pr_t_p_off_min': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_pr_t_p_on_max': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_pr_t_p_on_min': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_pr_t_q_max': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_pr_t_q_min': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_pr_t_q_p_max': {'idx': {0: None, 1: None}, 'val': None},
+ 'viol_pr_t_q_p_min': {'idx': {0: None, 1: None}, 'val': None},
+ 'viol_prz_t_p_nsc_balance': {'idx': {0: 'prz_0', 1: 0},
+                              'val': 15.283616808746997},
+ 'viol_prz_t_p_rgd_balance': {'idx': {0: 'prz_0', 1: 0},
+                              'val': 2.7704141101894018},
+ 'viol_prz_t_p_rgu_balance': {'idx': {0: 'prz_0', 1: 0},
+                              'val': 2.7704141101894018},
+ 'viol_prz_t_p_rrd_balance': {'idx': {0: 'prz_0', 1: 0}, 'val': 0.0},
+ 'viol_prz_t_p_rru_balance': {'idx': {0: 'prz_0', 1: 0}, 'val': 0.0},
+ 'viol_prz_t_p_scr_balance': {'idx': {0: 'prz_0', 1: 0},
+                              'val': 9.027015459468199},
+ 'viol_qrz_t_q_qrd_balance': {'idx': {0: 'qrz_0', 1: 0}, 'val': 0.0},
+ 'viol_qrz_t_q_qru_balance': {'idx': {0: 'qrz_0', 1: 0}, 'val': 0.0},
+ 'viol_sd_max_energy_constr': {'idx': {0: 'sd_0483', 1: 0}, 'val': 36.36265184},
+ 'viol_sd_max_startup_constr': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0},
+ 'viol_sd_min_energy_constr': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_sd_t_d_dn_min': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0},
+ 'viol_sd_t_d_up_min': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0},
+ 'viol_sd_t_p_nsc_max': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_sd_t_p_nsc_nonneg': {'idx': {0: 'sd_0000', 1: 0}, 'val': -0.0},
+ 'viol_sd_t_p_ramp_dn_max': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_sd_t_p_ramp_up_max': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_sd_t_p_rgd_max': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_sd_t_p_rgd_nonneg': {'idx': {0: 'sd_0000', 1: 0}, 'val': -0.0},
+ 'viol_sd_t_p_rgu_max': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_sd_t_p_rgu_nonneg': {'idx': {0: 'sd_0000', 1: 0}, 'val': -0.0},
+ 'viol_sd_t_p_rrd_off_max': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_sd_t_p_rrd_off_nonneg': {'idx': {0: 'sd_0000', 1: 0}, 'val': -0.0},
+ 'viol_sd_t_p_rrd_on_max': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_sd_t_p_rrd_on_nonneg': {'idx': {0: 'sd_0000', 1: 0}, 'val': -0.0},
+ 'viol_sd_t_p_rru_off_max': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_sd_t_p_rru_off_nonneg': {'idx': {0: 'sd_0000', 1: 0}, 'val': -0.0},
+ 'viol_sd_t_p_rru_on_max': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_sd_t_p_rru_on_nonneg': {'idx': {0: 'sd_0000', 1: 0}, 'val': -0.0},
+ 'viol_sd_t_p_scr_max': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0.0},
+ 'viol_sd_t_p_scr_nonneg': {'idx': {0: 'sd_0000', 1: 0}, 'val': -0.0},
+ 'viol_sd_t_q_qrd_nonneg': {'idx': {0: 'sd_0000', 1: 0}, 'val': -0.0},
+ 'viol_sd_t_q_qru_nonneg': {'idx': {0: 'sd_0000', 1: 0}, 'val': -0.0},
+ 'viol_sd_t_u_on_max': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0},
+ 'viol_sd_t_u_on_min': {'idx': {0: 'sd_0000', 1: 0}, 'val': 0},
+ 'viol_sh_t_u_st_max': {'idx': {0: 'sh_00', 1: 0}, 'val': 0},
+ 'viol_sh_t_u_st_min': {'idx': {0: 'sh_00', 1: 0}, 'val': 0},
+ 'viol_t_connected_base': {'idx': {0: 0}, 'val': 0},
+ 'viol_t_connected_ctg': {'idx': {0: 0}, 'val': 0},
+ 'viol_xfr_acl_t_s_max_ctg': {'idx': {0: None, 1: None, 2: None}, 'val': 0.0},
+ 'viol_xfr_dcl_t_s_max_ctg': {'idx': {0: None, 1: None, 2: None}, 'val': 0.0},
+ 'viol_xfr_t_phi_max': {'idx': {0: 'xfr_000', 1: 0}, 'val': 0.0},
+ 'viol_xfr_t_phi_min': {'idx': {0: 'xfr_000', 1: 0}, 'val': 0.0},
+ 'viol_xfr_t_s_max': {'idx': {0: 'xfr_000', 1: 0}, 'val': 0.0},
+ 'viol_xfr_t_tau_max': {'idx': {0: 'xfr_000', 1: 0}, 'val': 0.0},
+ 'viol_xfr_t_tau_min': {'idx': {0: 'xfr_000', 1: 0}, 'val': 0.0},
+ 'viol_xfr_t_u_sd_max': {'idx': {0: 'xfr_000', 1: 0}, 'val': 0},
+ 'viol_xfr_t_u_su_max': {'idx': {0: 'xfr_000', 1: 0}, 'val': 0},
+ 'viol_xfr_xfr_t_s_max_ctg': {'idx': {0: None, 1: None, 2: None}, 'val': 0.0},
+ 'z': -3388621260.5215664,
+ 'z_base': -3232187636.3465304,
+ 'z_cost': 49385847.94362278,
+ 'z_k_average_case': -74427981.73893887,
+ 'z_k_worst_case': -82005642.43609719,
+ 'z_max_energy': 32371221.823999997,
+ 'z_min_energy': 0.0,
+ 'z_penalty': 3849293292.975679,
+ 'z_value': 666491504.5727713}
+infeasibility summary:
+{}
+feas: 1
+obj: -3388621260.5215664
+evaluate solution time: 6.786591053009033
+end of check_data(), memory info: {'rss bytes': 943198208, 'rss human': '899.5M', 'percent': 0.34916791550910675}

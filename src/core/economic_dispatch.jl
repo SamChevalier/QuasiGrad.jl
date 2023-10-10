@@ -10,6 +10,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
     model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => qG.num_threads); add_bridges = false)
     # => model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => qG.num_threads); add_bridges = false)
     # => set_optimizer_attribute(model, "Method", 3) # force a concurrent solver
+
     set_string_names_on_creation(model, false)
 
     # set model properties => let this run until it finishes
@@ -145,9 +146,10 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
                 if prm.dev.num_sus[dev] > 0
                     # 1. here is the cost:
                     add_to_expression!(z_sus[dev], sum(u_sus[tii][dev][ii]*prm.dev.startup_states[dev][ii][1] for ii in 1:prm.dev.num_sus[dev]))
-
+                    
                     # 2. the device cannot be in a startup state unless it is starting up!
-                    @constraint(model, sum(u_sus[tii][dev]; init=0.0) <= u_su_dev[tii][dev])
+                    su = sum(u_sus[tii][dev]; init=0.0)
+                    @constraint(model, su <= u_su_dev[tii][dev])
 
                     # 3. make sure the device was "on" in a sufficiently recent time period
                     for ii in 1:prm.dev.num_sus[dev] # these are the sus indices
@@ -155,9 +157,9 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
                             @constraint(model, u_sus[tii][dev][ii] <= sum(u_on_dev[tij][dev] for tij in idx.Ts_sus_jft[dev][tii][ii]))
                         end
                     end
+                    
                 end
             end
-
             # 1. Minimum downtime: zhat_mndn
             T_mndn = idx.Ts_mndn[dev][tii] # t_set = get_tmindn(tii, dev, prm)
             @constraint(model, u_su_dev[tii][dev] + sum(u_sd_dev[tii_inst][dev] for tii_inst in T_mndn; init=0.0) - 1.0 <= 0.0)
@@ -175,7 +177,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
                 tii_m1 = prm.ts.time_keys[tii-1]
                 dev_p_previous = dev_p[tii_m1][dev]
             end
-
+            
             # 3. Ramping limits (up): zhat_rup
             @constraint(model, dev_p[tii][dev] - dev_p_previous
                     - dt*(prm.dev.p_ramp_up_ub[dev]     *(u_on_dev[tii][dev] - u_su_dev[tii][dev])
@@ -209,7 +211,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
 
             # 12. Ramping reserve down (off): zhat_rrdoff
             @constraint(model, p_rrd_off[tii][dev] - prm.dev.p_ramp_res_down_offline_ub[dev]*(1-u_on_dev[tii][dev]) <= 0.0)
-            
+ 
             # Now, we must separate: producers vs consumers
             if dev in idx.pr_devs
                 # 13p. Maximum reserve limits (producers): zhat_pmax
@@ -288,7 +290,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
             T_su_max = idx.Ts_su_max[dev][w_ind] #get_tsumax(w_params, prm)
             @constraint(model, sum(u_su_dev[tii][dev] for tii in T_su_max; init=0.0) - w_params[3] <= 0.0)
         end
-
+        
         # now, we need to add two other sorts of constraints:
         # 1. "evolutionary" constraints which link startup and shutdown variables
         for tii in prm.ts.time_keys
@@ -342,7 +344,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
             #
             # nothing here :)
         end
-
+        
         # ========== costs! ============= #
         for tii in prm.ts.time_keys
             # duration
@@ -367,6 +369,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
         # compute the costs associated with device reserve offers --> computed directly in the objective!!
         # 
         # min/max energy requirements
+        
         Wub = prm.dev.energy_req_ub[dev]
         Wlb = prm.dev.energy_req_lb[dev]
 
@@ -504,7 +507,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
         end
         # shortfall penalties -- NOT needed explicitly (see objective)
     end
-
+    
     # loop and compute costs!
     for tii in prm.ts.time_keys
         # duration
@@ -608,6 +611,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
 
     # finally, demote BLAS -- single thread usage!!
     LinearAlgebra.BLAS.set_num_threads(1)
+
 end
 
 function solve_parallel_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})

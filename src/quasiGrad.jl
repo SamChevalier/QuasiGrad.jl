@@ -76,13 +76,13 @@ using PrecompileTools
 
 # set up the workload
 @compile_workload begin
-    path = "./src/precompile_617bus.json"
+    path = dirname(@__FILE__)*"\\precompile_617bus.json"
+    # => path = "precompile_617bus.json"
 
     # call the jsn and initialize
     jsn = quasiGrad.load_json(path)
     adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd = quasiGrad.base_initialization(jsn)
     quasiGrad.economic_dispatch_initialization!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd)
-    
 end
 
 # directly precompile everthing else which is NOT a function of jsn -- move down alphabetically
@@ -218,5 +218,4 @@ precompile(zctgs_grad_qfr_acline!,(quasiGrad.Flow, quasiGrad.Grad, quasiGrad.Ind
 precompile(zctgs_grad_qto_acline!,(quasiGrad.Flow, quasiGrad.Grad, quasiGrad.Index, quasiGrad.MasterGrad, quasiGrad.Param, quasiGrad.QG, quasiGrad.System, Int8))
 precompile(zctgs_grad_qfr_xfm!,(quasiGrad.Flow, quasiGrad.Grad, quasiGrad.Index, quasiGrad.MasterGrad, quasiGrad.Param, quasiGrad.QG, quasiGrad.System, Int8))
 precompile(zctgs_grad_qto_xfm!,(quasiGrad.Flow, quasiGrad.Grad, quasiGrad.Index, quasiGrad.MasterGrad, quasiGrad.Param, quasiGrad.QG, quasiGrad.System, Int8))
-
 end
