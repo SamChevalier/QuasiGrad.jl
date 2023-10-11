@@ -8,7 +8,7 @@ The quasiGrad solver recently competed in the [3rd Grid Optimizaiton Competition
 quasiGrad can be installed using the Julia package manager with
 
 ```julia
-] add quasiGrad
+Pkg.add(url="https://github.com/SamChevalier/quasiGrad")
 ```
 ## Usage
 This package is a work-in-progress, and contributions are more than welcome. Out-of-the-box usage, however, can be acheived by running the example file in the test folder:
