@@ -11,7 +11,7 @@ quasiGrad can be installed using the Julia package manager with
 Pkg.add(url="https://github.com/SamChevalier/quasiGrad")
 ```
 ## Usage
-This package is a work-in-progress, and contributions are more than welcome. Out-of-the-box usage, however, can be acheived by running the example file in the test folder:
+This package is a work-in-progress, and contributions are more than welcome. Out-of-the-box usage, however, can be acheived by running the example file in the test folder. The workhorse function is
 
 ```julia
 quasiGrad.compute_quasiGrad_solution_d1(InFile, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching; post_process=true)
