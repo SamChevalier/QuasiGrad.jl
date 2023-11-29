@@ -273,6 +273,60 @@ function run_adam_pf!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::qua
     qG.skip_ctg_eval = false
 end
 
+function jack_solves_adam_pf!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; first_solve::Bool = false, clip_pq_based_on_bins::Bool=false)
+    # here we go! basically, we only compute a small subset of pf-relevant gradients
+    @info "Running adam-powerflow for $(qG.adam_max_time) seconds!"
+
+        # re-initialize
+        qG.adm_step      = 0
+        qG.beta1_decay   = 1.0
+        qG.beta2_decay   = 1.0
+        qG.one_min_beta1 = 1.0 - qG.beta1 # here for testing, in case beta1 is changed before a run
+        qG.one_min_beta2 = 1.0 - qG.beta2 # here for testing, in case beta2 is changed before a run
+        run_adam         = true
+        
+        # flush adam at each restart ?
+        quasiGrad.flush_adam!(adm, flw, prm, upd)
+
+        # start the timer!
+        adam_start = time()
+
+        # loop over adam steps
+        while run_adam
+
+            # increment
+            qG.adm_step += 1
+
+            # step decay
+            quasiGrad.adam_step_decay!(qG, time(), adam_start, adam_start+qG.adam_max_time; adam_pf=true, first_solve=first_solve)
+
+            # decay beta and pre-compute
+            qG.beta1_decay         = qG.beta1_decay*qG.beta1
+            qG.beta2_decay         = qG.beta2_decay*qG.beta2
+            qG.one_min_beta1_decay = (1.0-qG.beta1_decay)
+            qG.one_min_beta2_decay = (1.0-qG.beta2_decay)
+
+            # update weight parameters?
+            quasiGrad.update_penalties!(prm, qG, time(), adam_start, adam_start+qG.adam_max_time)
+
+            # compute all states and grads
+            quasiGrad.update_states_and_grads_for_adam_pf!(cgd, grd, idx, mgd, prm, qG, scr, stt, sys; clip_pq_based_on_bins=clip_pq_based_on_bins)
+
+            # take an adam step
+            quasiGrad.adam_pf!(adm, mgd, prm, qG, stt, upd)
+            GC.safepoint()
+
+            # stop?
+            run_adam = quasiGrad.adam_termination(adam_start, qG, run_adam, qG.adam_max_time)
+        end
+
+    # one last clip + state computation -- no grad needed!
+    qG.eval_grad = false
+    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    qG.eval_grad = true
+    qG.skip_ctg_eval = false
+end
+
 function update_states_and_grads!(
     cgd::quasiGrad.ConstantGrad, 
     ctg::quasiGrad.Contingency,
