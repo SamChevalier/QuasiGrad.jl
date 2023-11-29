@@ -173,9 +173,6 @@ function run_adam_with_data_collection!(adm::quasiGrad.Adam, cgd::quasiGrad.Cons
     # flush adam just once!
     quasiGrad.flush_adam!(adm, flw, prm, upd)
 
-    # loop and solve adam twice: once for an initialization, and once for a true run
-    qG.skip_ctg_eval = false
-
     # re-initialize
     qG.adm_step      = 0
     qG.beta1_decay   = 1.0
@@ -217,7 +214,7 @@ function run_adam_with_data_collection!(adm::quasiGrad.Adam, cgd::quasiGrad.Cons
         run_adam = quasiGrad.adam_termination(adam_start, qG, run_adam, qG.adam_max_time)
 
         # log adam data for plotting
-        quasiGrad.log_data(data_log, qG, scr)
+        # => quasiGrad.log_data(data_log, qG, scr)
     end
 
 end

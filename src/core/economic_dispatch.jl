@@ -1167,7 +1167,7 @@ function economic_dispatch_initialization!(cgd::quasiGrad.ConstantGrad, ctg::qua
     # 1. run ED (global upper bound) -- we can only safely solve this for 5.5k devices over 18 time periods
     #    so, devs*tps = 5.5k*18 =~ 100k (80k) is our computational upper limit -- if we exceed this, we chop up 
     #    the ED problem and solve it over chunks -- then project
-    if (sys.ndev * sys.nT) < 80000
+    if (sys.ndev * sys.nT) < 125000 # => 80000
         # 1. we're good -- just solve the entire thing all at once!
         quasiGrad.solve_economic_dispatch!(idx, prm, qG, scr, stt, sys, upd; include_sus_in_ed=include_sus)
 
