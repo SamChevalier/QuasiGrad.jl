@@ -1,16 +1,21 @@
 # quasiGrad.jl
 
-quasiGrad.jl is a parallelized, adam-based solver for reserve and security constrained AC unit commitment problems. The quasiGrad solver recently competed in the [3rd Grid Optimizaiton Competition](https://gocompetition.energy.gov/challenges/challenge-3), scoring reasonably well in the day-ahead market clearing problem. quasiGrad's internal gradient-based solver (Adam) can easily be substituted for other ML-inspired solvers (e.g., AdaGrad, AdaDelta, RMSProp, etc.).
+quasiGrad.jl is a parallelized, adam-based solver for reserve and security constrained AC unit commitment problems. Solver details are sketeched out in a recent [pre-print](https://arxiv.org/pdf/2310.06650.pdf) and the associated [SI](https://samchevalier.github.io/docs/SI.pdf).
+
+The quasiGrad solver recently competed in the [3rd Grid Optimizaiton Competition](https://gocompetition.energy.gov/challenges/challenge-3), scoring reasonably well in the day-ahead market clearing problem. quasiGrad's internal gradient-based solver (Adam) can easily be substituted for other ML-inspired solvers (e.g., AdaGrad, AdaDelta, RMSProp, etc.).
 
 ## Installation
-quasiGrad can be installed using the Julia package manager with
-
+quasiGrad can be installed using the Julia package manager via
 ```julia
-] add quasiGrad
+Pkg.add(url="https://github.com/SamChevalier/quasiGrad")
 ```
+Alternatively, this repo can be cloned locally for more interative usage.
+
 ## Usage
-This package is a work-in-progress, and contributions are more than welcome. Out-of-the-box usage, however, can be acheived via
+This package is a work-in-progress, and contributions are more than welcome. Out-of-the-box usage, however, can be acheived by running the example file in the test folder. The workhorse function is
 
 ```julia
-] add quasiGrad
+quasiGrad.compute_quasiGrad_solution_d1(InFile, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching; post_process=true)
 ```
+## Questions
+Please contact [Sam Chevalier](https://samchevalier.github.io/) (schevali@uvm.edu) with any questions.
