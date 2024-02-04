@@ -1,16 +1,16 @@
 function solve_ctgs!(
-    cgd::quasiGrad.ConstantGrad,
-    ctg::quasiGrad.Contingency,
-    flw::quasiGrad.Flow,
-    grd::quasiGrad.Grad,
-    idx::quasiGrad.Index,
-    mgd::quasiGrad.MasterGrad,
-    ntk::quasiGrad.Network,
-    prm::quasiGrad.Param,
-    qG::quasiGrad.QG,
+    cgd::QuasiGrad.ConstantGrad,
+    ctg::QuasiGrad.Contingency,
+    flw::QuasiGrad.Flow,
+    grd::QuasiGrad.Grad,
+    idx::QuasiGrad.Index,
+    mgd::QuasiGrad.MasterGrad,
+    ntk::QuasiGrad.Network,
+    prm::QuasiGrad.Param,
+    qG::QuasiGrad.QG,
     scr::Dict{Symbol, Float64},
-    stt::quasiGrad.State,
-    sys::quasiGrad.System)
+    stt::QuasiGrad.State,
+    sys::QuasiGrad.System)
 
     # first, increment, regardless
     qG.ctg_adam_counter += 1
@@ -72,8 +72,8 @@ function solve_ctgs!(
                 flw.ac_phi[tii][idx.ac_phi]        .= stt.phi[tii]
 
                 # compute square flows
-                @turbo flw.qfr2[tii] .= quasiGrad.LoopVectorization.pow_fast.(flw.ac_qfr[tii],2)
-                @turbo flw.qto2[tii] .= quasiGrad.LoopVectorization.pow_fast.(flw.ac_qto[tii],2)
+                @turbo flw.qfr2[tii] .= QuasiGrad.LoopVectorization.pow_fast.(flw.ac_qfr[tii],2)
+                @turbo flw.qto2[tii] .= QuasiGrad.LoopVectorization.pow_fast.(flw.ac_qto[tii],2)
 
                 # solve for the flows across each ctg
                 #   p  =  @view flw.p_inj[2:end]
@@ -84,7 +84,7 @@ function solve_ctgs!(
                 # simplified:
                 # => flw.c .= (@view flw.p_inj[2:end]) .- ntk.ErT*flw.bt
                     # this is a little **odd**, but it's fine (the first use of flw.c is just for storage!)
-                @turbo quasiGrad.mul!(flw.c[tii], ntk.ErT, flw.bt[tii])
+                @turbo QuasiGrad.mul!(flw.c[tii], ntk.ErT, flw.bt[tii])
                 flw.c[tii] .= (@view flw.p_inj[tii][2:end]) .- flw.c[tii]
                 
                 # solve the base case with pcg
@@ -98,10 +98,10 @@ function solve_ctgs!(
                         flw.theta[tii] .= ntk.Ybr\flw.c[tii]
                     else
                         # solve with a hot start!
-                        quasiGrad.cg!(flw.theta[tii], ntk.Ybr, flw.c[tii], statevars = flw.pf_cg_statevars[tii], abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its)
+                        QuasiGrad.cg!(flw.theta[tii], ntk.Ybr, flw.c[tii], statevars = flw.pf_cg_statevars[tii], abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its)
                         
                         # if we wanted to test for cg convergence, we would do the following:
-                            # => _, ch = quasiGrad.cg!(flw.theta[tii], ntk.Ybr, flw.c[tii], statevars = flw.pf_cg_statevars[tii], abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
+                            # => _, ch = QuasiGrad.cg!(flw.theta[tii], ntk.Ybr, flw.c[tii], statevars = flw.pf_cg_statevars[tii], abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
                             # => # test the krylov solution
                             # => if ~(ch.isconverged)
                             # =>     println("Krylov failed -- using LU backup (ctg flows)!")
@@ -113,7 +113,7 @@ function solve_ctgs!(
                 end
 
                 # get the base-case flow (no phase shifter, yet! not needed here)
-                @turbo quasiGrad.mul!(flw.pflow[tii], ntk.Yfr, flw.theta[tii])
+                @turbo QuasiGrad.mul!(flw.pflow[tii], ntk.Yfr, flw.theta[tii])
             end
 
             ########################################################
@@ -165,11 +165,11 @@ function solve_ctgs!(
                         Threads.unlock(lck)
 
                         # apply WMI update! don't use function -- it allocates: ctg.theta_k[thrID] .= wmi_update(flw.theta[tii], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], flw.c[tii])
-                        @turbo ctg.theta_k[thrID] .= flw.theta[tii] .- ntk.u_k[ctg_ii].*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii], flw.c[tii]))
-                        @turbo quasiGrad.mul!(ctg.pflow_k[thrID], ntk.Yfr, ctg.theta_k[thrID])
+                        @turbo ctg.theta_k[thrID] .= flw.theta[tii] .- ntk.u_k[ctg_ii].*(ntk.g_k[ctg_ii]*QuasiGrad.dot(ntk.u_k[ctg_ii], flw.c[tii]))
+                        @turbo QuasiGrad.mul!(ctg.pflow_k[thrID], ntk.Yfr, ctg.theta_k[thrID])
                         @turbo ctg.pflow_k[thrID] .+= flw.bt[tii]
-                        @turbo ctg.sfr[thrID]     .= quasiGrad.LoopVectorization.sqrt_fast.(flw.qfr2[tii] .+ quasiGrad.LoopVectorization.pow_fast.(ctg.pflow_k[thrID],2))
-                        @turbo ctg.sto[thrID]     .= quasiGrad.LoopVectorization.sqrt_fast.(flw.qto2[tii] .+ quasiGrad.LoopVectorization.pow_fast.(ctg.pflow_k[thrID],2))
+                        @turbo ctg.sfr[thrID]     .= QuasiGrad.LoopVectorization.sqrt_fast.(flw.qfr2[tii] .+ QuasiGrad.LoopVectorization.pow_fast.(ctg.pflow_k[thrID],2))
+                        @turbo ctg.sto[thrID]     .= QuasiGrad.LoopVectorization.sqrt_fast.(flw.qto2[tii] .+ QuasiGrad.LoopVectorization.pow_fast.(ctg.pflow_k[thrID],2))
                         @turbo ctg.sfr_vio[thrID] .= ctg.sfr[thrID] .- ntk.s_max
                         @turbo ctg.sto_vio[thrID] .= ctg.sto[thrID] .- ntk.s_max
                         ctg.sfr_vio[thrID][ntk.ctg_out_ind[ctg_ii]] .= 0.0
@@ -177,7 +177,7 @@ function solve_ctgs!(
 
                         # The following is quite slow, for some reason
                         @inbounds for ac_dev in 1:sys.nac
-                            stt.zctg[tii][ctg_ii] -= cs*quasiGrad.LoopVectorization.max_fast(ctg.sfr_vio[thrID][ac_dev], ctg.sto_vio[thrID][ac_dev], 0.0)
+                            stt.zctg[tii][ctg_ii] -= cs*QuasiGrad.LoopVectorization.max_fast(ctg.sfr_vio[thrID][ac_dev], ctg.sto_vio[thrID][ac_dev], 0.0)
                         end
                         # single shot alternative => stt.zctg[tii][ctg_ii] = -cs*sum(max.(ctg.sfr_vio[thrID], ctg.sto_vio[thrID], 0.0))
 
@@ -214,19 +214,19 @@ function solve_ctgs!(
                         
                         # *************** option one *************** (implicit -- slower)
                         # 1) correct theta (base) via WMI
-                        # explicit version => theta_k = flw.theta[tii] - Vector(ntk.u_k[ctg_ii]*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii],c)))
+                        # explicit version => theta_k = flw.theta[tii] - Vector(ntk.u_k[ctg_ii]*(ntk.g_k[ctg_ii]*QuasiGrad.dot(ntk.u_k[ctg_ii],c)))
                         # function version (don't use -- allocates!) => wmi_update(flw.theta[tii], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], flw.c[tii])
-                            # => @turbo ctg.theta_k[thrID] .= flw.theta[tii] .- ntk.u_k[ctg_ii].*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii], flw.c[tii]))
+                            # => @turbo ctg.theta_k[thrID] .= flw.theta[tii] .- ntk.u_k[ctg_ii].*(ntk.g_k[ctg_ii]*QuasiGrad.dot(ntk.u_k[ctg_ii], flw.c[tii]))
                         # 2) compute flows -- NOTE: ctg[:pflow_k][tii][ctg_ii] contains outaged line flow -- fixed later --
-                            # => @turbo @fastmath quasiGrad.mul!(ctg.pflow_k[thrID], ntk.Yfr, ctg.theta_k[thrID])
+                            # => @turbo @fastmath QuasiGrad.mul!(ctg.pflow_k[thrID], ntk.Yfr, ctg.theta_k[thrID])
 
                         # *************** option two *************** (WMI-update the flows directly)
-                        @turbo ctg.pflow_k[thrID] .= flw.pflow[tii] .- ntk.z_k[ctg_ii].*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii], flw.c[tii]))
+                        @turbo ctg.pflow_k[thrID] .= flw.pflow[tii] .- ntk.z_k[ctg_ii].*(ntk.g_k[ctg_ii]*QuasiGrad.dot(ntk.u_k[ctg_ii], flw.c[tii]))
 
                         # continue
                         @turbo ctg.pflow_k[thrID] .+= flw.bt[tii]
-                        @turbo ctg.sfr[thrID]     .= quasiGrad.LoopVectorization.sqrt_fast.(flw.qfr2[tii] .+ quasiGrad.LoopVectorization.pow_fast.(ctg.pflow_k[thrID],2))
-                        @turbo ctg.sto[thrID]     .= quasiGrad.LoopVectorization.sqrt_fast.(flw.qto2[tii] .+ quasiGrad.LoopVectorization.pow_fast.(ctg.pflow_k[thrID],2))
+                        @turbo ctg.sfr[thrID]     .= QuasiGrad.LoopVectorization.sqrt_fast.(flw.qfr2[tii] .+ QuasiGrad.LoopVectorization.pow_fast.(ctg.pflow_k[thrID],2))
+                        @turbo ctg.sto[thrID]     .= QuasiGrad.LoopVectorization.sqrt_fast.(flw.qto2[tii] .+ QuasiGrad.LoopVectorization.pow_fast.(ctg.pflow_k[thrID],2))
                         @turbo ctg.sfr_vio[thrID] .= ctg.sfr[thrID] .- ntk.s_max
                         @turbo ctg.sto_vio[thrID] .= ctg.sto[thrID] .- ntk.s_max
 
@@ -240,7 +240,7 @@ function solve_ctgs!(
                             # => if helpful: stt.zctg[tii][ctg_ii] = -sum(zctg_s, init=0.0)
                         # each contingency, at each time, gets a score:
                         @inbounds for ac_dev in 1:sys.nac
-                            stt.zctg[tii][ctg_ii] -= cs*quasiGrad.LoopVectorization.max_fast(ctg.sfr_vio[thrID][ac_dev], ctg.sto_vio[thrID][ac_dev], 0.0)
+                            stt.zctg[tii][ctg_ii] -= cs*QuasiGrad.LoopVectorization.max_fast(ctg.sfr_vio[thrID][ac_dev], ctg.sto_vio[thrID][ac_dev], 0.0)
                         end
                         # single shot alternative => stt.zctg[tii][ctg_ii] = -cs*sum(max.(ctg.sfr_vio[thrID], ctg.sto_vio[thrID], 0.0))
 
@@ -263,12 +263,12 @@ function solve_ctgs!(
                                     if (ctg.sfr_vio[thrID][ac_dev] > qG.grad_ctg_tol) && (ctg.sfr_vio[thrID][ac_dev] > ctg.sto_vio[thrID][ac_dev])
                                         # scaling: if "sfr_vio" or "sto_vio" is even slightly positive, the gradient applies 
                                         #          a really big pressure. Let's soften this with softabs:
-                                        grad_scalar                                   = quasiGrad.soft_abs_ctg_grad(ctg.sfr_vio[thrID][ac_dev], qG)
+                                        grad_scalar                                   = QuasiGrad.soft_abs_ctg_grad(ctg.sfr_vio[thrID][ac_dev], qG)
                                         # P is "=", since it assigns (its threadsum come a few lines later!!), and Q is "+=", since it accumulates 
                                         ctg.dsmax_dp_flow[thrID][ac_dev]              = grad_scalar*gc*ctg.pflow_k[thrID][ac_dev]/ctg.sfr[thrID][ac_dev]
                                         ctg.dsmax_dqfr_flow_threadsum[thrID][ac_dev] += grad_scalar*gc*flw.ac_qfr[tii][ac_dev]/ctg.sfr[thrID][ac_dev]
                                     elseif (ctg.sto_vio[thrID][ac_dev] > qG.grad_ctg_tol) && (ctg.sto_vio[thrID][ac_dev] > ctg.sfr_vio[thrID][ac_dev])
-                                        grad_scalar                                   = quasiGrad.soft_abs_ctg_grad(ctg.sfr_vio[thrID][ac_dev], qG)
+                                        grad_scalar                                   = QuasiGrad.soft_abs_ctg_grad(ctg.sfr_vio[thrID][ac_dev], qG)
                                         ctg.dsmax_dp_flow[thrID][ac_dev]              = grad_scalar*gc*ctg.pflow_k[thrID][ac_dev]/ctg.sfr[thrID][ac_dev]
                                         ctg.dsmax_dqto_flow_threadsum[thrID][ac_dev] += grad_scalar*gc*flw.ac_qto[tii][ac_dev]/ctg.sto[thrID][ac_dev]
                                     end
@@ -290,13 +290,13 @@ function solve_ctgs!(
                                 # NOTE #2 -- this does NOT include the reference bus!
                                 #            we skip this gradient :)
                                 # => flw.rhs .= ntk.YfrT*(gc.*flw.dsmax_dp_flow)
-                                @turbo quasiGrad.mul!(ctg.rhs[thrID], ntk.YfrT, ctg.dsmax_dp_flow[thrID]);
+                                @turbo QuasiGrad.mul!(ctg.rhs[thrID], ntk.YfrT, ctg.dsmax_dp_flow[thrID]);
                                 # time to solve for dz_dpinj -- two options here:
                                 #   1. solve with ntk.Ybr_k, but we didn't actually build this,
                                 #      and we didn't build its preconditioner either..
                                 #   2. solve with ntk.Ybr, and then use a rank 1 update! Let's do
                                 #      this instead :) we'll do this in-loop for each ctg at each time.
-                                quasiGrad.solve_and_lowrank_update_single_ctg_gradient!(ctg, ctg_ii, ntk, qG, sys, thrID)
+                                QuasiGrad.solve_and_lowrank_update_single_ctg_gradient!(ctg, ctg_ii, ntk, qG, sys, thrID)
                                 
                                 # now, we have the gradient of znms wrt all nodal injections/xfm phase shifts!!!
                                 # except the slack bus... time to apply these gradients into 
@@ -304,7 +304,7 @@ function solve_ctgs!(
                                 #
                                 # update the injection gradient to account for slack!
                                 #   alternative direct solution: 
-                                #       => ctg[:dz_dpinj][tii][ctg_ii] = (quasiGrad.I-ones(sys.nb-1)*ones(sys.nb-1)'/(sys.nb))*(ntk.Ybr_k[ctg_ii]\(ntk.YfrT*alpha_p_flow))
+                                #       => ctg[:dz_dpinj][tii][ctg_ii] = (QuasiGrad.I-ones(sys.nb-1)*ones(sys.nb-1)'/(sys.nb))*(ntk.Ybr_k[ctg_ii]\(ntk.YfrT*alpha_p_flow))
                                 @turbo ctg.dz_dpinj_all_threadsum[thrID] .+= ctg.dz_dpinj[thrID] .- sum(ctg.dz_dpinj[thrID])/sys.nb
                                 # println("this correction may not be needed for phase shifters.. see paper.")
                             end
@@ -341,26 +341,26 @@ function solve_ctgs!(
                 # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
                 Threads.@threads for tii in prm.ts.time_keys
                     # A. active power injections
-                    quasiGrad.zctgs_grad_pinj!(flw, grd, idx, mgd, ntk, prm, sys, tii)
+                    QuasiGrad.zctgs_grad_pinj!(flw, grd, idx, mgd, ntk, prm, sys, tii)
 
                     # B. reactive power injections (fr and to lines)
-                    quasiGrad.zctgs_grad_qfr_acline!(flw, grd, idx, mgd, prm, qG, sys, tii)
-                    quasiGrad.zctgs_grad_qto_acline!(flw, grd, idx, mgd, prm, qG, sys, tii)
+                    QuasiGrad.zctgs_grad_qfr_acline!(flw, grd, idx, mgd, prm, qG, sys, tii)
+                    QuasiGrad.zctgs_grad_qto_acline!(flw, grd, idx, mgd, prm, qG, sys, tii)
 
                     # C. reactive power injections (fr and to xfms)
-                    quasiGrad.zctgs_grad_qfr_xfm!(flw, grd, idx, mgd, prm, qG, sys, tii)
-                    quasiGrad.zctgs_grad_qto_xfm!(flw, grd, idx, mgd, prm, qG, sys, tii)
+                    QuasiGrad.zctgs_grad_qfr_xfm!(flw, grd, idx, mgd, prm, qG, sys, tii)
+                    QuasiGrad.zctgs_grad_qto_xfm!(flw, grd, idx, mgd, prm, qG, sys, tii)
 
                     # score -- note: zctg_scored assumes an unchanging number of ctgs 
                     stt.zctg_scored[tii]                         .= @view stt.zctg[tii][flw.worst_ctg_ids[tii][1:num_ctg]]
                     flw.worst_ctg_ids[tii][1:num_wrst]           .= @view flw.worst_ctg_ids[tii][partialsortperm(stt.zctg_scored[tii], 1:num_wrst)]
-                    flw.worst_ctg_ids[tii][(num_wrst+1:num_ctg)] .= @view quasiGrad.shuffle!(deleteat!(collect(1:sys.nctg), sort(flw.worst_ctg_ids[tii][1:num_wrst])))[1:num_rnd]
+                    flw.worst_ctg_ids[tii][(num_wrst+1:num_ctg)] .= @view QuasiGrad.shuffle!(deleteat!(collect(1:sys.nctg), sort(flw.worst_ctg_ids[tii][1:num_wrst])))[1:num_rnd]
                     # OG scoring and ranking:
                         # =>  # since we have scored all contingencies at this given time,
                         # =>  # rank them from most negative to least (worst is first)
                         # =>  flw.worst_ctg_ids[tii][1:num_ctg] .= sortperm(@view stt.zctg[tii][@view flw.worst_ctg_ids[tii][1:num_ctg]])
                         # =>  # however, only keep half!
-                        # =>  flw.worst_ctg_ids[tii][1:num_ctg] .= union(flw.worst_ctg_ids[tii][1:num_wrst],quasiGrad.shuffle(setdiff(1:sys.nctg, flw.worst_ctg_ids[tii][1:num_wrst]))[1:num_rnd])
+                        # =>  flw.worst_ctg_ids[tii][1:num_ctg] .= union(flw.worst_ctg_ids[tii][1:num_wrst],QuasiGrad.shuffle(setdiff(1:sys.nctg, flw.worst_ctg_ids[tii][1:num_wrst]))[1:num_rnd])
                 end
             end
         else
@@ -370,15 +370,15 @@ function solve_ctgs!(
                 # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
                 Threads.@threads for tii in prm.ts.time_keys
                     # A. active power injections
-                    quasiGrad.zctgs_grad_pinj!(flw, grd, idx, mgd, ntk, prm, sys, tii)
+                    QuasiGrad.zctgs_grad_pinj!(flw, grd, idx, mgd, ntk, prm, sys, tii)
 
                     # B. reactive power injections (fr and to lines)
-                    quasiGrad.zctgs_grad_qfr_acline!(flw, grd, idx, mgd, prm, qG, sys, tii)
-                    quasiGrad.zctgs_grad_qto_acline!(flw, grd, idx, mgd, prm, qG, sys, tii)
+                    QuasiGrad.zctgs_grad_qfr_acline!(flw, grd, idx, mgd, prm, qG, sys, tii)
+                    QuasiGrad.zctgs_grad_qto_acline!(flw, grd, idx, mgd, prm, qG, sys, tii)
 
                     # C. reactive power injections (fr and to xfms)
-                    quasiGrad.zctgs_grad_qfr_xfm!(flw, grd, idx, mgd, prm, qG, sys, tii)
-                    quasiGrad.zctgs_grad_qto_xfm!(flw, grd, idx, mgd, prm, qG, sys, tii)
+                    QuasiGrad.zctgs_grad_qfr_xfm!(flw, grd, idx, mgd, prm, qG, sys, tii)
+                    QuasiGrad.zctgs_grad_qto_xfm!(flw, grd, idx, mgd, prm, qG, sys, tii)
                 end
             end
         end
@@ -389,7 +389,7 @@ function solve_ctgs!(
     end
 end
 
-function solve_and_lowrank_update_single_ctg_gradient!(ctg::quasiGrad.Contingency, ctg_ii::Int64, ntk::quasiGrad.Network, qG::quasiGrad.QG, sys::quasiGrad.System, thrID::Int16)
+function solve_and_lowrank_update_single_ctg_gradient!(ctg::QuasiGrad.Contingency, ctg_ii::Int64, ntk::QuasiGrad.Network, qG::QuasiGrad.QG, sys::QuasiGrad.System, thrID::Int16)
     # step 1: solve the contingency on the base-case
     # step 2: low rank update the solution
     if qG.base_solver == "lu"
@@ -403,9 +403,9 @@ function solve_and_lowrank_update_single_ctg_gradient!(ctg::quasiGrad.Contingenc
             ctg.dz_dpinj[thrID] .= ntk.Ybr\ctg.rhs[thrID]
         else
             # solve with a hot start!
-            quasiGrad.cg!(ctg.dz_dpinj[thrID], ntk.Ybr, ctg.rhs[thrID], statevars = ctg.grad_cg_statevars[thrID],  abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its)
+            QuasiGrad.cg!(ctg.dz_dpinj[thrID], ntk.Ybr, ctg.rhs[thrID], statevars = ctg.grad_cg_statevars[thrID],  abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its)
             # if we wanted to test for cg convergence, we would do the following:
-                # _, ch = quasiGrad.cg!(ctg.dz_dpinj[thrID], ntk.Ybr, ctg.rhs[thrID], statevars = ctg.grad_cg_statevars[thrID],  abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
+                # _, ch = QuasiGrad.cg!(ctg.dz_dpinj[thrID], ntk.Ybr, ctg.rhs[thrID], statevars = ctg.grad_cg_statevars[thrID],  abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
                 # test the krylov solution
                 # if ~(ch.isconverged)
                 #     # LU backup
@@ -416,12 +416,12 @@ function solve_and_lowrank_update_single_ctg_gradient!(ctg::quasiGrad.Contingenc
     end
 
     # step 2: now, apply a low-rank update!
-        # explicit version => dz_dpinj = ctg.dz_dpinj[thrID] - Vector(ntk.u_k[ctg_ii]*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii], rhs)))
+        # explicit version => dz_dpinj = ctg.dz_dpinj[thrID] - Vector(ntk.u_k[ctg_ii]*(ntk.g_k[ctg_ii]*QuasiGrad.dot(ntk.u_k[ctg_ii], rhs)))
         # function version (don't use -- allocates) => wmi_update(ctg.dz_dpinj[thrID], ntk.u_k[ctg_ii], ntk.g_k[ctg_ii], ctg.rhs[thrID])
-    @turbo ctg.dz_dpinj[thrID] .= ctg.dz_dpinj[thrID] .- ntk.u_k[ctg_ii].*(ntk.g_k[ctg_ii]*quasiGrad.dot(ntk.u_k[ctg_ii], ctg.rhs[thrID]))
+    @turbo ctg.dz_dpinj[thrID] .= ctg.dz_dpinj[thrID] .- ntk.u_k[ctg_ii].*(ntk.g_k[ctg_ii]*QuasiGrad.dot(ntk.u_k[ctg_ii], ctg.rhs[thrID]))
 end
 
-function zctgs_grad_qfr_acline!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System, tii::Int8)
+function zctgs_grad_qfr_acline!(flw::QuasiGrad.Flow, grd::QuasiGrad.Grad, idx::QuasiGrad.Index, mgd::QuasiGrad.MasterGrad, prm::QuasiGrad.Param, qG::QuasiGrad.QG, sys::QuasiGrad.System, tii::Int8)
     # so, this function takes and applies the gradient of
     # zctgs (at acline) with repsect to reactive power
     # variables (i.e., all variables on a line which affect
@@ -454,7 +454,7 @@ function zctgs_grad_qfr_acline!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::q
     end
 end
 
-function zctgs_grad_qto_acline!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System, tii::Int8)
+function zctgs_grad_qto_acline!(flw::QuasiGrad.Flow, grd::QuasiGrad.Grad, idx::QuasiGrad.Index, mgd::QuasiGrad.MasterGrad, prm::QuasiGrad.Param, qG::QuasiGrad.QG, sys::QuasiGrad.System, tii::Int8)
     # so, this function takes and applies the gradient of
     # zctgs (at acline) with repsect to reactive power
     # variables (i.e., all variables on a line which affect
@@ -487,7 +487,7 @@ function zctgs_grad_qto_acline!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::q
     end
 end
 
-function zctgs_grad_qfr_xfm!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System, tii::Int8)
+function zctgs_grad_qfr_xfm!(flw::QuasiGrad.Flow, grd::QuasiGrad.Grad, idx::QuasiGrad.Index, mgd::QuasiGrad.MasterGrad, prm::QuasiGrad.Param, qG::QuasiGrad.QG, sys::QuasiGrad.System, tii::Int8)
     # so, this function takes and applies the gradient of
     # zctgs (at transformers) with repsect to reactive power
     # variables (i.e., all variables on a line which affect
@@ -531,7 +531,7 @@ function zctgs_grad_qfr_xfm!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quas
     end
 end
 
-function zctgs_grad_qto_xfm!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System, tii::Int8)
+function zctgs_grad_qto_xfm!(flw::QuasiGrad.Flow, grd::QuasiGrad.Grad, idx::QuasiGrad.Index, mgd::QuasiGrad.MasterGrad, prm::QuasiGrad.Param, qG::QuasiGrad.QG, sys::QuasiGrad.System, tii::Int8)
     # so, this function takes and applies the gradient of
     # zctgs (at transformers) with repsect to reactive power
     # variables (i.e., all variables on a line which affect
@@ -575,7 +575,7 @@ function zctgs_grad_qto_xfm!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quas
     end
 end
 
-function zctgs_grad_pinj!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, sys::quasiGrad.System, tii::Int8)
+function zctgs_grad_pinj!(flw::QuasiGrad.Flow, grd::QuasiGrad.Grad, idx::QuasiGrad.Index, mgd::QuasiGrad.MasterGrad, ntk::QuasiGrad.Network, prm::QuasiGrad.Param, sys::QuasiGrad.System, tii::Int8)
     # note: the influcence of alpha/slack power is completely neglected when
     # applying gradients (of course, we use if to computes flows, etc.). If we
     # did consider it, then every device would show up at every single bus! yuck!!!
@@ -602,12 +602,12 @@ function zctgs_grad_pinj!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGr
     @inbounds for bus in 2:sys.nb
         # consumer injections
         for dev in idx.cs[bus]
-            quasiGrad.dp_alpha!(grd, dev, tii, -alpha[bus-1])
+            QuasiGrad.dp_alpha!(grd, dev, tii, -alpha[bus-1])
         end
 
         # producer injections
         for dev in idx.pr[bus]
-            quasiGrad.dp_alpha!(grd, dev, tii, alpha[bus-1])
+            QuasiGrad.dp_alpha!(grd, dev, tii, alpha[bus-1])
         end
 
         # shunt injections
@@ -649,26 +649,26 @@ function wmi_update(y0::Vector{Float64}, u::Vector{Float64}, g::Float64, x::Vect
         # y = copy(y0)
         # s = 0.0
         #  loop once for the dot
-        # for nzu_idx in quasiGrad.rowvals(u)
+        # for nzu_idx in QuasiGrad.rowvals(u)
         #     s += u[nzu_idx] * x[nzu_idx]
         # end
     # loop again for subtraction
         # gs = g*s
-        # for nzu_idx in quasiGrad.rowvals(u)
+        # for nzu_idx in QuasiGrad.rowvals(u)
         #     y[nzu_idx] = y0[nzu_idx] - gs*u[nzu_idx]
         # end
 
     # output
-    return y0 .- u.*(g*quasiGrad.dot(u, x))
+    return y0 .- u.*(g*QuasiGrad.dot(u, x))
 end
 
-function initialize_ctg_lists!(cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System)
+function initialize_ctg_lists!(cgd::QuasiGrad.ConstantGrad, ctg::QuasiGrad.Contingency, flw::QuasiGrad.Flow, grd::QuasiGrad.Grad, idx::QuasiGrad.Index, mgd::QuasiGrad.MasterGrad, ntk::QuasiGrad.Network, prm::QuasiGrad.Param, qG::QuasiGrad.QG, scr::Dict{Symbol, Float64}, stt::QuasiGrad.State, sys::QuasiGrad.System)
     # solve all ctgs once to find the initial set of worst ones :)
     qG.skip_ctg_eval  = false
     qG.score_all_ctgs = true
 
     # solve!
-    quasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    QuasiGrad.solve_ctgs!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
     # next, rank and update "worst_ctg_ids" list
     Threads.@threads for tii in prm.ts.time_keys

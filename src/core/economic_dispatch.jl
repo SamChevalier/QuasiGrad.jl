@@ -1,5 +1,5 @@
 # in this file, we design the function which solves economic dispatch
-function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; include_sus_in_ed::Bool=true)
+function solve_economic_dispatch!(idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, scr::Dict{Symbol, Float64}, stt::QuasiGrad.State, sys::QuasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; include_sus_in_ed::Bool=true)
     # note: all binaries are LP relaxed (so there is no BaB-ing): 0 < b < 1
 
     # first, give BLAS access to ALL threads -- this can accelerate the barrier solver!
@@ -17,31 +17,31 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
         # model = Model(Gurobi.Optimizer; add_bridges = false)
         # set_silent(model)
         # set_optimizer_attribute(model, "Threads", qG.num_threads)
-        # quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-        # quasiGrad.set_optimizer_attribute(model, "MIPGap",         qG.mip_gap)
-        # quasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
-        # quasiGrad.set_optimizer_attribute(model, "Crossover", 0)
-    #quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", 1e-3)
-    #quasiGrad.set_optimizer_attribute(model, "OptimalityTol",  1e-2)
+        # QuasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+        # QuasiGrad.set_optimizer_attribute(model, "MIPGap",         qG.mip_gap)
+        # QuasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
+        # QuasiGrad.set_optimizer_attribute(model, "Crossover", 0)
+    #QuasiGrad.set_optimizer_attribute(model, "FeasibilityTol", 1e-3)
+    #QuasiGrad.set_optimizer_attribute(model, "OptimalityTol",  1e-2)
 
     # define the minimum set of variables we will need to solve the constraints
-    u_on_dev  = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.u_on_dev[tii][dev],  lower_bound = 0.0, upper_bound = 1.0) for tii in prm.ts.time_keys) # => base_name = "u_on_dev_t$(ii)",  
-    p_on      = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_on[tii][dev])                                            for tii in prm.ts.time_keys) # => base_name = "p_on_t$(ii)",      
-    dev_q     = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.dev_q[tii][dev],     lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "dev_q_t$(ii)",     
-    p_rgu     = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_rgu[tii][dev],     lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_rgu_t$(ii)",     
-    p_rgd     = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_rgd[tii][dev],     lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_rgd_t$(ii)",     
-    p_scr     = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_scr[tii][dev],     lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_scr_t$(ii)",     
-    p_nsc     = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_nsc[tii][dev],     lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_nsc_t$(ii)",     
-    p_rru_on  = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_rru_on[tii][dev],  lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_rru_on_t$(ii)",  
-    p_rru_off = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_rru_off[tii][dev], lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_rru_off_t$(ii)", 
-    p_rrd_on  = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_rrd_on[tii][dev],  lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_rrd_on_t$(ii)",  
-    p_rrd_off = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_rrd_off[tii][dev], lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_rrd_off_t$(ii)", 
-    q_qru     = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.q_qru[tii][dev],     lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "q_qru_t$(ii)",     
-    q_qrd     = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.q_qrd[tii][dev],     lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "q_qrd_t$(ii)",     
+    u_on_dev  = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.u_on_dev[tii][dev],  lower_bound = 0.0, upper_bound = 1.0) for tii in prm.ts.time_keys) # => base_name = "u_on_dev_t$(ii)",  
+    p_on      = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_on[tii][dev])                                            for tii in prm.ts.time_keys) # => base_name = "p_on_t$(ii)",      
+    dev_q     = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.dev_q[tii][dev],     lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "dev_q_t$(ii)",     
+    p_rgu     = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_rgu[tii][dev],     lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_rgu_t$(ii)",     
+    p_rgd     = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_rgd[tii][dev],     lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_rgd_t$(ii)",     
+    p_scr     = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_scr[tii][dev],     lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_scr_t$(ii)",     
+    p_nsc     = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_nsc[tii][dev],     lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_nsc_t$(ii)",     
+    p_rru_on  = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_rru_on[tii][dev],  lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_rru_on_t$(ii)",  
+    p_rru_off = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_rru_off[tii][dev], lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_rru_off_t$(ii)", 
+    p_rrd_on  = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_rrd_on[tii][dev],  lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_rrd_on_t$(ii)",  
+    p_rrd_off = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.p_rrd_off[tii][dev], lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_rrd_off_t$(ii)", 
+    q_qru     = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.q_qru[tii][dev],     lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "q_qru_t$(ii)",     
+    q_qrd     = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.q_qrd[tii][dev],     lower_bound = 0.0)                    for tii in prm.ts.time_keys) # => base_name = "q_qrd_t$(ii)",     
 
     # add a few more (implicit) variables which are necessary for solving this system
-    u_su_dev = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.u_su_dev[tii][dev], lower_bound = 0.0, upper_bound = 1.0) for tii in prm.ts.time_keys) # => base_name = "u_su_dev_t$(ii)", 
-    u_sd_dev = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.u_sd_dev[tii][dev], lower_bound = 0.0, upper_bound = 1.0) for tii in prm.ts.time_keys) # => base_name = "u_sd_dev_t$(ii)", 
+    u_su_dev = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.u_su_dev[tii][dev], lower_bound = 0.0, upper_bound = 1.0) for tii in prm.ts.time_keys) # => base_name = "u_su_dev_t$(ii)", 
+    u_sd_dev = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [dev = 1:sys.ndev], start=stt.u_sd_dev[tii][dev], lower_bound = 0.0, upper_bound = 1.0) for tii in prm.ts.time_keys) # => base_name = "u_sd_dev_t$(ii)", 
     
     # we have the affine "AffExpr" expressions (whose values are specified)
     dev_p   = Dict{Int64, Vector{AffExpr}}(tii => Vector{AffExpr}(undef, sys.ndev) for tii in prm.ts.time_keys)
@@ -61,22 +61,22 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
     end
 
     # add scoring variables and affine terms
-    p_rgu_zonal_REQ     = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgu_zonal_REQ_t$(ii)",    
-    p_rgd_zonal_REQ     = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgd_zonal_REQ_t$(ii)",    
-    p_scr_zonal_REQ     = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_scr_zonal_REQ_t$(ii)",    
-    p_nsc_zonal_REQ     = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_nsc_zonal_REQ_t$(ii)",    
-    p_rgu_zonal_penalty = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgu_zonal_penalty_t$(ii)",
-    p_rgd_zonal_penalty = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgd_zonal_penalty_t$(ii)",
-    p_scr_zonal_penalty = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_scr_zonal_penalty_t$(ii)",
-    p_nsc_zonal_penalty = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_nsc_zonal_penalty_t$(ii)",
-    p_rru_zonal_penalty = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rru_zonal_penalty_t$(ii)",
-    p_rrd_zonal_penalty = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rrd_zonal_penalty_t$(ii)",
-    q_qru_zonal_penalty = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzQ], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qru_zonal_penalty_t$(ii)",
-    q_qrd_zonal_penalty = Dict{Int64, Vector{quasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzQ], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qrd_zonal_penalty_t$(ii)",
+    p_rgu_zonal_REQ     = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgu_zonal_REQ_t$(ii)",    
+    p_rgd_zonal_REQ     = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgd_zonal_REQ_t$(ii)",    
+    p_scr_zonal_REQ     = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_scr_zonal_REQ_t$(ii)",    
+    p_nsc_zonal_REQ     = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_nsc_zonal_REQ_t$(ii)",    
+    p_rgu_zonal_penalty = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgu_zonal_penalty_t$(ii)",
+    p_rgd_zonal_penalty = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgd_zonal_penalty_t$(ii)",
+    p_scr_zonal_penalty = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_scr_zonal_penalty_t$(ii)",
+    p_nsc_zonal_penalty = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_nsc_zonal_penalty_t$(ii)",
+    p_rru_zonal_penalty = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rru_zonal_penalty_t$(ii)",
+    p_rrd_zonal_penalty = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzP], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rrd_zonal_penalty_t$(ii)",
+    q_qru_zonal_penalty = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzQ], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qru_zonal_penalty_t$(ii)",
+    q_qrd_zonal_penalty = Dict{Int64, Vector{QuasiGrad.VariableRef}}(tii => @variable(model, [1:sys.nzQ], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qrd_zonal_penalty_t$(ii)",
 
     # shall we also include startup states?
     if include_sus_in_ed == true
-        u_sus = Dict{Int64, Vector{Vector{quasiGrad.VariableRef}}}(tii => [@variable(model, [sus = 1:prm.dev.num_sus[dev]], lower_bound = 0.0, upper_bound = 1.0) for dev in 1:sys.ndev] for tii in prm.ts.time_keys)  
+        u_sus = Dict{Int64, Vector{Vector{QuasiGrad.VariableRef}}}(tii => [@variable(model, [sus = 1:prm.dev.num_sus[dev]], lower_bound = 0.0, upper_bound = 1.0) for dev in 1:sys.ndev] for tii in prm.ts.time_keys)  
     end
 
     # affine aggregation terms
@@ -599,8 +599,8 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
 
         # update the u_sum and powers (used in clipping, so must be correct!)
         qG.run_susd_updates = true
-        quasiGrad.simple_device_statuses_and_transposition!(idx, prm, qG, stt)
-        quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
+        QuasiGrad.simple_device_statuses_and_transposition!(idx, prm, qG, stt)
+        QuasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
 
         # update the objective value score
         scr[:ed_obj] = objective_value(model)
@@ -614,7 +614,7 @@ function solve_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG
 
 end
 
-function solve_parallel_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function solve_parallel_economic_dispatch!(idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, scr::Dict{Symbol, Float64}, stt::QuasiGrad.State, sys::QuasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # note: all binaries are LP relaxed (so there is no BaB-ing): 0 < b < 1
     t_ed0 = time()
     
@@ -1082,7 +1082,7 @@ function solve_parallel_economic_dispatch!(idx::quasiGrad.Index, prm::quasiGrad.
     println("Parallel ED finished. Objective value: ", scr[:ed_obj], ". Total time: $t_ed.")
 end
 
-function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System; balanced::Bool = false)
+function dcpf_initialization!(flw::QuasiGrad.Flow, idx::QuasiGrad.Index, ntk::QuasiGrad.Network, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System; balanced::Bool = false)
     # apply dcpf to the economic dispatch solution (see previous versions for a linearized voltage solver -- it doesn't really work)
     #
     # defined a "clean_up_failed" vector -- if any is true (1), then we throw out all DCPF solutions !!
@@ -1136,7 +1136,7 @@ function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::qu
 
         else
             # solve with pcg -- va
-            _, ch = quasiGrad.cg!(flw.theta[tii], ntk.Ybr, c, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
+            _, ch = QuasiGrad.cg!(flw.theta[tii], ntk.Ybr, c, abstol = qG.pcg_tol, Pl=ntk.Ybr_ChPr, maxiter = qG.max_pcg_its, log = true)
 
             # test the krylov solution
             if ~(ch.isconverged)
@@ -1163,47 +1163,47 @@ function dcpf_initialization!(flw::quasiGrad.Flow, idx::quasiGrad.Index, ntk::qu
     end
 end
 
-function economic_dispatch_initialization!(cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; include_sus::Bool=true)
+function economic_dispatch_initialization!(cgd::QuasiGrad.ConstantGrad, ctg::QuasiGrad.Contingency, flw::QuasiGrad.Flow, grd::QuasiGrad.Grad, idx::QuasiGrad.Index, mgd::QuasiGrad.MasterGrad, ntk::QuasiGrad.Network, prm::QuasiGrad.Param, qG::QuasiGrad.QG, scr::Dict{Symbol, Float64}, stt::QuasiGrad.State, sys::QuasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; include_sus::Bool=true)
     # 1. run ED (global upper bound) -- we can only safely solve this for 5.5k devices over 18 time periods
     #    so, devs*tps = 5.5k*18 =~ 100k (80k) is our computational upper limit -- if we exceed this, we chop up 
     #    the ED problem and solve it over chunks -- then project
     if (sys.ndev * sys.nT) < 125000 # => 80000
         # 1. we're good -- just solve the entire thing all at once!
-        quasiGrad.solve_economic_dispatch!(idx, prm, qG, scr, stt, sys, upd; include_sus_in_ed=include_sus)
+        QuasiGrad.solve_economic_dispatch!(idx, prm, qG, scr, stt, sys, upd; include_sus_in_ed=include_sus)
 
         # 2. solve a dcpf for initializtion -- active power is garaunteed balanced
-        quasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys; balanced=true)
+        QuasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys; balanced=true)
     else
         #  **** ===== ****  Large-Scale-OPT  **** ===== **** 
         #
         # 1. in this case, we are going to chop the ED problem up into chunks and do our best..
-        quasiGrad.solve_parallel_economic_dispatch!(idx, prm, qG, scr, stt, sys, upd)
+        QuasiGrad.solve_parallel_economic_dispatch!(idx, prm, qG, scr, stt, sys, upd)
 
         # 2. next, hit all devices with an LP projection!
-        quasiGrad.solve_LP_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
+        QuasiGrad.solve_LP_Gurobi_projection!(idx, prm, qG, stt, sys, upd)
         
         # 3. update the u_sum and powers (used in clipping, so must be correct!)
         qG.run_susd_updates = true
-        quasiGrad.simple_device_statuses_and_transposition!(idx, prm, qG, stt)
-        quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
+        QuasiGrad.simple_device_statuses_and_transposition!(idx, prm, qG, stt)
+        QuasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
 
         # now, solve an "unbalanced" dc power flow
-        quasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys; balanced = false)
+        QuasiGrad.dcpf_initialization!(flw, idx, ntk, prm, qG, stt, sys; balanced = false)
     end
 
     # finally, update states
     qG.skip_ctg_eval = true
     qG.eval_grad     = false
-    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    QuasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     qG.skip_ctg_eval = false
     qG.eval_grad     = true
 
     # nice idea in theory, but it throws off the network-wide balance way too much!
         # => # 4. take a guess at q injections, based on given voltages -- this is fairly arbitrary, but fast!!
-        # => quasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
+        # => QuasiGrad.apply_q_injections!(idx, prm, qG, stt, sys)
 
         # => # 5. update the states again
-        # => quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+        # => QuasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
         # => qG.eval_grad     = true
         # => qG.skip_ctg_eval = tmp
 end

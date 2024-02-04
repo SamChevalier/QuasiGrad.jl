@@ -1,7 +1,7 @@
 "key: make sure step size decays faster/before the penalty tightening!
       otherwise, things might be a bit unstable! just a theory, though."
 
-function update_penalties!(prm::quasiGrad.Param, qG::quasiGrad.QG, tnow::Float64, t0::Float64, tf::Float64)
+function update_penalties!(prm::QuasiGrad.Param, qG::QuasiGrad.QG, tnow::Float64, t0::Float64, tf::Float64)
     # this function scales the penalties associated with power balance, line flow
     # violation, and constraint penalties as a function of TIME.
     #
@@ -45,7 +45,7 @@ function update_penalties!(prm::quasiGrad.Param, qG::quasiGrad.QG, tnow::Float64
 end
 
 
-function adam_step_decay!(qG::quasiGrad.QG, tnow::Float64, t0::Float64, tf::Float64; adam_pf::Bool=false, first_solve::Bool=false)
+function adam_step_decay!(qG::QuasiGrad.QG, tnow::Float64, t0::Float64, tf::Float64; adam_pf::Bool=false, first_solve::Bool=false)
     # depending on where we are between t0 and tf, compute a normalized
     # scalar value beta which acts as a homotopy parameter
     tnorm = 2.0*(tnow-t0)/(tf - t0) - 1.0 # scale between -1 and 1

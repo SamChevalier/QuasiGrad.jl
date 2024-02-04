@@ -1,4 +1,4 @@
-function shunts!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
+function shunts!(grd::QuasiGrad.Grad, idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State)
     Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         stt.vm2_sh[tii] .= (@view stt.vm[tii][idx.shunt_bus]).^2

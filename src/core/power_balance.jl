@@ -1,4 +1,4 @@
-function power_balance!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function power_balance!(grd::QuasiGrad.Grad, idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System)
     # call penalty cost
     cp = prm.vio.p_bus * qG.scale_c_pbus_testing
     cq = prm.vio.q_bus * qG.scale_c_qbus_testing
@@ -7,7 +7,7 @@ function power_balance!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGra
     Threads.@threads for bus in 1:sys.nb
         # loop over each time period and compute the power balance
         for tii in prm.ts.time_keys
-            quasiGrad.pq_sums!(bus, idx, stt, tii)
+            QuasiGrad.pq_sums!(bus, idx, stt, tii)
         end
     end
 
@@ -26,8 +26,8 @@ function power_balance!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGra
                 @turbo grd.zp.pb_slack[tii] .= (cp*dt).*sign.(stt.pb_slack[tii])
                 @turbo grd.zq.qb_slack[tii] .= (cq*dt).*sign.(stt.qb_slack[tii])
             elseif qG.pqbal_grad_type == "soft_abs"
-                @turbo grd.zp.pb_slack[tii] .= (qG.pqbal_grad_weight_p*dt).*(stt.pb_slack[tii]./(quasiGrad.LoopVectorization.sqrt_fast.(quasiGrad.LoopVectorization.pow_fast.(stt.pb_slack[tii],2) .+ qG.pqbal_grad_eps2)))
-                @turbo grd.zq.qb_slack[tii] .= (qG.pqbal_grad_weight_q*dt).*(stt.qb_slack[tii]./(quasiGrad.LoopVectorization.sqrt_fast.(quasiGrad.LoopVectorization.pow_fast.(stt.qb_slack[tii],2) .+ qG.pqbal_grad_eps2)))
+                @turbo grd.zp.pb_slack[tii] .= (qG.pqbal_grad_weight_p*dt).*(stt.pb_slack[tii]./(QuasiGrad.LoopVectorization.sqrt_fast.(QuasiGrad.LoopVectorization.pow_fast.(stt.pb_slack[tii],2) .+ qG.pqbal_grad_eps2)))
+                @turbo grd.zq.qb_slack[tii] .= (qG.pqbal_grad_weight_q*dt).*(stt.qb_slack[tii]./(QuasiGrad.LoopVectorization.sqrt_fast.(QuasiGrad.LoopVectorization.pow_fast.(stt.qb_slack[tii],2) .+ qG.pqbal_grad_eps2)))
             elseif qG.pqbal_grad_type == "quadratic_for_lbfgs"
                 @turbo grd.zp.pb_slack[tii] .= (cp*dt).*stt.pb_slack[tii]
                 @turbo grd.zq.qb_slack[tii] .= (cq*dt).*stt.qb_slack[tii]
@@ -42,7 +42,7 @@ function power_balance!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGra
 end
 
 # fast sum
-function pq_sums!(bus::Int64, idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8)
+function pq_sums!(bus::Int64, idx::QuasiGrad.Index, stt::QuasiGrad.State, tii::Int8)
     # loop over devices
     #
     stt.pb_slack[tii][bus] = 0.0

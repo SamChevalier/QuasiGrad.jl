@@ -1,4 +1,4 @@
-using quasiGrad
+using QuasiGrad
 include("./MyJulia1.jl")
 
 # test run

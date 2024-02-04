@@ -1,4 +1,4 @@
-name = "quasiGrad"
+name = "QuasiGrad"
 uuid = "ead79d5d-eeb6-4e9e-b9c0-d4b75b0c44ab"
 authors = ["Sam Chevalier"]
 version = "1.0.0-DEV"

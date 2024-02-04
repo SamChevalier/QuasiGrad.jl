@@ -1,7 +1,7 @@
-function prepare_solution(prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, qG::quasiGrad.QG)
+function prepare_solution(prm::QuasiGrad.Param, stt::QuasiGrad.State, sys::QuasiGrad.System, qG::QuasiGrad.QG)
     # clip once more, just to be safe
     qG.clip_pq_based_on_bins = true
-    quasiGrad.clip_all!(prm, qG, stt, sys)
+    QuasiGrad.clip_all!(prm, qG, stt, sys)
 
     # prepare the solution dictionary
     soln_dict = Dict("time_series_output" => Dict("bus"                        => Array{Dict}(undef,sys.nb),
@@ -70,10 +70,10 @@ function prepare_solution(prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasi
 end
 
 # write the JSON
-function write_solution(json_path::String, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function write_solution(json_path::String, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System)
 
     # prepare the solution dictionary
-    soln_dict = quasiGrad.prepare_solution(prm, stt, sys, qG)
+    soln_dict = QuasiGrad.prepare_solution(prm, stt, sys, qG)
 
     # parse the input and then append
     if qG.write_location == "local"
@@ -98,18 +98,18 @@ end
 # post process
 function post_process_stats(
     run::Bool,  
-    cgd::quasiGrad.ConstantGrad, 
-    ctg::quasiGrad.Contingency,
-    flw::quasiGrad.Flow, 
-    grd::quasiGrad.Grad, 
-    idx::quasiGrad.Index, 
-    mgd::quasiGrad.MasterGrad, 
-    ntk::quasiGrad.Network, 
-    prm::quasiGrad.Param, 
-    qG::quasiGrad.QG, 
+    cgd::QuasiGrad.ConstantGrad, 
+    ctg::QuasiGrad.Contingency,
+    flw::QuasiGrad.Flow, 
+    grd::QuasiGrad.Grad, 
+    idx::QuasiGrad.Index, 
+    mgd::QuasiGrad.MasterGrad, 
+    ntk::QuasiGrad.Network, 
+    prm::QuasiGrad.Param, 
+    qG::QuasiGrad.QG, 
     scr::Dict{Symbol, Float64}, 
-    stt::quasiGrad.State, 
-    sys::quasiGrad.System)
+    stt::QuasiGrad.State, 
+    sys::QuasiGrad.System)
 
     # shall we actually post-process?
     if run == true
@@ -117,7 +117,7 @@ function post_process_stats(
         qG.eval_grad        = false
         qG.skip_ctg_eval    = false
         qG.score_all_ctgs   = true
-        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+        QuasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
         
         # flop, just in case
         qG.eval_grad         = true
@@ -150,7 +150,7 @@ function post_process_stats(
             println(" • z (ctg -- average): $zctgavg")
 
             # also, run a diagnostic breakdown
-            quasiGrad.print_penalty_breakdown(idx, prm, qG, scr, stt)
+            QuasiGrad.print_penalty_breakdown(idx, prm, qG, scr, stt)
         end
     end
 end

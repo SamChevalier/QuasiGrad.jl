@@ -1,5 +1,5 @@
 # ac line flows
-function acline_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function acline_flows!(grd::QuasiGrad.Grad, idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System)
     # line parameters
     g_sr = prm.acline.g_sr
     b_sr = prm.acline.b_sr
@@ -26,10 +26,10 @@ function acline_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad
         stt.va_to[tii] .= @view stt.va[tii][idx.acline_to_bus]
         
         # tools
-        @turbo stt.cos_ftp[tii] .= quasiGrad.LoopVectorization.cos_fast.(stt.va_fr[tii] .- stt.va_to[tii])
-        @turbo stt.sin_ftp[tii] .= quasiGrad.LoopVectorization.sin_fast.(stt.va_fr[tii] .- stt.va_to[tii])
-        @turbo stt.vff[tii]     .= quasiGrad.LoopVectorization.pow_fast.(stt.vm_fr[tii],2)
-        @turbo stt.vtt[tii]     .= quasiGrad.LoopVectorization.pow_fast.(stt.vm_to[tii],2)
+        @turbo stt.cos_ftp[tii] .= QuasiGrad.LoopVectorization.cos_fast.(stt.va_fr[tii] .- stt.va_to[tii])
+        @turbo stt.sin_ftp[tii] .= QuasiGrad.LoopVectorization.sin_fast.(stt.va_fr[tii] .- stt.va_to[tii])
+        @turbo stt.vff[tii]     .= QuasiGrad.LoopVectorization.pow_fast.(stt.vm_fr[tii],2)
+        @turbo stt.vtt[tii]     .= QuasiGrad.LoopVectorization.pow_fast.(stt.vm_to[tii],2)
         @turbo stt.vft[tii]     .= stt.vm_fr[tii].*stt.vm_to[tii]
         
         # evaluate the function? we always need to in order to get the grd
@@ -43,7 +43,7 @@ function acline_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad
         @turbo stt.acline_qfr[tii] .= stt.u_on_acline[tii].*stt.qfr[tii]
         
         # apparent power flow -- to -> from
-        @turbo stt.acline_sfr[tii] .= quasiGrad.LoopVectorization.sqrt_fast.(quasiGrad.LoopVectorization.pow_fast.(stt.acline_pfr[tii],2) .+ quasiGrad.LoopVectorization.pow_fast.(stt.acline_qfr[tii],2))
+        @turbo stt.acline_sfr[tii] .= QuasiGrad.LoopVectorization.sqrt_fast.(QuasiGrad.LoopVectorization.pow_fast.(stt.acline_pfr[tii],2) .+ QuasiGrad.LoopVectorization.pow_fast.(stt.acline_qfr[tii],2))
         
         # active power flow -- to -> from
         @turbo stt.pto[tii] .= (g_sr.+g_to).*stt.vtt[tii] .+ (.-g_sr.*stt.cos_ftp[tii] .+ b_sr.*stt.sin_ftp[tii]).*stt.vft[tii]
@@ -54,7 +54,7 @@ function acline_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad
         @turbo stt.acline_qto[tii] .= stt.u_on_acline[tii].*stt.qto[tii]
     
         # apparent power flow -- to -> from
-        @turbo stt.acline_sto[tii] .= quasiGrad.LoopVectorization.sqrt_fast.(quasiGrad.LoopVectorization.pow_fast.(stt.acline_pto[tii],2) .+ quasiGrad.LoopVectorization.pow_fast.(stt.acline_qto[tii],2))
+        @turbo stt.acline_sto[tii] .= QuasiGrad.LoopVectorization.sqrt_fast.(QuasiGrad.LoopVectorization.pow_fast.(stt.acline_pto[tii],2) .+ QuasiGrad.LoopVectorization.pow_fast.(stt.acline_qto[tii],2))
         
         # penalty functions and scores
         @turbo stt.acline_sfr_plus[tii] .= stt.acline_sfr[tii] .- prm.acline.mva_ub_nom
@@ -130,7 +130,7 @@ function acline_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad
                 # softabs
                 @fastmath @inbounds @simd for ln in 1:sys.nl
                     if (stt.acline_sfr_plus[tii][ln] > 0.0) && (stt.acline_sfr_plus[tii][ln] > stt.acline_sto_plus[tii][ln])
-                        scale_fr                          = dt*qG.acflow_grad_weight*quasiGrad.soft_abs_acflow_grad(stt.acline_sfr_plus[tii][ln], qG)
+                        scale_fr                          = dt*qG.acflow_grad_weight*QuasiGrad.soft_abs_acflow_grad(stt.acline_sfr_plus[tii][ln], qG)
                         grd.zs_acline.acline_pfr[tii][ln] = scale_fr*stt.acline_pfr[tii][ln]/stt.acline_sfr[tii][ln]
                         grd.zs_acline.acline_qfr[tii][ln] = scale_fr*stt.acline_qfr[tii][ln]/stt.acline_sfr[tii][ln]
                         grd.zs_acline.acline_pto[tii][ln] = 0.0
@@ -138,7 +138,7 @@ function acline_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad
                     elseif (stt.acline_sto_plus[tii][ln] > 0.0) && (stt.acline_sto_plus[tii][ln] > stt.acline_sfr_plus[tii][ln])
                         grd.zs_acline.acline_pfr[tii][ln] = 0.0
                         grd.zs_acline.acline_qfr[tii][ln] = 0.0
-                        scale_to                          = dt*qG.acflow_grad_weight*quasiGrad.soft_abs_acflow_grad(stt.acline_sto_plus[tii][ln], qG)
+                        scale_to                          = dt*qG.acflow_grad_weight*QuasiGrad.soft_abs_acflow_grad(stt.acline_sto_plus[tii][ln], qG)
                         grd.zs_acline.acline_pto[tii][ln] = scale_to*stt.acline_pto[tii][ln]/stt.acline_sto[tii][ln]
                         grd.zs_acline.acline_qto[tii][ln] = scale_to*stt.acline_qto[tii][ln]/stt.acline_sto[tii][ln]
                     else 
@@ -174,7 +174,7 @@ function acline_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad
 end
 
 # xfm line flows
-function xfm_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function xfm_flows!(grd::QuasiGrad.Grad, idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System)
     g_sr = prm.xfm.g_sr
     b_sr = prm.xfm.b_sr
     b_ch = prm.xfm.b_ch
@@ -205,15 +205,15 @@ function xfm_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Pa
         stt.va_to_x[tii] .= @view stt.va[tii][idx.xfm_to_bus]
         
         # tools
-        @turbo stt.cos_ftp_x[tii]  .= quasiGrad.LoopVectorization.cos_fast.(stt.va_fr_x[tii] .- stt.va_to_x[tii] .- phi)
-        @turbo stt.sin_ftp_x[tii]  .= quasiGrad.LoopVectorization.sin_fast.(stt.va_fr_x[tii] .- stt.va_to_x[tii] .- phi)
-        @turbo stt.vff_x[tii]      .= quasiGrad.LoopVectorization.pow_fast.(stt.vm_fr_x[tii],2)
-        @turbo stt.vtt_x[tii]      .= quasiGrad.LoopVectorization.pow_fast.(stt.vm_to_x[tii],2)
+        @turbo stt.cos_ftp_x[tii]  .= QuasiGrad.LoopVectorization.cos_fast.(stt.va_fr_x[tii] .- stt.va_to_x[tii] .- phi)
+        @turbo stt.sin_ftp_x[tii]  .= QuasiGrad.LoopVectorization.sin_fast.(stt.va_fr_x[tii] .- stt.va_to_x[tii] .- phi)
+        @turbo stt.vff_x[tii]      .= QuasiGrad.LoopVectorization.pow_fast.(stt.vm_fr_x[tii],2)
+        @turbo stt.vtt_x[tii]      .= QuasiGrad.LoopVectorization.pow_fast.(stt.vm_to_x[tii],2)
         @turbo stt.vft_x[tii]      .= stt.vm_fr_x[tii].*stt.vm_to_x[tii]
         @turbo stt.vt_tau_x[tii]   .= stt.vm_to_x[tii]./tau
         @turbo stt.vf_tau_x[tii]   .= stt.vm_fr_x[tii]./tau
         @turbo stt.vf_tau2_x[tii]  .= stt.vf_tau_x[tii]./tau
-        @turbo stt.vff_tau2_x[tii] .= stt.vff_x[tii]./quasiGrad.LoopVectorization.pow_fast.(tau,2)
+        @turbo stt.vff_tau2_x[tii] .= stt.vff_x[tii]./QuasiGrad.LoopVectorization.pow_fast.(tau,2)
         @turbo stt.vft_tau_x[tii]  .= stt.vft_x[tii]./tau
         @turbo stt.vft_tau2_x[tii] .= stt.vft_tau_x[tii]./tau
         @turbo stt.vff_tau3_x[tii] .= stt.vff_tau2_x[tii]./tau
@@ -229,7 +229,7 @@ function xfm_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Pa
         @turbo stt.xfm_qfr[tii] .= u_on_xfm.*stt.qfr_x[tii]
         
         # apparent power flow -- from -> to
-        @turbo stt.xfm_sfr[tii] .= quasiGrad.LoopVectorization.sqrt_fast.(quasiGrad.LoopVectorization.pow_fast.(stt.xfm_pfr[tii],2) .+ quasiGrad.LoopVectorization.pow_fast.(stt.xfm_qfr[tii],2))
+        @turbo stt.xfm_sfr[tii] .= QuasiGrad.LoopVectorization.sqrt_fast.(QuasiGrad.LoopVectorization.pow_fast.(stt.xfm_pfr[tii],2) .+ QuasiGrad.LoopVectorization.pow_fast.(stt.xfm_qfr[tii],2))
         
         # active power flow -- to -> from
         @turbo stt.pto_x[tii] .= (g_sr.+g_to).*stt.vtt_x[tii] .+ (.-g_sr.*stt.cos_ftp_x[tii] .+ b_sr.*stt.sin_ftp_x[tii]).*stt.vft_tau_x[tii]
@@ -240,7 +240,7 @@ function xfm_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Pa
         @turbo stt.xfm_qto[tii] .= u_on_xfm.*stt.qto_x[tii]
         
         # apparent power flow -- to -> from
-        @turbo stt.xfm_sto[tii] .= quasiGrad.LoopVectorization.sqrt_fast.(quasiGrad.LoopVectorization.pow_fast.(stt.xfm_pto[tii],2) .+ quasiGrad.LoopVectorization.pow_fast.(stt.xfm_qto[tii],2))
+        @turbo stt.xfm_sto[tii] .= QuasiGrad.LoopVectorization.sqrt_fast.(QuasiGrad.LoopVectorization.pow_fast.(stt.xfm_pto[tii],2) .+ QuasiGrad.LoopVectorization.pow_fast.(stt.xfm_qto[tii],2))
         
         # penalty functions and scores
         @turbo stt.xfm_sfr_plus[tii]  .= stt.xfm_sfr[tii] .- prm.xfm.mva_ub_nom
@@ -326,7 +326,7 @@ function xfm_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Pa
                 # softabs
                 @fastmath @inbounds @simd for xfm in 1:sys.nx
                     if (stt.xfm_sfr_plus[tii][xfm] > 0.0) && (stt.xfm_sfr_plus[tii][xfm] > stt.xfm_sto_plus[tii][xfm])
-                        scale_fr                     = dt*qG.acflow_grad_weight*quasiGrad.soft_abs_acflow_grad(stt.xfm_sfr_plus[tii][xfm], qG)
+                        scale_fr                     = dt*qG.acflow_grad_weight*QuasiGrad.soft_abs_acflow_grad(stt.xfm_sfr_plus[tii][xfm], qG)
                         grd.zs_xfm.xfm_pfr[tii][xfm] = scale_fr*stt.xfm_pfr[tii][xfm]./stt.xfm_sfr[tii][xfm]
                         grd.zs_xfm.xfm_qfr[tii][xfm] = scale_fr*stt.xfm_qfr[tii][xfm]./stt.xfm_sfr[tii][xfm]
                         grd.zs_xfm.xfm_pto[tii][xfm] = 0.0
@@ -334,7 +334,7 @@ function xfm_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Pa
                     elseif (stt.xfm_sto_plus[tii][xfm] > 0.0) && (stt.xfm_sto_plus[tii][xfm] > stt.xfm_sfr_plus[tii][xfm])
                         grd.zs_xfm.xfm_pfr[tii][xfm] = 0.0
                         grd.zs_xfm.xfm_qfr[tii][xfm] = 0.0
-                        scale_to                     = dt*qG.acflow_grad_weight*quasiGrad.soft_abs_acflow_grad(stt.xfm_sto_plus[tii][xfm], qG)
+                        scale_to                     = dt*qG.acflow_grad_weight*QuasiGrad.soft_abs_acflow_grad(stt.xfm_sto_plus[tii][xfm], qG)
                         grd.zs_xfm.xfm_pto[tii][xfm] = scale_to*stt.xfm_pto[tii][xfm]./stt.xfm_sto[tii][xfm]
                         grd.zs_xfm.xfm_qto[tii][xfm] = scale_to*stt.xfm_qto[tii][xfm]./stt.xfm_sto[tii][xfm]
                     else
@@ -370,7 +370,7 @@ function xfm_flows!(grd::quasiGrad.Grad, idx::quasiGrad.Index, prm::quasiGrad.Pa
 end
 
 # acline -- just the flows
-function update_acline_sfr_flows!(idx::quasiGrad.Index, prm::quasiGrad.Param, stt::quasiGrad.State, tii::Int8)
+function update_acline_sfr_flows!(idx::QuasiGrad.Index, prm::QuasiGrad.Param, stt::QuasiGrad.State, tii::Int8)
     # line parameters
     g_sr = prm.acline.g_sr
     b_sr = prm.acline.b_sr
@@ -386,10 +386,10 @@ function update_acline_sfr_flows!(idx::quasiGrad.Index, prm::quasiGrad.Param, st
     stt.va_to[tii] .= @view stt.va[tii][idx.acline_to_bus]
     
     # tools
-    @turbo stt.cos_ftp[tii] .= quasiGrad.LoopVectorization.cos_fast.(stt.va_fr[tii] .- stt.va_to[tii])
-    @turbo stt.sin_ftp[tii] .= quasiGrad.LoopVectorization.sin_fast.(stt.va_fr[tii] .- stt.va_to[tii])
-    @turbo stt.vff[tii]     .= quasiGrad.LoopVectorization.pow_fast.(stt.vm_fr[tii],2)
-    @turbo stt.vtt[tii]     .= quasiGrad.LoopVectorization.pow_fast.(stt.vm_to[tii],2) 
+    @turbo stt.cos_ftp[tii] .= QuasiGrad.LoopVectorization.cos_fast.(stt.va_fr[tii] .- stt.va_to[tii])
+    @turbo stt.sin_ftp[tii] .= QuasiGrad.LoopVectorization.sin_fast.(stt.va_fr[tii] .- stt.va_to[tii])
+    @turbo stt.vff[tii]     .= QuasiGrad.LoopVectorization.pow_fast.(stt.vm_fr[tii],2)
+    @turbo stt.vtt[tii]     .= QuasiGrad.LoopVectorization.pow_fast.(stt.vm_to[tii],2) 
     @turbo stt.vft[tii]     .= stt.vm_fr[tii].*stt.vm_to[tii]
     
     # evaluate the function? we always need to in order to get the grd
@@ -403,11 +403,11 @@ function update_acline_sfr_flows!(idx::quasiGrad.Index, prm::quasiGrad.Param, st
     @turbo stt.acline_qfr[tii] .= stt.u_on_acline[tii].*stt.qfr[tii]
     
     # apparent power flow -- to -> from
-    @turbo stt.acline_sfr[tii] .= quasiGrad.LoopVectorization.sqrt_fast.(quasiGrad.LoopVectorization.pow_fast.(stt.acline_pfr[tii],2) .+ quasiGrad.LoopVectorization.pow_fast.(stt.acline_qfr[tii],2))
+    @turbo stt.acline_sfr[tii] .= QuasiGrad.LoopVectorization.sqrt_fast.(QuasiGrad.LoopVectorization.pow_fast.(stt.acline_pfr[tii],2) .+ QuasiGrad.LoopVectorization.pow_fast.(stt.acline_qfr[tii],2))
 end
 
 # xfm line flows
-function update_xfm_sfr_flows!(idx::quasiGrad.Index, prm::quasiGrad.Param, stt::quasiGrad.State, tii::Int8)
+function update_xfm_sfr_flows!(idx::QuasiGrad.Index, prm::QuasiGrad.Param, stt::QuasiGrad.State, tii::Int8)
     g_sr = prm.xfm.g_sr
     b_sr = prm.xfm.b_sr
     b_ch = prm.xfm.b_ch
@@ -428,15 +428,15 @@ function update_xfm_sfr_flows!(idx::quasiGrad.Index, prm::quasiGrad.Param, stt::
     stt.va_to_x[tii] .= stt.va[tii][idx.xfm_to_bus]
     
     # tools
-    @turbo stt.cos_ftp_x[tii]  .= quasiGrad.LoopVectorization.cos_fast.(stt.va_fr_x[tii] .- stt.va_to_x[tii] .- phi)
-    @turbo stt.sin_ftp_x[tii]  .= quasiGrad.LoopVectorization.sin_fast.(stt.va_fr_x[tii] .- stt.va_to_x[tii] .- phi)
-    @turbo stt.vff_x[tii]      .= quasiGrad.LoopVectorization.pow_fast.(stt.vm_fr_x[tii],2)
-    @turbo stt.vtt_x[tii]      .= quasiGrad.LoopVectorization.pow_fast.(stt.vm_to_x[tii],2)
+    @turbo stt.cos_ftp_x[tii]  .= QuasiGrad.LoopVectorization.cos_fast.(stt.va_fr_x[tii] .- stt.va_to_x[tii] .- phi)
+    @turbo stt.sin_ftp_x[tii]  .= QuasiGrad.LoopVectorization.sin_fast.(stt.va_fr_x[tii] .- stt.va_to_x[tii] .- phi)
+    @turbo stt.vff_x[tii]      .= QuasiGrad.LoopVectorization.pow_fast.(stt.vm_fr_x[tii],2)
+    @turbo stt.vtt_x[tii]      .= QuasiGrad.LoopVectorization.pow_fast.(stt.vm_to_x[tii],2)
     @turbo stt.vft_x[tii]      .= stt.vm_fr_x[tii].*stt.vm_to_x[tii]
     @turbo stt.vt_tau_x[tii]   .= stt.vm_to_x[tii]./tau
     @turbo stt.vf_tau_x[tii]   .= stt.vm_fr_x[tii]./tau
     @turbo stt.vf_tau2_x[tii]  .= stt.vf_tau_x[tii]./tau
-    @turbo stt.vff_tau2_x[tii] .= stt.vff_x[tii]./quasiGrad.LoopVectorization.pow_fast.(tau,2)
+    @turbo stt.vff_tau2_x[tii] .= stt.vff_x[tii]./QuasiGrad.LoopVectorization.pow_fast.(tau,2)
     @turbo stt.vft_tau_x[tii]  .= stt.vft_x[tii]./tau
     @turbo stt.vft_tau2_x[tii] .= stt.vft_tau_x[tii]./tau
     @turbo stt.vff_tau3_x[tii] .= stt.vff_tau2_x[tii]./tau
@@ -452,5 +452,5 @@ function update_xfm_sfr_flows!(idx::quasiGrad.Index, prm::quasiGrad.Param, stt::
     @turbo stt.xfm_qfr[tii] .= u_on_xfm.*stt.qfr_x[tii]
     
     # apparent power flow -- from -> to
-    @turbo stt.xfm_sfr[tii] .= quasiGrad.LoopVectorization.sqrt_fast.(quasiGrad.LoopVectorization.pow_fast.(stt.xfm_pfr[tii],2) .+ quasiGrad.LoopVectorization.pow_fast.(stt.xfm_qfr[tii],2))
+    @turbo stt.xfm_sfr[tii] .= QuasiGrad.LoopVectorization.sqrt_fast.(QuasiGrad.LoopVectorization.pow_fast.(stt.xfm_pfr[tii],2) .+ QuasiGrad.LoopVectorization.pow_fast.(stt.xfm_qfr[tii],2))
 end

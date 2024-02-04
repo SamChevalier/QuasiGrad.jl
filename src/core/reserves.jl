@@ -1,4 +1,4 @@
-function reserve_balance!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function reserve_balance!(idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System)
     # for the "endogenous" reserve requirements
     rgu_sigma = prm.reserve.rgu_sigma
     rgd_sigma = prm.reserve.rgd_sigma 
@@ -29,7 +29,7 @@ function reserve_balance!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiG
                 stt.p_rgu_zonal_REQ[tii][zone] = 0.0
                 stt.p_rgd_zonal_REQ[tii][zone] = 0.0
             else
-                psum = quasiGrad.sum_power(idx, stt, tii, zone) 
+                psum = QuasiGrad.sum_power(idx, stt, tii, zone) 
                 stt.p_rgu_zonal_REQ[tii][zone] = rgu_sigma[zone]*psum
                 stt.p_rgd_zonal_REQ[tii][zone] = rgd_sigma[zone]*psum
             end
@@ -40,7 +40,7 @@ function reserve_balance!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiG
                 stt.p_scr_zonal_REQ[tii][zone] = 0.0
                 stt.p_nsc_zonal_REQ[tii][zone] = 0.0
             else
-                pmax = quasiGrad.max_power(idx, stt, tii, zone) 
+                pmax = QuasiGrad.max_power(idx, stt, tii, zone) 
                 stt.p_scr_zonal_REQ[tii][zone] = scr_sigma[zone]*pmax
                 stt.p_nsc_zonal_REQ[tii][zone] = nsc_sigma[zone]*pmax
             end
@@ -88,51 +88,51 @@ function reserve_balance!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiG
 end
 
 # functions for using polyester, which has a hard time with internal for loops of this sort
-function sum_power(idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8, zone::Int64) 
+function sum_power(idx::QuasiGrad.Index, stt::QuasiGrad.State, tii::Int8, zone::Int64) 
     return sum(stt.dev_p[tii][dev] for dev in idx.cs_pzone[zone]; init=0.0)
 end
 
-function max_power(idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8, zone::Int64) 
+function max_power(idx::QuasiGrad.Index, stt::QuasiGrad.State, tii::Int8, zone::Int64) 
     return maximum(stt.dev_p[tii][dev] for dev in idx.pr_pzone[zone])
 end
 
-function sum_p_rgu(idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8, zone::Int64)
+function sum_p_rgu(idx::QuasiGrad.Index, stt::QuasiGrad.State, tii::Int8, zone::Int64)
     return sum(stt.p_rgu[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0)
 end
 
-function sum_p_rgd(idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8, zone::Int64)
+function sum_p_rgd(idx::QuasiGrad.Index, stt::QuasiGrad.State, tii::Int8, zone::Int64)
     return sum(stt.p_rgd[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0)
 end
 
-function sum_p_scr(idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8, zone::Int64)
+function sum_p_scr(idx::QuasiGrad.Index, stt::QuasiGrad.State, tii::Int8, zone::Int64)
     return sum(stt.p_scr[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0)
 end
 
-function sum_p_nsc(idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8, zone::Int64)
+function sum_p_nsc(idx::QuasiGrad.Index, stt::QuasiGrad.State, tii::Int8, zone::Int64)
     return sum(stt.p_nsc[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0)
 end
 
-function sum_p_rru_on(idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8, zone::Int64)
+function sum_p_rru_on(idx::QuasiGrad.Index, stt::QuasiGrad.State, tii::Int8, zone::Int64)
     return sum(stt.p_rru_on[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0)
 end
 
-function sum_p_rru_off(idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8, zone::Int64)
+function sum_p_rru_off(idx::QuasiGrad.Index, stt::QuasiGrad.State, tii::Int8, zone::Int64)
     return sum(stt.p_rru_off[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0)
 end
 
-function sum_p_rrd_on(idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8, zone::Int64)
+function sum_p_rrd_on(idx::QuasiGrad.Index, stt::QuasiGrad.State, tii::Int8, zone::Int64)
     return sum(stt.p_rrd_on[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0)
 end
 
-function sum_p_rrd_off(idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8, zone::Int64)
+function sum_p_rrd_off(idx::QuasiGrad.Index, stt::QuasiGrad.State, tii::Int8, zone::Int64)
     return sum(stt.p_rrd_off[tii][dev] for dev in idx.dev_pzone[zone]; init=0.0)
 end
 
-function sum_q_qru(idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8, zone::Int64)
+function sum_q_qru(idx::QuasiGrad.Index, stt::QuasiGrad.State, tii::Int8, zone::Int64)
     return sum(stt.q_qru[tii][dev] for dev in idx.dev_qzone[zone]; init=0.0)
 end
 
-function sum_q_qrd(idx::quasiGrad.Index, stt::quasiGrad.State, tii::Int8, zone::Int64)
+function sum_q_qrd(idx::QuasiGrad.Index, stt::QuasiGrad.State, tii::Int8, zone::Int64)
     return sum(stt.q_qrd[tii][dev] for dev in idx.dev_qzone[zone]; init=0.0)
 end
 

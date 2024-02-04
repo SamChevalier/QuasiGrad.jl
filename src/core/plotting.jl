@@ -1,20 +1,20 @@
 function run_adam_with_plotting!(
-    adm::quasiGrad.Adam,
-    ax::quasiGrad.Makie.Axis,
-    cgd::quasiGrad.ConstantGrad,
-    ctg::quasiGrad.Contingency,
-    fig::quasiGrad.Makie.Figure,
-    flw::quasiGrad.Flow,
-    grd::quasiGrad.Grad,
-    idx::quasiGrad.Index,
-    mgd::quasiGrad.MasterGrad,
-    ntk::quasiGrad.Network,
+    adm::QuasiGrad.Adam,
+    ax::QuasiGrad.Makie.Axis,
+    cgd::QuasiGrad.ConstantGrad,
+    ctg::QuasiGrad.Contingency,
+    fig::QuasiGrad.Makie.Figure,
+    flw::QuasiGrad.Flow,
+    grd::QuasiGrad.Grad,
+    idx::QuasiGrad.Index,
+    mgd::QuasiGrad.MasterGrad,
+    ntk::QuasiGrad.Network,
     plt::Dict{Symbol, Integer},
-    prm::quasiGrad.Param,
-    qG::quasiGrad.QG, 
+    prm::QuasiGrad.Param,
+    qG::QuasiGrad.QG, 
     scr::Dict{Symbol, Float64},
-    stt::quasiGrad.State, 
-    sys::quasiGrad.System,
+    stt::QuasiGrad.State, 
+    sys::QuasiGrad.System,
     upd::Dict{Symbol, Vector{Vector{Int64}}},
     z_plt::Dict{Symbol, Dict{Symbol, Float64}})
 
@@ -29,12 +29,12 @@ function run_adam_with_plotting!(
     @info "Running adam for $(qG.adam_max_time) seconds!"
 
     # flush adam at each restart ?
-    quasiGrad.flush_adam!(adm, flw, prm, upd)
+    QuasiGrad.flush_adam!(adm, flw, prm, upd)
 
     # add Gurobi Projection line?
     if !plt[:first_plot]
         # add a dark vertical line
-        quasiGrad.Makie.lines!(ax, [plt[:global_adm_step], plt[:global_adm_step]], [-20, 20], color = :black, linestyle = :dot, linewidth = 3.0)
+        QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step], plt[:global_adm_step]], [-20, 20], color = :black, linestyle = :dot, linewidth = 3.0)
     end
 
     # start the timer!
@@ -48,7 +48,7 @@ function run_adam_with_plotting!(
 
         # step decay
         if qG.decay_adam_step == true
-            quasiGrad.adam_step_decay!(qG, time(), adam_start, adam_start+qG.adam_max_time)
+            QuasiGrad.adam_step_decay!(qG, time(), adam_start, adam_start+qG.adam_max_time)
         end
 
         # decay beta and pre-compute
@@ -59,61 +59,61 @@ function run_adam_with_plotting!(
 
         # update weight parameters?
         if qG.apply_grad_weight_homotopy == true
-            quasiGrad.update_penalties!(prm, qG, time(), adam_start, adam_start+qG.adam_max_time)
+            QuasiGrad.update_penalties!(prm, qG, time(), adam_start, adam_start+qG.adam_max_time)
         end
 
         # compute all states and grads
-        quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+        QuasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
 
         # take an adam step
-        quasiGrad.simple_adam!(adm, mgd, prm, qG, stt, upd)
-        # 2. quasiGrad.adam_dp!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
-        # 3. quasiGrad.adam_dp_sqrt!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+        QuasiGrad.simple_adam!(adm, mgd, prm, qG, stt, upd)
+        # 2. QuasiGrad.adam_dp!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+        # 3. QuasiGrad.adam_dp_sqrt!(adm, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
         
         GC.safepoint()
         # experiments!
-            # => quasiGrad.adaGrad!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
-            # => quasiGrad.the_quasiGrad!(adm, mgd, prm, qG, stt, upd)
-            # => quasiGrad.adam_with_ls!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd, cgd, ctb, ctd, flw, grd, idx, ntk, scr, sys, wct)
+            # => QuasiGrad.adaGrad!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd)
+            # => QuasiGrad.the_quasiGrad!(adm, mgd, prm, qG, stt, upd)
+            # => QuasiGrad.adam_with_ls!(adm, alpha, beta1, beta2, beta1_decay, beta2_decay, mgd, prm, qG, stt, upd, cgd, ctb, ctd, flw, grd, idx, ntk, scr, sys, wct)
 
-        quasiGrad.update_plot!(ax, fig, plt, qG, scr, z_plt)
+        QuasiGrad.update_plot!(ax, fig, plt, qG, scr, z_plt)
         display(fig)
 
         # stop?
-        run_adam = quasiGrad.adam_termination(adam_start, qG, run_adam)
+        run_adam = QuasiGrad.adam_termination(adam_start, qG, run_adam)
     end
 
     # one last clip + state computation -- no grad needed!
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    QuasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     qG.eval_grad = true
 end
 
 # initialize the plot
 function initialize_plot(
-    cgd::quasiGrad.ConstantGrad, 
-    ctg::quasiGrad.Contingency,
-    flw::quasiGrad.Flow, 
-    grd::quasiGrad.Grad, 
-    idx::quasiGrad.Index, 
-    mgd::quasiGrad.MasterGrad, 
-    ntk::quasiGrad.Network,
+    cgd::QuasiGrad.ConstantGrad, 
+    ctg::QuasiGrad.Contingency,
+    flw::QuasiGrad.Flow, 
+    grd::QuasiGrad.Grad, 
+    idx::QuasiGrad.Index, 
+    mgd::QuasiGrad.MasterGrad, 
+    ntk::QuasiGrad.Network,
     plt::Dict{Symbol, Integer}, 
-    prm::quasiGrad.Param, 
-    qG::quasiGrad.QG, 
+    prm::QuasiGrad.Param, 
+    qG::QuasiGrad.QG, 
     scr::Dict{Symbol, Float64}, 
-    stt::quasiGrad.State, 
-    sys::quasiGrad.System)
+    stt::QuasiGrad.State, 
+    sys::QuasiGrad.System)
     
     # first, make sure scores are updated!
     qG.eval_grad = false
-    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    QuasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     qG.eval_grad = true
 
     # now, initialize
-    fig = quasiGrad.Makie.Figure(resolution=(1200, 600), fontsize=18) 
-    ax  = quasiGrad.Makie.Axis(fig[1, 1], xlabel = "adam iteration", ylabel = "score values (z)", title = "quasiGrad")
-    quasiGrad.Makie.xlims!(ax, [1, plt[:N_its]])
+    fig = QuasiGrad.Makie.Figure(resolution=(1200, 600), fontsize=18) 
+    ax  = QuasiGrad.Makie.Axis(fig[1, 1], xlabel = "adam iteration", ylabel = "score values (z)", title = "QuasiGrad")
+    QuasiGrad.Makie.xlims!(ax, [1, plt[:N_its]])
 
     # set ylims -- this is tricky, since we use "1000" as zero, so the scale goes,
     # -10^4 -10^3 0 10^3 10^4...
@@ -125,7 +125,7 @@ function initialize_plot(
 
     # since "1000" is our reference -- see scaling function notes
     y_vec = collect((min_y_int):(max_y_int))
-    quasiGrad.Makie.ylims!(ax, [min_y, max_y])
+    QuasiGrad.Makie.ylims!(ax, [min_y, max_y])
     tick_name = String[]
     for yv in y_vec
         if yv == 0
@@ -178,7 +178,7 @@ function initialize_plot(
 end
 
 # update the plot
-function update_plot!(ax::quasiGrad.Makie.Axis, fig::quasiGrad.Makie.Figure, plt::Dict{Symbol, Integer}, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, z_plt::Dict{Symbol, Dict{Symbol, Float64}})
+function update_plot!(ax::QuasiGrad.Makie.Axis, fig::QuasiGrad.Makie.Figure, plt::Dict{Symbol, Integer}, qG::QuasiGrad.QG, scr::Dict{Symbol, Float64}, z_plt::Dict{Symbol, Dict{Symbol, Float64}})
     #
     # is this the first plot? if adm_step == 1, then we don't plot (just update)
     if qG.adm_step > 1 # !(plt[:first_plot] || adm_step == 1)
@@ -202,35 +202,35 @@ function update_plot!(ax::quasiGrad.Makie.Axis, fig::quasiGrad.Makie.Figure, plt
         # x-axis
         if plt[:global_adm_step] > plt[:N_its]
             plt[:N_its] = plt[:N_its] + 150
-            quasiGrad.Makie.xlims!(ax, [1, plt[:N_its]])
+            QuasiGrad.Makie.xlims!(ax, [1, plt[:N_its]])
         end
 
         # now, plot!
         #
         # add an economic dipatch upper bound
-        l0 = quasiGrad.Makie.lines!(ax, [0, 1e4], [log10(scr[:ed_obj]) - 3.0, log10(scr[:ed_obj]) - 3.0], color = :coral1, linestyle = :dash, linewidth = 5.0)
+        l0 = QuasiGrad.Makie.lines!(ax, [0, 1e4], [log10(scr[:ed_obj]) - 3.0, log10(scr[:ed_obj]) - 3.0], color = :coral1, linestyle = :dash, linewidth = 5.0)
 
-        l1  = quasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:zms],  z_plt[:now][:zms] ], color = :cornflowerblue, linewidth = 4.5)
-        l2  = quasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:pzms], z_plt[:now][:pzms]], color = :mediumblue,     linewidth = 3.0)
+        l1  = QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:zms],  z_plt[:now][:zms] ], color = :cornflowerblue, linewidth = 4.5)
+        l2  = QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:pzms], z_plt[:now][:pzms]], color = :mediumblue,     linewidth = 3.0)
 
-        l3  = quasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:zhat], z_plt[:now][:zhat]], color = :goldenrod1, linewidth = 2.0)
+        l3  = QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:zhat], z_plt[:now][:zhat]], color = :goldenrod1, linewidth = 2.0)
 
-        l4  = quasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:ctg] , z_plt[:now][:ctg] ], color = :lightslateblue)
+        l4  = QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:ctg] , z_plt[:now][:ctg] ], color = :lightslateblue)
 
-        l5  = quasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:zp]  , z_plt[:now][:zp]  ], color = :firebrick, linewidth = 3.5)
-        l6  = quasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:zq]  , z_plt[:now][:zq]  ], color = :salmon1,   linewidth = 2.0)
+        l5  = QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:zp]  , z_plt[:now][:zp]  ], color = :firebrick, linewidth = 3.5)
+        l6  = QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:zq]  , z_plt[:now][:zq]  ], color = :salmon1,   linewidth = 2.0)
 
-        l7  = quasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:acl] , z_plt[:now][:acl] ], color = :darkorange1, linewidth = 3.5)
-        l8  = quasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:xfm] , z_plt[:now][:xfm] ], color = :orangered1,  linewidth = 2.0)
+        l7  = QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:acl] , z_plt[:now][:acl] ], color = :darkorange1, linewidth = 3.5)
+        l8  = QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:xfm] , z_plt[:now][:xfm] ], color = :orangered1,  linewidth = 2.0)
         
-        l9  = quasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:zoud], z_plt[:now][:zoud]], color = :grey95, linewidth = 3.5, linestyle = :solid)
-        l10 = quasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:zone], z_plt[:now][:zone]], color = :gray89, linewidth = 3.0, linestyle = :dot)
-        l11 = quasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:rsv] , z_plt[:now][:rsv] ], color = :gray75, linewidth = 2.5, linestyle = :dash)
-        l12 = quasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:emnx], z_plt[:now][:emnx]], color = :grey38, linewidth = 2.0, linestyle = :dashdot)
-        l13 = quasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:zsus], z_plt[:now][:zsus]], color = :grey0,  linewidth = 1.5, linestyle = :dashdotdot)
+        l9  = QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:zoud], z_plt[:now][:zoud]], color = :grey95, linewidth = 3.5, linestyle = :solid)
+        l10 = QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:zone], z_plt[:now][:zone]], color = :gray89, linewidth = 3.0, linestyle = :dot)
+        l11 = QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:rsv] , z_plt[:now][:rsv] ], color = :gray75, linewidth = 2.5, linestyle = :dash)
+        l12 = QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:emnx], z_plt[:now][:emnx]], color = :grey38, linewidth = 2.0, linestyle = :dashdot)
+        l13 = QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:zsus], z_plt[:now][:zsus]], color = :grey0,  linewidth = 1.5, linestyle = :dashdotdot)
 
-        l14 = quasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:enpr], z_plt[:now][:enpr]], color = :forestgreen, linewidth = 3.5)
-        l15 = quasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:encs], z_plt[:now][:encs]], color = :darkgreen,   linewidth = 2.0)
+        l14 = QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:enpr], z_plt[:now][:enpr]], color = :forestgreen, linewidth = 3.5)
+        l15 = QuasiGrad.Makie.lines!(ax, [plt[:global_adm_step]-1.01, plt[:global_adm_step]], [z_plt[:prev][:encs], z_plt[:now][:encs]], color = :darkgreen,   linewidth = 2.0)
         
         if plt[:first_plot] == true  # this will occur only once
             plt[:first_plot] = false # toggle
@@ -255,7 +255,7 @@ function update_plot!(ax::quasiGrad.Makie.Axis, fig::quasiGrad.Makie.Figure, plt
                 :ed   => "economic dispatch (bound)")
 
             # build legend ==================
-            quasiGrad.Makie.Legend(fig[1, 2], [l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15],
+            QuasiGrad.Makie.Legend(fig[1, 2], [l0, l1, l2, l3, l4, l5, l6, l7, l8, l9, l10, l11, l12, l13, l14, l15],
                             [label[:ed],  label[:zms],  label[:pzms], label[:zhat], label[:ctg], label[:zp],   label[:zq],   label[:acl],
                              label[:xfm], label[:zoud], label[:zone], label[:rsv], label[:emnx], label[:zsus], label[:enpr], 
                              label[:encs]],

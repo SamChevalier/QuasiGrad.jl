@@ -13,22 +13,22 @@ end
 function parse_json(json_data::Dict{String, Any})
 
     # build the system struct
-    sys = quasiGrad.build_sys(json_data)
+    sys = QuasiGrad.build_sys(json_data)
 
     # parse the network elements
-    dc_prm      = quasiGrad.parse_json_dc(json_data)
-    ctg_prm     = quasiGrad.parse_json_ctg(json_data)
-    bus_prm     = quasiGrad.parse_json_bus(json_data)
-    xfm_prm     = quasiGrad.parse_json_xfm(json_data)
-    shunt_prm   = quasiGrad.parse_json_shunt(json_data)
-    acline_prm  = quasiGrad.parse_json_acline(json_data)
-    device_prm  = quasiGrad.parse_json_device(json_data)
+    dc_prm      = QuasiGrad.parse_json_dc(json_data)
+    ctg_prm     = QuasiGrad.parse_json_ctg(json_data)
+    bus_prm     = QuasiGrad.parse_json_bus(json_data)
+    xfm_prm     = QuasiGrad.parse_json_xfm(json_data)
+    shunt_prm   = QuasiGrad.parse_json_shunt(json_data)
+    acline_prm  = QuasiGrad.parse_json_acline(json_data)
+    device_prm  = QuasiGrad.parse_json_device(json_data)
 
     # parse violation, and then parse the reserve, which updates vio_prm
-    reserve_prm, vio_prm = quasiGrad.parse_json_reserve_and_vio(json_data)
+    reserve_prm, vio_prm = QuasiGrad.parse_json_reserve_and_vio(json_data)
 
     # read the time series data
-    ts_prm = quasiGrad.parse_json_timeseries(json_data)
+    ts_prm = QuasiGrad.parse_json_timeseries(json_data)
     
     # join the parameter dicts
     prm = Param(
@@ -44,7 +44,7 @@ function parse_json(json_data::Dict{String, Any})
             reserve_prm)
 
     # join the mappings into one idx
-    idx = quasiGrad.initialize_indices(prm, sys)
+    idx = QuasiGrad.initialize_indices(prm, sys)
 
     # output
     return prm, idx, sys
@@ -192,7 +192,7 @@ function parse_json_xfm(json_data::Dict)
 
     # get the xfm sets
     J_fwr = xfm_inds[isapprox.(tm_lb,tm_ub)]
-    J_fpd = xfm_inds[quasiGrad.Not(J_fwr)]
+    J_fpd = xfm_inds[QuasiGrad.Not(J_fwr)]
 
     # setup outputs
     xfm_param = Xfm(

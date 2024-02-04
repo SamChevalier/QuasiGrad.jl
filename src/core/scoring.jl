@@ -11,7 +11,7 @@ function score_zms!(scr::Dict{Symbol, Float64})
 end
 
 # print the total market surplus value
-function print_zms(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
+function print_zms(qG::QuasiGrad.QG, scr::Dict{Symbol, Float64})
     # print score ======
     scr[:cnt] += 1.0
     if (qG.print_zms == true) && mod(scr[:cnt],qG.print_freq) == 0
@@ -23,7 +23,7 @@ function print_zms(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
 end
 
 # print the total market surplus value
-function print_zms_adam_pf(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
+function print_zms_adam_pf(qG::QuasiGrad.QG, scr::Dict{Symbol, Float64})
     # print score ======
     scr[:cnt] += 1.0
     if (qG.print_zms == true) && mod(scr[:cnt],qG.print_freq) == 0
@@ -34,14 +34,14 @@ function print_zms_adam_pf(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
 end
 
 # compute zbase
-function score_zbase!(qG::quasiGrad.QG, scr::Dict{Symbol, Float64})
+function score_zbase!(qG::QuasiGrad.QG, scr::Dict{Symbol, Float64})
     # compute the market surplus function
     scr[:emnx]            = scr[:z_enmax]     + scr[:z_enmin]
     scr[:zbase]           = scr[:zt_original] + scr[:emnx]
     scr[:zbase_penalized] = scr[:zbase]       + scr[:zt_penalty] - qG.constraint_grad_weight*scr[:zhat_mxst]
 end
 
-function score_zt!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State)
+function score_zt!(idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, scr::Dict{Symbol, Float64}, stt::QuasiGrad.State)
     # update the base case variable zt
     #
     # note: zt = zt_original + zt_original -- otherwise, we make no distinction,
@@ -214,7 +214,7 @@ function score_zt!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG,
     end
 end
 
-function score_solve_pf!(lbf::quasiGrad.LBFGS, prm::quasiGrad.Param, stt::quasiGrad.State)
+function score_solve_pf!(lbf::QuasiGrad.LBFGS, prm::QuasiGrad.Param, stt::QuasiGrad.State)
     # all we want to track here is the power flow score
     #
     # note: these scores are positive, since we try to minimize them!!
@@ -236,50 +236,50 @@ function soft_abs(x::Float64, eps2::Float64)
 end
 
 # soft abs derviative -- constraints
-function soft_abs_constraint_grad(x::Float64, qG::quasiGrad.QG)
+function soft_abs_constraint_grad(x::Float64, qG::QuasiGrad.QG)
     # soft_abs(x)      = sqrt(x^2 + eps^2)
     # soft_abs_grad(x) = x/sqrt(x^2 + eps^2)
     #
     # usage: instead of c*sign(max(x,0)), use c*soft_abs_grad(max(x,0))
     # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
     if qG.constraint_grad_is_soft_abs
-        return x/(quasiGrad.LoopVectorization.sqrt_fast(quasiGrad.LoopVectorization.pow_fast(x,2) + qG.constraint_grad_eps2))
+        return x/(QuasiGrad.LoopVectorization.sqrt_fast(QuasiGrad.LoopVectorization.pow_fast(x,2) + qG.constraint_grad_eps2))
     else
         return sign(x)
     end
 end
 
 # soft abs derviative -- reserves
-function soft_abs_reserve_grad(x::Float64, qG::quasiGrad.QG)
+function soft_abs_reserve_grad(x::Float64, qG::QuasiGrad.QG)
     # soft_abs(x)      = sqrt(x^2 + eps^2)
     # soft_abs_grad(x) = x/sqrt(x^2 + eps^2)
     #
     # usage: instead of c*sign(max(x,0)), use c*soft_abs_grad(max(x,0))
     # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
-    return x/(quasiGrad.LoopVectorization.sqrt_fast(quasiGrad.LoopVectorization.pow_fast(x,2) + qG.reserve_grad_eps2))
+    return x/(QuasiGrad.LoopVectorization.sqrt_fast(QuasiGrad.LoopVectorization.pow_fast(x,2) + qG.reserve_grad_eps2))
 end
 
 # soft abs derviative -- acflow
-function soft_abs_acflow_grad(x::Float64, qG::quasiGrad.QG)
+function soft_abs_acflow_grad(x::Float64, qG::QuasiGrad.QG)
     # soft_abs(x)      = sqrt(x^2 + eps^2)
     # soft_abs_grad(x) = x/sqrt(x^2 + eps^2)
     #
     # usage: instead of c*sign(max(x,0)), use c*soft_abs_grad(max(x,0))
     # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
-    return x/(quasiGrad.LoopVectorization.sqrt_fast(quasiGrad.LoopVectorization.pow_fast(x,2) + qG.acflow_grad_eps2))
+    return x/(QuasiGrad.LoopVectorization.sqrt_fast(QuasiGrad.LoopVectorization.pow_fast(x,2) + qG.acflow_grad_eps2))
 end
 
 # soft abs derviative -- ctg
-function soft_abs_ctg_grad(x::Float64, qG::quasiGrad.QG)
+function soft_abs_ctg_grad(x::Float64, qG::QuasiGrad.QG)
     # soft_abs(x)      = sqrt(x^2 + eps^2)
     # soft_abs_grad(x) = x/sqrt(x^2 + eps^2)
     #
     # usage: instead of c*sign(max(x,0)), use c*soft_abs_grad(max(x,0))
     # usage: instead of c*abs(x), use c*soft_abs_grad(x,0)
-    return x/(quasiGrad.LoopVectorization.sqrt_fast(quasiGrad.LoopVectorization.pow_fast(x,2) + qG.ctg_grad_eps2))
+    return x/(QuasiGrad.LoopVectorization.sqrt_fast(QuasiGrad.LoopVectorization.pow_fast(x,2) + qG.ctg_grad_eps2))
 end
 
-function print_penalty_breakdown(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State)
+function print_penalty_breakdown(idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, scr::Dict{Symbol, Float64}, stt::QuasiGrad.State)
     println("")
     println("")
     println("=== === Scoring Report (**run after post-process routine**) === === ")

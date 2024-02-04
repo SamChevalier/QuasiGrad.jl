@@ -3,7 +3,7 @@ function hello()
     println("hello jack!")
 end
 
-function initialize_qG(prm::quasiGrad.Param; Div::Int64=1, hpc_params::Bool=false)
+function initialize_qG(prm::QuasiGrad.Param; Div::Int64=1, hpc_params::Bool=false)
     # In this function, we hardcode a number of important parameters
     # and intructions related to how the qG solver will operate. 
     # It also contains all of the adam solver parameters!
@@ -696,7 +696,7 @@ function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::B
 
     # shall we randomly perutb the states?
     if perturb_states == true
-        quasiGrad.Random.seed!(1)
+        QuasiGrad.Random.seed!(1)
         @info "applying perturbation of size $pert_size with random device binaries"
         perturb_states!(pert_size, prm, stt, sys)
 
@@ -712,7 +712,7 @@ function base_initialization(jsn::Dict{String, Any}; Div::Int64=1, hpc_params::B
     return adm, cgd, ctg, flw, grd, idx, lbf, mgd, ntk, prm, qG, scr, stt, sys, upd
 end
 
-function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
+function initialize_indices(prm::QuasiGrad.Param, sys::QuasiGrad.System)
     # define the flow indices (used to update a flow vector)
     ac_line_flows    = collect(1:sys.nl)
     ac_xfm_flows     = collect((sys.nl + 1):(sys.nac))
@@ -903,7 +903,7 @@ function initialize_indices(prm::quasiGrad.Param, sys::quasiGrad.System)
     return  idx
 end
 
-function initialize_states(idx::quasiGrad.Index, prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.QG)
+function initialize_states(idx::QuasiGrad.Index, prm::QuasiGrad.Param, sys::QuasiGrad.System, qG::QuasiGrad.QG)
     
     # build stt
     stt = build_state(prm, sys, qG)
@@ -954,7 +954,7 @@ function initialize_states(idx::quasiGrad.Index, prm::quasiGrad.Param, sys::quas
     return cgd, grd, mgd, scr, stt
 end
 
-function identify_update_states(prm::quasiGrad.Param, idx::quasiGrad.Index, stt::quasiGrad.State, sys::quasiGrad.System)
+function identify_update_states(prm::QuasiGrad.Param, idx::QuasiGrad.Index, stt::QuasiGrad.State, sys::QuasiGrad.System)
     # in this function, we will handle five types of fixed variables:
     #   1. must run binaries
     #   2. planned outage binaries and their powers
@@ -1104,7 +1104,7 @@ function join_params(ts_prm::Dict, dc_prm::Dict, ctg_prm::Dict, bus_prm::Dict, x
 end
 
 # build everything that will be needed to solve ctgs
-function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiGrad.Param, qG::quasiGrad.QG, idx::quasiGrad.Index)
+function initialize_ctg(stt::QuasiGrad.State, sys::QuasiGrad.System, prm::QuasiGrad.Param, qG::QuasiGrad.QG, idx::QuasiGrad.Index)
     # note, the reference bus is always bus #1
     #
     # first, get the ctg limits
@@ -1122,7 +1122,7 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     ErT = copy(Er')
 
     # get the diagonal admittance matrix   => Ybs == "b susceptance"
-    Ybs = quasiGrad.spdiagm(ac_b_params)
+    Ybs = QuasiGrad.spdiagm(ac_b_params)
     Yb  = E'*Ybs*E
     Ybr = Yb[2:end,2:end]  # use @view ? 
 
@@ -1133,7 +1133,7 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     # will be the full Chol-decomp -- not a big deal, I guess..
     #
     # time is short -- let's jsut always use ldl preconditioner -- it's just as fast
-    Ybr_ChPr = quasiGrad.Preconditioners.lldl(Ybr, memory = qG.cutoff_level);
+    Ybr_ChPr = QuasiGrad.Preconditioners.lldl(Ybr, memory = qG.cutoff_level);
 
     # warn, if too few buses
     if sys.nb <= qG.min_buses_for_krylov
@@ -1146,9 +1146,9 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     # solutions of the rank-1 update matrices
     if minimum(ac_b_params) < 0.0
         @info "Yb not PSd -- using ldlt (instead of cholesky) to construct WMI update vectors."
-        Ybr_Ch = quasiGrad.ldlt(Ybr)
+        Ybr_Ch = QuasiGrad.ldlt(Ybr)
     else
-        Ybr_Ch = quasiGrad.cholesky(Ybr)
+        Ybr_Ch = QuasiGrad.cholesky(Ybr)
     end
 
     # get the flow matrix
@@ -1165,10 +1165,10 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     
     # should we build the full ctg matrices?
     if qG.build_ctg_full == true
-        Ybr_k = Dict(ctg_ii => quasiGrad.spzeros(sys.nac,sys.nac) for ctg_ii in 1:sys.nctg)
+        Ybr_k = Dict(ctg_ii => QuasiGrad.spzeros(sys.nac,sys.nac) for ctg_ii in 1:sys.nctg)
     else
         # build something small of the correct data type
-        Ybr_k = Dict(1 => quasiGrad.spzeros(1,1))
+        Ybr_k = Dict(1 => QuasiGrad.spzeros(1,1))
     end
 
     # and/or, should we build the low rank ctg elements? yes.. (qG.build_ctg_lowrank == true)
@@ -1190,8 +1190,8 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     #   ** build early so we can use it! **
     x                 = randn(sys.nb-1) # using this format just to match "cg.jl"
     # => note -- the first array does NOT need to be zero'd out at each iteration, it seems
-    pf_cg_statevars   = [quasiGrad.IterativeSolvers.CGStateVariables(zero(x), similar(x), similar(x)) for tii in prm.ts.time_keys]
-    grad_cg_statevars = [quasiGrad.IterativeSolvers.CGStateVariables(zero(x), similar(x), similar(x)) for ii in 1:(qG.num_threads+2)]
+    pf_cg_statevars   = [QuasiGrad.IterativeSolvers.CGStateVariables(zero(x), similar(x), similar(x)) for tii in prm.ts.time_keys]
+    grad_cg_statevars = [QuasiGrad.IterativeSolvers.CGStateVariables(zero(x), similar(x), similar(x)) for ii in 1:(qG.num_threads+2)]
 
     # set up a spin-lock to share memory buffers!
     wmi_tol      = qG.pcg_tol/10.0  # use higher tolerance here
@@ -1218,9 +1218,9 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
         
         # compute u, g, and z!
             # => previous direct computation: u_k[ctg_ii]        .= Ybr_Ch\Er[ctg_out_ind[ctg_ii][1],:]
-        quasiGrad.cg!(u_k[ctg_ii], Ybr, zrs[thrID], statevars = grad_cg_statevars[thrID], abstol = wmi_tol, Pl=Ybr_ChPr, maxiter = wmi_its)
-        @turbo g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(quasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
-        @turbo quasiGrad.mul!(z_k[ctg_ii], Yfr, u_k[ctg_ii])
+        QuasiGrad.cg!(u_k[ctg_ii], Ybr, zrs[thrID], statevars = grad_cg_statevars[thrID], abstol = wmi_tol, Pl=Ybr_ChPr, maxiter = wmi_its)
+        @turbo g_k[ctg_ii]  = -ac_b_params[ctg_out_ind[ctg_ii][1]]/(1.0+(QuasiGrad.dot(Er[ctg_out_ind[ctg_ii][1],:],u_k[ctg_ii]))*-ac_b_params[ctg_out_ind[ctg_ii][1]])
+        @turbo QuasiGrad.mul!(z_k[ctg_ii], Yfr, u_k[ctg_ii])
     
         # all done!!
         Threads.lock(lck)
@@ -1242,7 +1242,7 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     # compute the constant acline Ybus matrix
     Ybus_acline_real, Ybus_acline_imag, Yflow_acline_series_real, Yflow_acline_series_imag, 
         Yflow_acline_shunt_fr_real, Yflow_acline_shunt_fr_imag, Yflow_acline_shunt_to_real, 
-        Yflow_acline_shunt_to_imag = quasiGrad.initialize_acline_Ybus(idx, prm, stt, sys)
+        Yflow_acline_shunt_to_imag = QuasiGrad.initialize_acline_Ybus(idx, prm, stt, sys)
 
     # other network matrices
     Ybus_real                = [spzeros(sys.nb,sys.nb)     for tii in prm.ts.time_keys]
@@ -1270,7 +1270,7 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     Jac_sflow_to             = [spzeros(sys.nac,2*sys.nb) for tii in prm.ts.time_keys]
 
     # network parameters
-    ntk = quasiGrad.Network(
+    ntk = QuasiGrad.Network(
             s_max_ctg,     # max contingency flows
             E,             # full incidence matrix
             Efr,           # Efr = 0.5*(E + abs(E)) = E1
@@ -1329,7 +1329,7 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
             Jac_sflow_to)
     
     # flow data
-    flw = quasiGrad.Flow([zeros(sys.nac)      for tii in prm.ts.time_keys],
+    flw = QuasiGrad.Flow([zeros(sys.nac)      for tii in prm.ts.time_keys],
                          [zeros(sys.nac)      for tii in prm.ts.time_keys],
                          [zeros(sys.nac)      for tii in prm.ts.time_keys],
                          [zeros(sys.nac)      for tii in prm.ts.time_keys],
@@ -1349,7 +1349,7 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
                          pf_cg_statevars)
 
     # contingency variables
-    ctg = quasiGrad.Contingency([zeros(sys.nb-1) for ii in 1:(qG.num_threads+2)],
+    ctg = QuasiGrad.Contingency([zeros(sys.nb-1) for ii in 1:(qG.num_threads+2)],
                                 [zeros(sys.nac)  for ii in 1:(qG.num_threads+2)],
                                 [zeros(sys.nac)  for ii in 1:(qG.num_threads+2)],
                                 [zeros(sys.nac)  for ii in 1:(qG.num_threads+2)],
@@ -1367,7 +1367,7 @@ function initialize_ctg(stt::quasiGrad.State, sys::quasiGrad.System, prm::quasiG
     return ctg, ntk, flw
 end
 
-function build_incidence(idx::quasiGrad.Index, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System)
+function build_incidence(idx::QuasiGrad.Index, prm::QuasiGrad.Param, stt::QuasiGrad.State, sys::QuasiGrad.System)
     # loop over all ac devices and construct incidence matrix
     m = sys.nac
     n = sys.nb
@@ -1376,8 +1376,8 @@ function build_incidence(idx::quasiGrad.Index, prm::quasiGrad.Param, stt::quasiG
     row_acline    = prm.acline.line_inds
     col_acline_fr = idx.acline_fr_bus
     col_acline_to = idx.acline_to_bus
-    E_acline_fr   = quasiGrad.sparse(row_acline,col_acline_fr, 1, m, n)
-    E_acline_to   = quasiGrad.sparse(row_acline,col_acline_to, -1, m, n)
+    E_acline_fr   = QuasiGrad.sparse(row_acline,col_acline_fr, 1, m, n)
+    E_acline_to   = QuasiGrad.sparse(row_acline,col_acline_to, -1, m, n)
 
     # get the indices of the lines which are off and zero them out
     lines_off = findall(stt.u_on_acline[1] .== 0)
@@ -1390,8 +1390,8 @@ function build_incidence(idx::quasiGrad.Index, prm::quasiGrad.Param, stt::quasiG
     row_xfm    = sys.nl .+ prm.xfm.xfm_inds
     col_xfm_fr = idx.xfm_fr_bus
     col_xfm_to = idx.xfm_to_bus
-    E_xfm_fr   = quasiGrad.sparse(row_xfm,col_xfm_fr, 1, m, n)
-    E_xfm_to   = quasiGrad.sparse(row_xfm,col_xfm_to, -1, m, n)
+    E_xfm_fr   = QuasiGrad.sparse(row_xfm,col_xfm_fr, 1, m, n)
+    E_xfm_to   = QuasiGrad.sparse(row_xfm,col_xfm_to, -1, m, n)
 
     # get the indices of the xfms which are off and zero them out
     xfms_off = findall(stt.u_on_xfm[1] .== 0)
@@ -1411,7 +1411,7 @@ function build_incidence(idx::quasiGrad.Index, prm::quasiGrad.Param, stt::quasiG
     return E, Efr, Eto
 end
 
-function initialize_acline_Ybus(idx::quasiGrad.Index, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System)
+function initialize_acline_Ybus(idx::QuasiGrad.Index, prm::QuasiGrad.Param, stt::QuasiGrad.State, sys::QuasiGrad.System)
     # loop over all ac devices and construct incidence matrix
     #
     # note: this assumes all lines are on!
@@ -1427,8 +1427,8 @@ function initialize_acline_Ybus(idx::quasiGrad.Index, prm::quasiGrad.Param, stt:
     row_acline    = prm.acline.line_inds
     col_acline_fr = idx.acline_fr_bus
     col_acline_to = idx.acline_to_bus
-    E_acline_fr   = quasiGrad.sparse(row_acline,col_acline_fr, 1, m, n)
-    E_acline_to   = quasiGrad.sparse(row_acline,col_acline_to, -1, m, n)
+    E_acline_fr   = QuasiGrad.sparse(row_acline,col_acline_fr, 1, m, n)
+    E_acline_to   = QuasiGrad.sparse(row_acline,col_acline_to, -1, m, n)
 
     # get the indices of the lines which are off and zero them out
     lines_off = findall(stt.u_on_acline[1] .== 0)
@@ -1441,8 +1441,8 @@ function initialize_acline_Ybus(idx::quasiGrad.Index, prm::quasiGrad.Param, stt:
     E_acline = E_acline_fr + E_acline_to
 
     # build diagonal admittance matrices
-    Yd_acline_series = quasiGrad.spdiagm(m, m, prm.acline.g_sr + im*prm.acline.b_sr) # zero pads!
-    Yd_acline_shunt  = quasiGrad.spzeros(Complex{Float64}, n, n)
+    Yd_acline_series = QuasiGrad.spdiagm(m, m, prm.acline.g_sr + im*prm.acline.b_sr) # zero pads!
+    Yd_acline_shunt  = QuasiGrad.spzeros(Complex{Float64}, n, n)
 
     # loop and populate
     for line in 1:sys.nl
@@ -1474,10 +1474,10 @@ function initialize_acline_Ybus(idx::quasiGrad.Index, prm::quasiGrad.Param, stt:
     # for the purposes of building line flow matrices, also compute series and line shunt matrices
     Yflow_acline_series_real   = real(Yd_acline_series*E_acline)
     Yflow_acline_series_imag   = imag(Yd_acline_series*E_acline)
-    Yflow_acline_shunt_fr_real = quasiGrad.spzeros(Complex{Float64}, m, n)
-    Yflow_acline_shunt_fr_imag = quasiGrad.spzeros(Complex{Float64}, m, n)
-    Yflow_acline_shunt_to_real = quasiGrad.spzeros(Complex{Float64}, m, n)
-    Yflow_acline_shunt_to_imag = quasiGrad.spzeros(Complex{Float64}, m, n)
+    Yflow_acline_shunt_fr_real = QuasiGrad.spzeros(Complex{Float64}, m, n)
+    Yflow_acline_shunt_fr_imag = QuasiGrad.spzeros(Complex{Float64}, m, n)
+    Yflow_acline_shunt_to_real = QuasiGrad.spzeros(Complex{Float64}, m, n)
+    Yflow_acline_shunt_to_imag = QuasiGrad.spzeros(Complex{Float64}, m, n)
 
     # loop and populate
     for line in 1:sys.nl
@@ -1503,7 +1503,7 @@ function initialize_acline_Ybus(idx::quasiGrad.Index, prm::quasiGrad.Param, stt:
     return Ybus_acline_real, Ybus_acline_imag, Yflow_acline_series_real, Yflow_acline_series_imag, Yflow_acline_shunt_fr_real, Yflow_acline_shunt_fr_imag, Yflow_acline_shunt_to_real, Yflow_acline_shunt_to_imag
 end
 
-function update_Ybus!(idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function update_Ybus!(idx::QuasiGrad.Index, ntk::QuasiGrad.Network, prm::QuasiGrad.Param, stt::QuasiGrad.State, sys::QuasiGrad.System, tii::Int8)
     # this function updates the Ybus matrix using the time-varying shunt and xfm values
     #
     # NOTE: this assumes all xfms are on
@@ -1556,7 +1556,7 @@ function update_Ybus!(idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGr
     ntk.Ybus_imag[tii] .= ntk.Ybus_acline_imag .+ ntk.Ybus_xfm_imag[tii] .+ ntk.Ybus_shunt_imag[tii]
 end
 
-function update_Yflow!(idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function update_Yflow!(idx::QuasiGrad.Index, ntk::QuasiGrad.Network, prm::QuasiGrad.Param, stt::QuasiGrad.State, sys::QuasiGrad.System, tii::Int8)
     # this function updates the Yflow matrix using the time-varying shunt and xfm values
     #
     # Pfr, Qfr = (Efr*V).*conj((Yflow_series_fr + Yflow_shunt_fr)*V), with V = phasor
@@ -1626,13 +1626,13 @@ function update_Yflow!(idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiG
 end
 
 # get the "must run" times
-function get_tmr(dev::Int64, prm::quasiGrad.Param)
+function get_tmr(dev::Int64, prm::QuasiGrad.Param)
     # two cases (mutually exclusive) -- test which is applicable
     if prm.dev.init_accu_down_time[dev] > 0
         t_set = prm.ts.time_keys[isapprox.(prm.dev.on_status_lb[dev],1.0)]
 
     else  # necessarily true -> prm.dev.init_accu_up_time[dev] > 0
-        mr_up       = prm.dev.init_accu_up_time[dev] .+ prm.ts.start_time .+ quasiGrad.eps_time .< prm.dev.in_service_time_lb[dev]
+        mr_up       = prm.dev.init_accu_up_time[dev] .+ prm.ts.start_time .+ QuasiGrad.eps_time .< prm.dev.in_service_time_lb[dev]
         valid_times = isapprox.(prm.dev.on_status_lb[dev],1.0) .|| mr_up
         t_set       = prm.ts.time_keys[valid_times]
     end
@@ -1642,13 +1642,13 @@ function get_tmr(dev::Int64, prm::quasiGrad.Param)
 end
 
 # get the "must run" times
-function get_tout(dev::Int64, prm::quasiGrad.Param)
+function get_tout(dev::Int64, prm::QuasiGrad.Param)
     # two cases (mutually exclusive) -- test which is applicable
     if prm.dev.init_accu_up_time[dev] > 0
         t_set = prm.ts.time_keys[isapprox.(prm.dev.on_status_ub[dev],0.0)]
 
     else  # necessarily true -> prm.dev.init_accu_down_time[dev] > 0
-        out_dwn     = prm.dev.init_accu_down_time[dev] .+ prm.ts.start_time .+ quasiGrad.eps_time .< prm.dev.down_time_lb[dev]
+        out_dwn     = prm.dev.init_accu_down_time[dev] .+ prm.ts.start_time .+ QuasiGrad.eps_time .< prm.dev.down_time_lb[dev]
         valid_times = isapprox.(prm.dev.on_status_ub[dev],0.0) .|| out_dwn
         t_set       = prm.ts.time_keys[valid_times]
     end
@@ -1658,7 +1658,7 @@ function get_tout(dev::Int64, prm::quasiGrad.Param)
 end
 
 # depricated!! left here for historical purposes :)
-function initialize_static_grads!(idx::quasiGrad.Index, grd::quasiGrad.Grad, sys::quasiGrad.System, qG::quasiGrad.QG)
+function initialize_static_grads!(idx::QuasiGrad.Index, grd::QuasiGrad.Grad, sys::QuasiGrad.System, qG::QuasiGrad.QG)
     # there is a subset of gradients whose values are static:
     # set those static gradients here!
     #
@@ -1744,61 +1744,61 @@ function initialize_static_grads!(idx::quasiGrad.Index, grd::quasiGrad.Grad, sys
     # prm.xfm.disconnection_cost    .= 1000000.0
 end
 
-function initialize_adam_states(prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System)
+function initialize_adam_states(prm::QuasiGrad.Param, qG::QuasiGrad.QG, sys::QuasiGrad.System)
     # build the adm dictionary, which has the same set of
     # entries (keys) as the mgd dictionary
     keys = [:vm, :va, :tau, :phi, :dc_pfr, :dc_qfr, :dc_qto, :u_on_acline, :u_on_xfm,
             :u_step_shunt, :u_on_dev, :p_on, :dev_q, :p_rgu, :p_rgd, :p_scr, :p_nsc,
             :p_rru_on, :p_rrd_on, :p_rru_off, :p_rrd_off, :q_qru, :q_qrd]
-    vm = quasiGrad.MV([zeros(sys.nb) for tii in prm.ts.time_keys],
+    vm = QuasiGrad.MV([zeros(sys.nb) for tii in prm.ts.time_keys],
                       [zeros(sys.nb) for tii in prm.ts.time_keys])
-    va = quasiGrad.MV([zeros(sys.nb) for tii in prm.ts.time_keys],
+    va = QuasiGrad.MV([zeros(sys.nb) for tii in prm.ts.time_keys],
                       [zeros(sys.nb) for tii in prm.ts.time_keys])
-    tau = quasiGrad.MV([zeros(sys.nx) for tii in prm.ts.time_keys],
+    tau = QuasiGrad.MV([zeros(sys.nx) for tii in prm.ts.time_keys],
                        [zeros(sys.nx) for tii in prm.ts.time_keys])
-    phi = quasiGrad.MV([zeros(sys.nx) for tii in prm.ts.time_keys],
+    phi = QuasiGrad.MV([zeros(sys.nx) for tii in prm.ts.time_keys],
                        [zeros(sys.nx) for tii in prm.ts.time_keys])
-    dc_pfr = quasiGrad.MV([zeros(sys.nldc) for tii in prm.ts.time_keys],
+    dc_pfr = QuasiGrad.MV([zeros(sys.nldc) for tii in prm.ts.time_keys],
                           [zeros(sys.nldc) for tii in prm.ts.time_keys])
-    dc_qfr = quasiGrad.MV([zeros(sys.nldc) for tii in prm.ts.time_keys],
+    dc_qfr = QuasiGrad.MV([zeros(sys.nldc) for tii in prm.ts.time_keys],
                           [zeros(sys.nldc) for tii in prm.ts.time_keys])
-    dc_qto = quasiGrad.MV([zeros(sys.nldc) for tii in prm.ts.time_keys],
+    dc_qto = QuasiGrad.MV([zeros(sys.nldc) for tii in prm.ts.time_keys],
                           [zeros(sys.nldc) for tii in prm.ts.time_keys])
-    u_on_acline = quasiGrad.MV([zeros(sys.nl) for tii in prm.ts.time_keys],
+    u_on_acline = QuasiGrad.MV([zeros(sys.nl) for tii in prm.ts.time_keys],
                                [zeros(sys.nl) for tii in prm.ts.time_keys])
-    u_on_xfm = quasiGrad.MV([zeros(sys.nx) for tii in prm.ts.time_keys],
+    u_on_xfm = QuasiGrad.MV([zeros(sys.nx) for tii in prm.ts.time_keys],
                             [zeros(sys.nx) for tii in prm.ts.time_keys])
-    u_step_shunt = quasiGrad.MV([zeros(sys.nsh) for tii in prm.ts.time_keys],
+    u_step_shunt = QuasiGrad.MV([zeros(sys.nsh) for tii in prm.ts.time_keys],
                                 [zeros(sys.nsh) for tii in prm.ts.time_keys])
-    u_on_dev = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+    u_on_dev = QuasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
                             [zeros(sys.ndev) for tii in prm.ts.time_keys])
-    p_on = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+    p_on = QuasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
                         [zeros(sys.ndev) for tii in prm.ts.time_keys])
-    dev_q = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+    dev_q = QuasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
                          [zeros(sys.ndev) for tii in prm.ts.time_keys])
-    p_rgu = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+    p_rgu = QuasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
                          [zeros(sys.ndev) for tii in prm.ts.time_keys])
-    p_rgd = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+    p_rgd = QuasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
                          [zeros(sys.ndev) for tii in prm.ts.time_keys])
-    p_scr = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+    p_scr = QuasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
                          [zeros(sys.ndev) for tii in prm.ts.time_keys])
-    p_nsc = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+    p_nsc = QuasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
                          [zeros(sys.ndev) for tii in prm.ts.time_keys])
-    p_rru_on = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+    p_rru_on = QuasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
                             [zeros(sys.ndev) for tii in prm.ts.time_keys])
-    p_rrd_on = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+    p_rrd_on = QuasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
                             [zeros(sys.ndev) for tii in prm.ts.time_keys])
-    p_rru_off = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+    p_rru_off = QuasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
                              [zeros(sys.ndev) for tii in prm.ts.time_keys]) 
-    p_rrd_off = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+    p_rrd_off = QuasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
                              [zeros(sys.ndev) for tii in prm.ts.time_keys])
-    q_qru = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+    q_qru = QuasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
                          [zeros(sys.ndev) for tii in prm.ts.time_keys])
-    q_qrd = quasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
+    q_qrd = QuasiGrad.MV([zeros(sys.ndev) for tii in prm.ts.time_keys],
                          [zeros(sys.ndev) for tii in prm.ts.time_keys])
 
     # build the adam struct
-    adm = quasiGrad.Adam(keys, vm, va, tau, phi, dc_pfr, dc_qfr, dc_qto, u_on_acline,
+    adm = QuasiGrad.Adam(keys, vm, va, tau, phi, dc_pfr, dc_qfr, dc_qto, u_on_acline,
                          u_on_xfm, u_step_shunt, u_on_dev, p_on, dev_q, p_rgu,
                          p_rgd, p_scr, p_nsc, p_rru_on, p_rrd_on, p_rru_off, 
                          p_rrd_off, q_qru, q_qrd)
@@ -1806,7 +1806,7 @@ function initialize_adam_states(prm::quasiGrad.Param, qG::quasiGrad.QG, sys::qua
     return adm
 end
 
-function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.QG)
+function build_state(prm::QuasiGrad.Param, sys::QuasiGrad.System, qG::QuasiGrad.QG)
 
     # how many ctg states do we need?
     num_wrst = Int64(ceil(qG.frac_ctg_keep*sys.nctg/2))  # in case n_ctg is odd, and we want to keep all!
@@ -1814,7 +1814,7 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
     num_ctg  = num_wrst + num_rnd
 
     # stt -- use initial values
-    stt = quasiGrad.State(
+    stt = QuasiGrad.State(
         [ones(sys.nb)              for tii in prm.ts.time_keys],
         [ones(sys.nb)              for tii in prm.ts.time_keys],         
         [copy(prm.bus.init_va)     for tii in prm.ts.time_keys],
@@ -2078,11 +2078,11 @@ function build_state(prm::quasiGrad.Param, sys::quasiGrad.System, qG::quasiGrad.
     return stt
 end
 
-function build_master_grad(prm::quasiGrad.Param, sys::quasiGrad.System)
+function build_master_grad(prm::QuasiGrad.Param, sys::QuasiGrad.System)
     # mgd = master grad -- this is the gradient which relates the negative market surplus function 
     # with all "basis" variables -- i.e., the variables for which all others are computed.
     # These are *exactly* (I think..) the variables which are reported in the solution file
-    mgd = quasiGrad.MasterGrad(
+    mgd = QuasiGrad.MasterGrad(
         [zeros(sys.nb)   for tii in prm.ts.time_keys],       
         [zeros(sys.nb)   for tii in prm.ts.time_keys],         
         [zeros(sys.nx)   for tii in prm.ts.time_keys],         
@@ -2111,44 +2111,44 @@ function build_master_grad(prm::quasiGrad.Param, sys::quasiGrad.System)
     return mgd
 end
 
-function build_grad(prm::quasiGrad.Param, sys::quasiGrad.System)
+function build_grad(prm::QuasiGrad.Param, sys::QuasiGrad.System)
 
     # first, build the mini component dicts
-    acline_pfr = quasiGrad.Acline_pfr(
+    acline_pfr = QuasiGrad.Acline_pfr(
         [zeros(sys.nl) for tii in prm.ts.time_keys],
         [zeros(sys.nl) for tii in prm.ts.time_keys], 
         [zeros(sys.nl) for tii in prm.ts.time_keys], 
         [zeros(sys.nl) for tii in prm.ts.time_keys], 
         [zeros(sys.nl) for tii in prm.ts.time_keys])
 
-    acline_qfr = quasiGrad.Acline_qfr(
+    acline_qfr = QuasiGrad.Acline_qfr(
         [zeros(sys.nl) for tii in prm.ts.time_keys],
         [zeros(sys.nl) for tii in prm.ts.time_keys], 
         [zeros(sys.nl) for tii in prm.ts.time_keys], 
         [zeros(sys.nl) for tii in prm.ts.time_keys], 
         [zeros(sys.nl) for tii in prm.ts.time_keys])
     
-    acline_pto = quasiGrad.Acline_pto(
+    acline_pto = QuasiGrad.Acline_pto(
         [zeros(sys.nl) for tii in prm.ts.time_keys],
         [zeros(sys.nl) for tii in prm.ts.time_keys], 
         [zeros(sys.nl) for tii in prm.ts.time_keys], 
         [zeros(sys.nl) for tii in prm.ts.time_keys], 
         [zeros(sys.nl) for tii in prm.ts.time_keys])
     
-    acline_qto = quasiGrad.Acline_qto(
+    acline_qto = QuasiGrad.Acline_qto(
         [zeros(sys.nl) for tii in prm.ts.time_keys],
         [zeros(sys.nl) for tii in prm.ts.time_keys], 
         [zeros(sys.nl) for tii in prm.ts.time_keys], 
         [zeros(sys.nl) for tii in prm.ts.time_keys], 
         [zeros(sys.nl) for tii in prm.ts.time_keys])
     
-    zs_acline = quasiGrad.Zs_acline(
+    zs_acline = QuasiGrad.Zs_acline(
         [zeros(sys.nl) for tii in prm.ts.time_keys],
         [zeros(sys.nl) for tii in prm.ts.time_keys], 
         [zeros(sys.nl) for tii in prm.ts.time_keys], 
         [zeros(sys.nl) for tii in prm.ts.time_keys])
     
-    xfm_pfr = quasiGrad.Xfm_pfr(
+    xfm_pfr = QuasiGrad.Xfm_pfr(
         [zeros(sys.nx) for tii in prm.ts.time_keys],
         [zeros(sys.nx) for tii in prm.ts.time_keys], 
         [zeros(sys.nx) for tii in prm.ts.time_keys], 
@@ -2157,7 +2157,7 @@ function build_grad(prm::quasiGrad.Param, sys::quasiGrad.System)
         [zeros(sys.nx) for tii in prm.ts.time_keys],
         [zeros(sys.nx) for tii in prm.ts.time_keys])
     
-    xfm_qfr = quasiGrad.Xfm_qfr(
+    xfm_qfr = QuasiGrad.Xfm_qfr(
         [zeros(sys.nx) for tii in prm.ts.time_keys],
         [zeros(sys.nx) for tii in prm.ts.time_keys], 
         [zeros(sys.nx) for tii in prm.ts.time_keys], 
@@ -2166,7 +2166,7 @@ function build_grad(prm::quasiGrad.Param, sys::quasiGrad.System)
         [zeros(sys.nx) for tii in prm.ts.time_keys],
         [zeros(sys.nx) for tii in prm.ts.time_keys])
     
-    xfm_pto = quasiGrad.Xfm_pto(
+    xfm_pto = QuasiGrad.Xfm_pto(
         [zeros(sys.nx) for tii in prm.ts.time_keys],
         [zeros(sys.nx) for tii in prm.ts.time_keys], 
         [zeros(sys.nx) for tii in prm.ts.time_keys], 
@@ -2175,7 +2175,7 @@ function build_grad(prm::quasiGrad.Param, sys::quasiGrad.System)
         [zeros(sys.nx) for tii in prm.ts.time_keys],
         [zeros(sys.nx) for tii in prm.ts.time_keys])
     
-    xfm_qto = quasiGrad.Xfm_qto(
+    xfm_qto = QuasiGrad.Xfm_qto(
         [zeros(sys.nx) for tii in prm.ts.time_keys],
         [zeros(sys.nx) for tii in prm.ts.time_keys], 
         [zeros(sys.nx) for tii in prm.ts.time_keys], 
@@ -2184,62 +2184,62 @@ function build_grad(prm::quasiGrad.Param, sys::quasiGrad.System)
         [zeros(sys.nx) for tii in prm.ts.time_keys],
         [zeros(sys.nx) for tii in prm.ts.time_keys])
     
-    zs_xfm = quasiGrad.Zs_xfm(
+    zs_xfm = QuasiGrad.Zs_xfm(
         [zeros(sys.nx) for tii in prm.ts.time_keys],
         [zeros(sys.nx) for tii in prm.ts.time_keys],
         [zeros(sys.nx) for tii in prm.ts.time_keys],
         [zeros(sys.nx) for tii in prm.ts.time_keys])
     
-    sh_p = quasiGrad.Sh_p(
+    sh_p = QuasiGrad.Sh_p(
         [zeros(sys.nsh) for tii in prm.ts.time_keys],
         [zeros(sys.nsh) for tii in prm.ts.time_keys])
     
-    sh_q = quasiGrad.Sh_q(
+    sh_q = QuasiGrad.Sh_q(
         [zeros(sys.nsh) for tii in prm.ts.time_keys],
         [zeros(sys.nsh) for tii in prm.ts.time_keys])
     
-    zp = quasiGrad.Zp(
+    zp = QuasiGrad.Zp(
         [zeros(sys.nb) for tii in prm.ts.time_keys])
     
-    zq = quasiGrad.Zq(
+    zq = QuasiGrad.Zq(
         [zeros(sys.nb) for tii in prm.ts.time_keys])
     
-    zen_dev = quasiGrad.Zen_dev(
+    zen_dev = QuasiGrad.Zen_dev(
         [zeros(sys.ndev) for tii in prm.ts.time_keys])
     
-    u_su_dev = quasiGrad.U_su_dev(
+    u_su_dev = QuasiGrad.U_su_dev(
         [zeros(sys.ndev) for tii in prm.ts.time_keys],
         [zeros(sys.ndev) for tii in prm.ts.time_keys])
     
-    u_sd_dev = quasiGrad.U_sd_dev(
+    u_sd_dev = QuasiGrad.U_sd_dev(
         [zeros(sys.ndev) for tii in prm.ts.time_keys],
         [zeros(sys.ndev) for tii in prm.ts.time_keys])
     
-    u_su_acline = quasiGrad.U_su_acline(
+    u_su_acline = QuasiGrad.U_su_acline(
         [zeros(sys.nl) for tii in prm.ts.time_keys],
         [zeros(sys.nl) for tii in prm.ts.time_keys])
     
-    u_sd_acline = quasiGrad.U_sd_acline(
+    u_sd_acline = QuasiGrad.U_sd_acline(
         [zeros(sys.nl) for tii in prm.ts.time_keys],
         [zeros(sys.nl) for tii in prm.ts.time_keys])
     
-    u_su_xfm = quasiGrad.U_su_xfm(
+    u_su_xfm = QuasiGrad.U_su_xfm(
         [zeros(sys.nx) for tii in prm.ts.time_keys],
         [zeros(sys.nx) for tii in prm.ts.time_keys])
     
-    u_sd_xfm = quasiGrad.U_sd_xfm(
+    u_sd_xfm = QuasiGrad.U_sd_xfm(
         [zeros(sys.nl) for tii in prm.ts.time_keys],
         [zeros(sys.nl) for tii in prm.ts.time_keys])
 
     # these two following elements are unique -- they serve to collect all of the 
     # coefficients applied to the same partial derivatives (e.g.,
     # a1*dxdp, a2*dxdp, a3*dxdp => dxdp[tii][dev] = a1+a2+a3)
-    dx = quasiGrad.Dx(
+    dx = QuasiGrad.Dx(
         [zeros(sys.ndev) for tii in prm.ts.time_keys],
         [zeros(sys.ndev) for tii in prm.ts.time_keys])
 
     # now, assemble the full grd struct
-    grd = quasiGrad.Grad(
+    grd = QuasiGrad.Grad(
         acline_pfr,
         acline_qfr,
         acline_pto,
@@ -2268,7 +2268,7 @@ function build_grad(prm::quasiGrad.Param, sys::quasiGrad.System)
 end
 
 # perturb, clip, and fix states
-function perturb_states!(pert_size::Float64, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System)
+function perturb_states!(pert_size::Float64, prm::QuasiGrad.Param, stt::QuasiGrad.State, sys::QuasiGrad.System)
     # perturb all states
     for tii in prm.ts.time_keys
         stt.u_on_acline[tii]  = ones(sys.nl)
@@ -2297,7 +2297,7 @@ function perturb_states!(pert_size::Float64, prm::quasiGrad.Param, stt::quasiGra
     end
 end
 
-function build_constant_gradient(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, sys::quasiGrad.System)
+function build_constant_gradient(idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, sys::QuasiGrad.System)
     # build a structure which hold constant gradient information
     # 
     # how many ctg states do we need?
@@ -2372,7 +2372,7 @@ function build_constant_gradient(idx::quasiGrad.Index, prm::quasiGrad.Param, qG:
 end
 
 # manage time
-function manage_time!(time_left::Float64, qG::quasiGrad.QG)
+function manage_time!(time_left::Float64, qG::QuasiGrad.QG)
     # how long do the adam iterations have?
     # adam will run length(qG.pcts_to_round) + 1 times
     num_adam_solve   = length(qG.pcts_to_round) + 1
@@ -2388,7 +2388,7 @@ function manage_time!(time_left::Float64, qG::quasiGrad.QG)
     qG.adam_solve_times = adam_solve_times
 end
 
-function build_time_sets(prm::quasiGrad.Param, sys::quasiGrad.System)
+function build_time_sets(prm::QuasiGrad.Param, sys::QuasiGrad.System)
     # initialize: dev => time => set of time indices
     Ts_mndn     = [[Int8[]                                                 for _ in prm.ts.time_keys] for  _  in 1:sys.ndev]
     Ts_mnup     = [[Int8[]                                                 for _ in prm.ts.time_keys] for  _  in 1:sys.ndev]
@@ -2444,7 +2444,7 @@ function build_time_sets(prm::quasiGrad.Param, sys::quasiGrad.System)
            Ts_sus_jft, Ts_sus_jf, Ts_en_max, Ts_en_min, Ts_su_max
 end
 
-function initialize_lbfgs(mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function initialize_lbfgs(mgd::QuasiGrad.MasterGrad, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # define the mapping indices which put gradient and state
     # information into aggregated forms -- to be populated!
 
@@ -2575,7 +2575,7 @@ function initialize_lbfgs(mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::q
         :p_on => Dict(tii => copy(stt.p_on[tii]) for tii in prm.ts.time_keys))
 
     # build the lbfgs struct
-    lbfgs = quasiGrad.LBFGS(p0, state, diff, idx, map, step, zpf)
+    lbfgs = QuasiGrad.LBFGS(p0, state, diff, idx, map, step, zpf)
 
     return lbfgs
 end

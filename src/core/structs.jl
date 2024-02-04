@@ -465,8 +465,8 @@ struct Network
     components::Vector{Vector{String}}
     id::Vector{String}              
     ctg_inds::LinearIndices{1, Tuple{Base.OneTo{Int64}}}    
-    Ybr_Ch::Any # quasiGrad.SuiteSparse.CHOLMOD.Factor{Float64} #::Any   # quasiGrad.LinearAlgebra.Cholesky{Float64, Matrix{Float64}}   
-    Ybr_ChPr::quasiGrad.Preconditioners.LimitedLDLFactorization{Float64, Int64, Vector{Int64}, Vector{Int64}}# Preconditioners.CholeskyPreconditioner{quasiGrad.Preconditioners.LimitedLDLFactorizations.LimitedLDLFactorization{Float64, Int64, Vector{Int64}, Vector{Int64}}} # Any # quasiGrad.Preconditioners.CholeskyPreconditioner{quasiGrad.Preconditioners.LimitedLDLFactorizations.LimitedLDLFactorization{Float64, Int64}}        
+    Ybr_Ch::Any # QuasiGrad.SuiteSparse.CHOLMOD.Factor{Float64} #::Any   # QuasiGrad.LinearAlgebra.Cholesky{Float64, Matrix{Float64}}   
+    Ybr_ChPr::QuasiGrad.Preconditioners.LimitedLDLFactorization{Float64, Int64, Vector{Int64}, Vector{Int64}}# Preconditioners.CholeskyPreconditioner{QuasiGrad.Preconditioners.LimitedLDLFactorizations.LimitedLDLFactorization{Float64, Int64, Vector{Int64}, Vector{Int64}}} # Any # QuasiGrad.Preconditioners.CholeskyPreconditioner{QuasiGrad.Preconditioners.LimitedLDLFactorizations.LimitedLDLFactorization{Float64, Int64}}        
     u_k::Vector{Vector{Float64}} # Dict{Int64, SparseArrays.SparseVector{Float64, Int64}} # Dict{Int64, Vector{Float64}}             
     g_k::Vector{Float64}
     z_k::Vector{Vector{Float64}}

@@ -1,8 +1,8 @@
-function solve_power_flow!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; first_solve::Bool=false, last_solve::Bool=false)
+function solve_power_flow!(adm::QuasiGrad.Adam, cgd::QuasiGrad.ConstantGrad, ctg::QuasiGrad.Contingency, flw::QuasiGrad.Flow, grd::QuasiGrad.Grad, idx::QuasiGrad.Index, lbf::QuasiGrad.LBFGS, mgd::QuasiGrad.MasterGrad, ntk::QuasiGrad.Network, prm::QuasiGrad.Param, qG::QuasiGrad.QG, scr::Dict{Symbol, Float64}, stt::QuasiGrad.State, sys::QuasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; first_solve::Bool=false, last_solve::Bool=false)
     # Note -- this is run *after* DCPF and q/v corrections (maybe..)
     # 
     # potentially, update binaries
-    quasiGrad.clip_all!(prm, qG, stt, sys)
+    QuasiGrad.clip_all!(prm, qG, stt, sys)
 
     # run
     if first_solve == true
@@ -33,10 +33,10 @@ function solve_power_flow!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg
             stt.dev_q_copy .= deepcopy.(stt.dev_q)
 
             # re-initialize the lbf(gs) struct
-            quasiGrad.flush_lbfgs!(lbf, prm, qG, stt)
+            QuasiGrad.flush_lbfgs!(lbf, prm, qG, stt)
 
             # initialize: compute all states and grads
-            quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
+            QuasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
 
             # store the first value
             zt0 = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys) + sum(lbf.zpf[:zq][tii] for tii in prm.ts.time_keys)
@@ -44,7 +44,7 @@ function solve_power_flow!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg
             # loop -- lbfgs
             while run_lbfgs == true
                 # take an lbfgs step
-                emergency_stop = quasiGrad.solve_pf_lbfgs!(lbf, mgd, prm, qG, stt, upd)
+                emergency_stop = QuasiGrad.solve_pf_lbfgs!(lbf, mgd, prm, qG, stt, upd)
 
                 # save zpf BEFORE updating with the new state -- don't track bias terms
                 for tii in prm.ts.time_keys
@@ -52,7 +52,7 @@ function solve_power_flow!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg
                 end
 
                 # compute all states and grads
-                quasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
+                QuasiGrad.update_states_and_grads_for_solve_pf_lbfgs!(cgd, grd, idx, lbf, mgd, prm, qG, stt, sys)
 
                 # store the first value
                 zp = sum(lbf.zpf[:zp][tii] for tii in prm.ts.time_keys)
@@ -92,23 +92,23 @@ function solve_power_flow!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg
         end
     else
         # in this case, cleanup with adam, and then solve
-        quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = false)
+        QuasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = false)
     end
 
-    quasiGrad.solve_parallel_linear_pf_with_Gurobi!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve = first_solve, last_solve = last_solve)
+    QuasiGrad.solve_parallel_linear_pf_with_Gurobi!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve = first_solve, last_solve = last_solve)
 end
 
-function solve_power_flow_23k!(adm::quasiGrad.Adam, cgd::quasiGrad.ConstantGrad, ctg::quasiGrad.Contingency, flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG, scr::Dict{Symbol, Float64}, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; first_solve::Bool=false, last_solve::Bool=false)
+function solve_power_flow_23k!(adm::QuasiGrad.Adam, cgd::QuasiGrad.ConstantGrad, ctg::QuasiGrad.Contingency, flw::QuasiGrad.Flow, grd::QuasiGrad.Grad, idx::QuasiGrad.Index, lbf::QuasiGrad.LBFGS, mgd::QuasiGrad.MasterGrad, ntk::QuasiGrad.Network, prm::QuasiGrad.Param, qG::QuasiGrad.QG, scr::Dict{Symbol, Float64}, stt::QuasiGrad.State, sys::QuasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; first_solve::Bool=false, last_solve::Bool=false)
     # Note -- this is run *after* DCPF and q/v corrections (maybe..)
     # 
     # potentially, update binaries
-    quasiGrad.clip_all!(prm, qG, stt, sys)
-    quasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = first_solve)
-    quasiGrad.solve_parallel_linear_pf_with_Gurobi_23k!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve = first_solve)
+    QuasiGrad.clip_all!(prm, qG, stt, sys)
+    QuasiGrad.run_adam_pf!(adm, cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys, upd; first_solve = first_solve)
+    QuasiGrad.solve_parallel_linear_pf_with_Gurobi_23k!(flw, grd, idx, ntk, prm, qG, stt, sys; first_solve = first_solve)
 end
 
 # correct the reactive power injections into the network
-function apply_q_injections!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function apply_q_injections!(idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System)
     # note -- this is a fairly approximate function
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
     Threads.@threads for tii in prm.ts.time_keys
@@ -223,7 +223,7 @@ function apply_q_injections!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::qua
     end
 end
 
-function flush_lbfgs!(lbf::quasiGrad.LBFGS, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
+function flush_lbfgs!(lbf::QuasiGrad.LBFGS, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State)
     # no need to touch the map -- not changing between powerflow solves!
     for tii in prm.ts.time_keys
         lbf.step[:zpf_prev][tii]    = 0.0
@@ -247,7 +247,7 @@ function flush_lbfgs!(lbf::quasiGrad.LBFGS, prm::quasiGrad.Param, qG::quasiGrad.
     end
 end
 
-function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System; first_solve::Bool=true, last_solve::Bool = false)
+function solve_parallel_linear_pf_with_Gurobi!(flw::QuasiGrad.Flow, grd::QuasiGrad.Grad, idx::QuasiGrad.Index, ntk::QuasiGrad.Network, prm::QuasiGrad.Param, qG::QuasiGrad.QG,  stt::QuasiGrad.State, sys::QuasiGrad.System; first_solve::Bool=true, last_solve::Bool = false)
     # Solve linearized power flow with Gurobi -- use margin tinkering to guarentee convergence. 
     # Only consinder upper and lower bounds on the p/q production (no other limits).
     #
@@ -284,11 +284,11 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
 
         # update y_bus -- this only needs to be done once per time, 
         # since xfm/shunt values are not changing between iterations
-        quasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
+        QuasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
 
         # update the line flow admittance matrices (only "fr" used -- and only in the first solve!)
         if first_solve == true
-            quasiGrad.update_Yflow!(idx, ntk, prm, stt, sys, tii)
+            QuasiGrad.update_Yflow!(idx, ntk, prm, stt, sys, tii)
 
             # initially, try to apply tight flow constraints
             apply_tight_flow_constraints = true
@@ -312,10 +312,10 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
             flow_margin = max(1.01, flow_margin)
 
             # first, rebuild jacobian, and update base points: stt.pinj0, stt.qinj0
-            quasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
+            QuasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
             if first_solve == true
                 # flows are only constrained in the first solve
-                quasiGrad.build_Jac_sfr_and_sfr0!(idx, ntk, prm, stt, sys, tii)
+                QuasiGrad.build_Jac_sfr_and_sfr0!(idx, ntk, prm, stt, sys, tii)
             end
 
             # define the variables (single time index)
@@ -519,7 +519,7 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
             # opf regularization :)
             if (first_solve == true)
                 # current energy costs
-                quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
+                QuasiGrad.energy_costs!(grd, prm, qG, stt, sys)
                 zen0 = sum(@view stt.zen_dev[tii][idx.cs_devs]) - sum(@view stt.zen_dev[tii][idx.pr_devs])
 
                 # new enegy costs
@@ -550,7 +550,7 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
                 end
             elseif (last_solve == false)
                 # current energy costs
-                quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
+                QuasiGrad.energy_costs!(grd, prm, qG, stt, sys)
                 zen0 = sum(@view stt.zen_dev[tii][idx.cs_devs]) - sum(@view stt.zen_dev[tii][idx.pr_devs])
 
                 # new enegy costs
@@ -686,7 +686,7 @@ function solve_parallel_linear_pf_with_Gurobi!(flw::quasiGrad.Flow, grd::quasiGr
     end
 end
 
-function update_states_and_grads_for_solve_pf_lbfgs!(cgd::quasiGrad.ConstantGrad, grd::quasiGrad.Grad, idx::quasiGrad.Index, lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function update_states_and_grads_for_solve_pf_lbfgs!(cgd::QuasiGrad.ConstantGrad, grd::QuasiGrad.Grad, idx::QuasiGrad.Index, lbf::QuasiGrad.LBFGS, mgd::QuasiGrad.MasterGrad, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System)
     # in this function, we only update the states and gradients needed
     # to solve a single-time-period ACOPF with lbfgs:
     # 1) flush
@@ -702,42 +702,42 @@ function update_states_and_grads_for_solve_pf_lbfgs!(cgd::quasiGrad.ConstantGrad
     qG.run_susd_updates = false
 
     # flush the gradient -- both master grad and some of the gradient terms
-    quasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
+    QuasiGrad.flush_gradients!(grd, mgd, prm, qG, sys)
 
     # clip all basic states (i.e., the states which are iterated on)
     qG.clip_pq_based_on_bins = false
-    quasiGrad.clip_all!(prm, qG, stt, sys)
+    QuasiGrad.clip_all!(prm, qG, stt, sys)
     
     # compute network flows and injections
-    quasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
-    quasiGrad.xfm_flows!(grd, idx, prm, qG, stt, sys)
-    quasiGrad.shunts!(grd, idx, prm, qG, stt)
+    QuasiGrad.acline_flows!(grd, idx, prm, qG, stt, sys)
+    QuasiGrad.xfm_flows!(grd, idx, prm, qG, stt, sys)
+    QuasiGrad.shunts!(grd, idx, prm, qG, stt)
 
     # device powers
-    quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
-    quasiGrad.device_reactive_powers!(idx, prm, qG, stt)
+    QuasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
+    QuasiGrad.device_reactive_powers!(idx, prm, qG, stt)
 
     # include OPF costs? this regularizes/biases the solution
     if qG.include_energy_costs_lbfgs
-        quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
+        QuasiGrad.energy_costs!(grd, prm, qG, stt, sys)
     end
 
     # now, we can compute the power balances
-    quasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
+    QuasiGrad.power_balance!(grd, idx, prm, qG, stt, sys)
 
     # take quadratic distance and directly take/apply the master gradient
     if qG.include_lbfgs_p0_regularization
-        quasiGrad.quadratic_distance!(lbf, mgd, prm, qG, stt)
+        QuasiGrad.quadratic_distance!(lbf, mgd, prm, qG, stt)
     end
 
     # score
-    quasiGrad.score_solve_pf!(lbf, prm, stt)
+    QuasiGrad.score_solve_pf!(lbf, prm, stt)
 
     # compute the master grad
-    quasiGrad.master_grad_solve_pf!(cgd, grd, idx, mgd, prm, qG, stt, sys)
+    QuasiGrad.master_grad_solve_pf!(cgd, grd, idx, mgd, prm, qG, stt, sys)
 end
 
-function solve_pf_lbfgs!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function solve_pf_lbfgs!(lbf::QuasiGrad.LBFGS, mgd::QuasiGrad.MasterGrad, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # note: lbf.idx is a set of ordered indices, where the first is the most
     #       recent step information, and the last is the oldest step information
     #       in the following order: (k-1), (k-2)
@@ -801,7 +801,7 @@ function solve_pf_lbfgs!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::q
                       idx_km1                     = lbf.idx[1]
             @turbo    lbf.diff[:s][tii][idx_km1] .= lbf.state[:x_now][tii]     .- lbf.state[:x_prev][tii]
             @turbo    lbf.diff[:y][tii][idx_km1] .= lbf.state[:gradf_now][tii] .- lbf.state[:gradf_prev][tii]
-            @fastmath rho                         = quasiGrad.dot(lbf.diff[:s][tii][idx_km1], lbf.diff[:y][tii][idx_km1])
+            @fastmath rho                         = QuasiGrad.dot(lbf.diff[:s][tii][idx_km1], lbf.diff[:y][tii][idx_km1])
             if abs(rho) < 1e-7
                 # in this case, lbfgs is stalling out and might return a NaN if we're not careful
                 emergency_stop = true
@@ -815,17 +815,17 @@ function solve_pf_lbfgs!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::q
             # now, double-loop and compute lbfgs values
             lbf.state[:q][tii] .= copy.(lbf.state[:gradf_now][tii])
             for ii in lbf.idx[lbf.idx .!= 0] # k-1, k-2, ..., k-m
-                @fastmath lbf.state[:alpha][tii][ii] = lbf.state[:rho][tii][ii]*quasiGrad.dot(lbf.diff[:s][tii][ii], lbf.state[:q][tii])
+                @fastmath lbf.state[:alpha][tii][ii] = lbf.state[:rho][tii][ii]*QuasiGrad.dot(lbf.diff[:s][tii][ii], lbf.state[:q][tii])
                 @fastmath lbf.state[:q][tii]       .-= lbf.state[:alpha][tii][ii].*lbf.diff[:y][tii][ii]
             end
             
             # set "r", which will be H*grad
-            @fastmath lbf.state[:r][tii] .= lbf.state[:q][tii].*(quasiGrad.dot(lbf.diff[:s][tii][idx_km1], lbf.diff[:y][tii][idx_km1])/quasiGrad.dot(lbf.diff[:y][tii][idx_km1], lbf.diff[:y][tii][idx_km1]))
+            @fastmath lbf.state[:r][tii] .= lbf.state[:q][tii].*(QuasiGrad.dot(lbf.diff[:s][tii][idx_km1], lbf.diff[:y][tii][idx_km1])/QuasiGrad.dot(lbf.diff[:y][tii][idx_km1], lbf.diff[:y][tii][idx_km1]))
             
             # compute H*grad
             for ii in reverse(lbf.idx[lbf.idx .!= 0]) # k-m, k-m+1, ..., k-1
                 # skip beta -- defined implicitly below
-                @fastmath lbf.state[:r][tii] .+= lbf.diff[:s][tii][ii].*(lbf.state[:alpha][tii][ii] - lbf.state[:rho][tii][ii]*quasiGrad.dot(lbf.diff[:y][tii][ii], lbf.state[:r][tii]))
+                @fastmath lbf.state[:r][tii] .+= lbf.diff[:s][tii][ii].*(lbf.state[:alpha][tii][ii] - lbf.state[:rho][tii][ii]*QuasiGrad.dot(lbf.diff[:y][tii][ii], lbf.state[:r][tii]))
             end
 
             # step size: let adam control?
@@ -898,7 +898,7 @@ function solve_pf_lbfgs!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::q
     return emergency_stop
 end
 
-function quadratic_distance!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State)
+function quadratic_distance!(lbf::QuasiGrad.LBFGS, mgd::QuasiGrad.MasterGrad, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State)
     Threads.@threads for tii in prm.ts.time_keys
     # => @floop ThreadedEx(basesize = qG.nT ÷ qG.num_threads) for tii in prm.ts.time_keys
         # grab the distance between p_on and its initial value -- this is something we 
@@ -911,7 +911,7 @@ function quadratic_distance!(lbf::quasiGrad.LBFGS, mgd::quasiGrad.MasterGrad, pr
     end
 end
 
-function build_Jac_and_pq0!(ntk::quasiGrad.Network, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function build_Jac_and_pq0!(ntk::QuasiGrad.Network, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System, tii::Int8)
 
     # build the admittance structure
     NY  = [ntk.Ybus_real[tii] -ntk.Ybus_imag[tii];
@@ -931,20 +931,20 @@ function build_Jac_and_pq0!(ntk::quasiGrad.Network, qG::quasiGrad.QG, stt::quasi
     stt.Ii[tii] .= ntk.Ybus_imag[tii]*stt.vr[tii] .+ ntk.Ybus_real[tii]*stt.vi[tii]
 
     # Populate MI
-    MIr = quasiGrad.spdiagm(sys.nb, sys.nb, stt.Ir[tii])
-    MIi = quasiGrad.spdiagm(sys.nb, sys.nb, stt.Ii[tii])
+    MIr = QuasiGrad.spdiagm(sys.nb, sys.nb, stt.Ir[tii])
+    MIi = QuasiGrad.spdiagm(sys.nb, sys.nb, stt.Ii[tii])
     MI  = [MIr  MIi;
           -MIi  MIr]
 
     # Populate MV
-    MVr = quasiGrad.spdiagm(sys.nb, sys.nb, stt.vr[tii])
-    MVi = quasiGrad.spdiagm(sys.nb, sys.nb, stt.vi[tii])
+    MVr = QuasiGrad.spdiagm(sys.nb, sys.nb, stt.vr[tii])
+    MVi = QuasiGrad.spdiagm(sys.nb, sys.nb, stt.vi[tii])
     MV  = [MVr -MVi;
            MVi  MVr]
 
     # Populate RV
-    RV = [quasiGrad.spdiagm(sys.nb, sys.nb, stt.cva[tii])  quasiGrad.spdiagm(sys.nb, sys.nb, .-stt.vi[tii]); 
-          quasiGrad.spdiagm(sys.nb, sys.nb, stt.sva[tii])  quasiGrad.spdiagm(sys.nb, sys.nb, stt.vr[tii])];
+    RV = [QuasiGrad.spdiagm(sys.nb, sys.nb, stt.cva[tii])  QuasiGrad.spdiagm(sys.nb, sys.nb, .-stt.vi[tii]); 
+          QuasiGrad.spdiagm(sys.nb, sys.nb, stt.sva[tii])  QuasiGrad.spdiagm(sys.nb, sys.nb, stt.vr[tii])];
 
     # build full Jacobian
     ntk.Jac[tii] .= (MI + MV*NY)*RV
@@ -963,12 +963,12 @@ function build_Jac_and_pq0!(ntk::quasiGrad.Network, qG::quasiGrad.QG, stt::quasi
     end
 end
 
-function build_Jac_sfr_and_sfr0!(idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function build_Jac_sfr_and_sfr0!(idx::QuasiGrad.Index, ntk::QuasiGrad.Network, prm::QuasiGrad.Param, stt::QuasiGrad.State, sys::QuasiGrad.System, tii::Int8)
     # NOTE: build_Jac_and_pq0! must be called first (to update vr/vi/cva/sva)
     #
     # first, update the line flows
-    quasiGrad.update_acline_sfr_flows!(idx, prm, stt, tii)
-    quasiGrad.update_xfm_sfr_flows!(idx, prm, stt, tii)
+    QuasiGrad.update_acline_sfr_flows!(idx, prm, stt, tii)
+    QuasiGrad.update_xfm_sfr_flows!(idx, prm, stt, tii)
 
     # build the admittance structure
     NYf = [ntk.Yflow_fr_real[tii] -ntk.Yflow_fr_imag[tii];
@@ -979,20 +979,20 @@ function build_Jac_sfr_and_sfr0!(idx::quasiGrad.Index, ntk::quasiGrad.Network, p
     stt.Ii_flow_fr[tii] .= ntk.Yflow_fr_imag[tii]*stt.vr[tii] .+ ntk.Yflow_fr_real[tii]*stt.vi[tii]
 
     # Populate MI
-    MIr = quasiGrad.spdiagm(sys.nac, sys.nac, stt.Ir_flow_fr[tii])*ntk.Efr
-    MIi = quasiGrad.spdiagm(sys.nac, sys.nac, stt.Ii_flow_fr[tii])*ntk.Efr
+    MIr = QuasiGrad.spdiagm(sys.nac, sys.nac, stt.Ir_flow_fr[tii])*ntk.Efr
+    MIi = QuasiGrad.spdiagm(sys.nac, sys.nac, stt.Ii_flow_fr[tii])*ntk.Efr
     MI  = [MIr MIi;
           -MIi MIr]
 
     # Populate MV
-    MVr = quasiGrad.spdiagm(sys.nac, sys.nac, ntk.Efr*stt.vr[tii])
-    MVi = quasiGrad.spdiagm(sys.nac, sys.nac, ntk.Efr*stt.vi[tii])
+    MVr = QuasiGrad.spdiagm(sys.nac, sys.nac, ntk.Efr*stt.vr[tii])
+    MVi = QuasiGrad.spdiagm(sys.nac, sys.nac, ntk.Efr*stt.vi[tii])
     MV  = [MVr -MVi;
            MVi  MVr]
 
     # Populate RV
-    RV = [quasiGrad.spdiagm(sys.nb, sys.nb, stt.cva[tii])  quasiGrad.spdiagm(sys.nb, sys.nb, .-stt.vi[tii]); 
-          quasiGrad.spdiagm(sys.nb, sys.nb, stt.sva[tii])  quasiGrad.spdiagm(sys.nb, sys.nb, stt.vr[tii])];
+    RV = [QuasiGrad.spdiagm(sys.nb, sys.nb, stt.cva[tii])  QuasiGrad.spdiagm(sys.nb, sys.nb, .-stt.vi[tii]); 
+          QuasiGrad.spdiagm(sys.nb, sys.nb, stt.sva[tii])  QuasiGrad.spdiagm(sys.nb, sys.nb, stt.vr[tii])];
     
     # build Jacobian
     ntk.Jac_pq_flow_fr[tii] = (MI + MV*NYf)*RV
@@ -1021,8 +1021,8 @@ function build_Jac_sfr_and_sfr0!(idx::quasiGrad.Index, ntk::quasiGrad.Network, p
         end
     end
 
-    Mpf = quasiGrad.spdiagm(sys.nac, sys.nac, stt.pflow_over_sflow_fr[tii])
-    Mqf = quasiGrad.spdiagm(sys.nac, sys.nac, stt.qflow_over_sflow_fr[tii])
+    Mpf = QuasiGrad.spdiagm(sys.nac, sys.nac, stt.pflow_over_sflow_fr[tii])
+    Mqf = QuasiGrad.spdiagm(sys.nac, sys.nac, stt.qflow_over_sflow_fr[tii])
     # first, populate V -> S
     ntk.Jac_sflow_fr[tii][:,1:sys.nb]       = Mpf*(ntk.Jac_pq_flow_fr[tii][1:sys.nac      , 1:sys.nb]) + 
                                               Mqf*(ntk.Jac_pq_flow_fr[tii][(sys.nac+1):end, 1:sys.nb])
@@ -1037,7 +1037,7 @@ function build_Jac_sfr_and_sfr0!(idx::quasiGrad.Index, ntk::quasiGrad.Network, p
         # =>                                           stt.qflow_over_sflow_fr[tii].*(ntk.Jac_pq_flow_fr[tii][(sys.nac+1):end, (sys.nb+1):end])
 end
 
-function build_Jac_sto!(ntk::quasiGrad.Network, stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function build_Jac_sto!(ntk::QuasiGrad.Network, stt::QuasiGrad.State, sys::QuasiGrad.System, tii::Int8)
     # NOTE: build_Jac_and_pq0! must be called first (to update vr/vi/cva/sva)
     #
     @info "this needs to be updated -- Jac_sflow_to will not be sparse (needs two fixes - see above)"
@@ -1050,20 +1050,20 @@ function build_Jac_sto!(ntk::quasiGrad.Network, stt::quasiGrad.State, sys::quasi
     stt.Ii_flow_to[tii] .= ntk.Yflow_to_imag[tii]*stt.vr[tii] .+ ntk.Yflow_to_real[tii]*stt.vi[tii]
 
     # Populate MI
-    MIr = quasiGrad.spdiagm(sys.nac, sys.nac, stt.Ir_flow_to[tii])*ntk.Eto
-    MIi = quasiGrad.spdiagm(sys.nac, sys.nac, stt.Ii_flow_to[tii])*ntk.Eto
+    MIr = QuasiGrad.spdiagm(sys.nac, sys.nac, stt.Ir_flow_to[tii])*ntk.Eto
+    MIi = QuasiGrad.spdiagm(sys.nac, sys.nac, stt.Ii_flow_to[tii])*ntk.Eto
     MI  = [MIr MIi;
           -MIi MIr]
 
     # Populate MV
-    MVr = quasiGrad.spdiagm(sys.nac, sys.nac, ntk.Eto*stt.vr[tii])
-    MVi = quasiGrad.spdiagm(sys.nac, sys.nac, ntk.Eto*stt.vi[tii])
+    MVr = QuasiGrad.spdiagm(sys.nac, sys.nac, ntk.Eto*stt.vr[tii])
+    MVi = QuasiGrad.spdiagm(sys.nac, sys.nac, ntk.Eto*stt.vi[tii])
     MV  = [MVr -MVi;
            MVi  MVr]
 
     # Populate RV
-    RV = [quasiGrad.spdiagm(sys.nb, sys.nb, stt.cva[tii])  quasiGrad.spdiagm(sys.nb, sys.nb, .-stt.vi[tii]); 
-          quasiGrad.spdiagm(sys.nb, sys.nb, stt.sva[tii])  quasiGrad.spdiagm(sys.nb, sys.nb, stt.vr[tii])];
+    RV = [QuasiGrad.spdiagm(sys.nb, sys.nb, stt.cva[tii])  QuasiGrad.spdiagm(sys.nb, sys.nb, .-stt.vi[tii]); 
+          QuasiGrad.spdiagm(sys.nb, sys.nb, stt.sva[tii])  QuasiGrad.spdiagm(sys.nb, sys.nb, stt.vr[tii])];
     
     # build Jacobian
     ntk.Jac_pq_flow_to[tii] = (MI + MV*NYf)*RV
@@ -1100,7 +1100,7 @@ function build_Jac_sto!(ntk::quasiGrad.Network, stt::quasiGrad.State, sys::quasi
                                               stt.qflow_over_sflow_to[tii].*(@view ntk.Jac_pq_flow_to[tii][(sys.nac+1):end, (sys.nb+1):end])
 end
 
-function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::quasiGrad.Grad, idx::quasiGrad.Index, ntk::quasiGrad.Network, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System; first_solve::Bool = false)
+function solve_parallel_linear_pf_with_Gurobi_23k!(flw::QuasiGrad.Flow, grd::QuasiGrad.Grad, idx::QuasiGrad.Index, ntk::QuasiGrad.Network, prm::QuasiGrad.Param, qG::QuasiGrad.QG,  stt::QuasiGrad.State, sys::QuasiGrad.System; first_solve::Bool = false)
     # Solve linearized power flow with Gurobi -- use margin tinkering to guarentee convergence. 
     # Only consinder upper and lower bounds on the p/q production (no other limits).
     #
@@ -1134,10 +1134,10 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
 
         # update y_bus -- this only needs to be done once per time, 
         # since xfm/shunt values are not changing between iterations
-        quasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
+        QuasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
 
         # update the line flow admittance matrices (only "fr" used -- and only in the first solve!)
-        quasiGrad.update_Yflow!(idx, ntk, prm, stt, sys, tii)
+        QuasiGrad.update_Yflow!(idx, ntk, prm, stt, sys, tii)
 
         # tighten as we go
         if first_solve == true
@@ -1165,8 +1165,8 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
             flow_margin = max(1.01, flow_margin)
 
             # first, rebuild jacobian, and update base points: stt.pinj0, stt.qinj0
-            quasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
-            quasiGrad.build_Jac_sfr_and_sfr0!(idx, ntk, prm, stt, sys, tii)
+            QuasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
+            QuasiGrad.build_Jac_sfr_and_sfr0!(idx, ntk, prm, stt, sys, tii)
 
             # define the variables (single time index)
             @variable(model, x_in[1:(2*sys.nb - 1)])
@@ -1347,7 +1347,7 @@ function solve_parallel_linear_pf_with_Gurobi_23k!(flw::quasiGrad.Flow, grd::qua
             # opf regularization :)
             if (first_solve == true) && (pf_itr_cnt == 1)
                 # current energy costs
-                quasiGrad.energy_costs!(grd, prm, qG, stt, sys)
+                QuasiGrad.energy_costs!(grd, prm, qG, stt, sys)
                 zen0 = sum(@view stt.zen_dev[tii][idx.cs_devs]) - sum(@view stt.zen_dev[tii][idx.pr_devs])
                 #println(zen0)
 

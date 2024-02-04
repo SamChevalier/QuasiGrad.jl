@@ -1,5 +1,5 @@
 # cleanup reserve variables, mostly
-function reserve_cleanup!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function reserve_cleanup!(idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # time limit: not needed -- this is an LP
     # integer tolerance: not needed -- this is an LP
     # FeasibilityTol -- qG.FeasibilityTol
@@ -17,7 +17,7 @@ function reserve_cleanup!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiG
         set_string_names_on_creation(model, false)
 
         # set model properties
-        quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+        QuasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
 
         # affine aggregation terms
         zt = AffExpr(0.0)
@@ -319,7 +319,7 @@ function reserve_cleanup!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiG
 end
 
 # cleanup reserve variables, mostly
-function soft_reserve_cleanup!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function soft_reserve_cleanup!(idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # this is, necessarily, a centralized optimziation problem (over devices)
     #
     # build the model! default tolerances are fine, because this
@@ -339,7 +339,7 @@ function soft_reserve_cleanup!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::q
         set_string_names_on_creation(model, false)
 
         # set model properties -- no tolerance needed!
-            # => quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+            # => QuasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
 
         # affine aggregation terms
         zt        = AffExpr(0.0)
@@ -687,7 +687,7 @@ function soft_reserve_cleanup!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::q
 end
 
 # cleanup power flow (to some degree of accuracy)
-function single_shot_pf_cleanup!(idx::quasiGrad.Index, Jac::quasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, prm::quasiGrad.Param, qG::quasiGrad.QG,  stt::quasiGrad.State, sys::quasiGrad.System, tii::Int8)
+function single_shot_pf_cleanup!(idx::QuasiGrad.Index, Jac::QuasiGrad.SparseArrays.SparseMatrixCSC{Float64, Int64}, prm::QuasiGrad.Param, qG::QuasiGrad.QG,  stt::QuasiGrad.State, sys::QuasiGrad.System, tii::Int8)
     # device p/q stay fixed -- just tune v, theta, and dc
 
     # build and empty the model!
@@ -696,9 +696,9 @@ function single_shot_pf_cleanup!(idx::quasiGrad.Index, Jac::quasiGrad.SparseArra
     set_silent(model)
 
     # set model properties
-    quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-    # => quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
-    # => quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
+    QuasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+    # => QuasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+    # => QuasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
     @info "Running linearized power flow cleanup at $(tii)."
 
@@ -860,18 +860,18 @@ function single_shot_pf_cleanup!(idx::quasiGrad.Index, Jac::quasiGrad.SparseArra
 end
 
 function cleanup_constrained_pf_with_Gurobi!(    
-    cgd::quasiGrad.ConstantGrad, 
-    ctg::quasiGrad.Contingency,
-    flw::quasiGrad.Flow, 
-    grd::quasiGrad.Grad, 
-    idx::quasiGrad.Index, 
-    mgd::quasiGrad.MasterGrad,
-    ntk::quasiGrad.Network, 
-    prm::quasiGrad.Param, 
-    qG::quasiGrad.QG, 
+    cgd::QuasiGrad.ConstantGrad, 
+    ctg::QuasiGrad.Contingency,
+    flw::QuasiGrad.Flow, 
+    grd::QuasiGrad.Grad, 
+    idx::QuasiGrad.Index, 
+    mgd::QuasiGrad.MasterGrad,
+    ntk::QuasiGrad.Network, 
+    prm::QuasiGrad.Param, 
+    qG::QuasiGrad.QG, 
     scr::Dict{Symbol, Float64}, 
-    stt::quasiGrad.State,
-    sys::quasiGrad.System, 
+    stt::QuasiGrad.State,
+    sys::QuasiGrad.System, 
     upd::Dict{Symbol, Vector{Vector{Int64}}})
     
     println("not used -- too much infeasibility")
@@ -879,7 +879,7 @@ function cleanup_constrained_pf_with_Gurobi!(
     # **NOTE**: this is necessarily a *serial* solver -- each time period is linked
     qG.skip_ctg_eval = true
     qG.eval_grad     = false
-    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    QuasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     qG.skip_ctg_eval = false
     qG.eval_grad     = true
 
@@ -906,9 +906,9 @@ function cleanup_constrained_pf_with_Gurobi!(
     set_string_names_on_creation(model, false)
 
     # set model properties
-    quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-    # => quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
-    # => quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
+    QuasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+    # => QuasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+    # => QuasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
     @info "Running constrained, linearized power flow cleanup across $(sys.nT) time periods."
 
@@ -926,13 +926,13 @@ function cleanup_constrained_pf_with_Gurobi!(
         pf_cnt = 0
 
         # 1. update the ideal dispatch point (active power) -- we do this just once
-            # => quasiGrad.ideal_dispatch!(idx, stt, sys, tii)
+            # => QuasiGrad.ideal_dispatch!(idx, stt, sys, tii)
             # this is no longer needed, because we penalize device injections directly
 
         # 2. update y_bus and Jacobian and bias point -- this
         #    only needs to be done once per time, since xfm/shunt
         #    values are not changing between iterations
-        quasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
+        QuasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
 
         # loop over pf solves
         while run_pf == true
@@ -941,7 +941,7 @@ function cleanup_constrained_pf_with_Gurobi!(
             pf_cnt += 1
 
             # first, rebuild the jacobian, and update the base points: stt.pinj0, stt.qinj0
-            quasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
+            QuasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
             
             # empty model
             empty!(model)
@@ -1250,7 +1250,7 @@ function cleanup_constrained_pf_with_Gurobi!(
                 # the solution is NOT valid, so we should increase bounds and try again
                 @warn "Constrained power flow cleanup failed at $(tii)! What a shame.."
                 clean_up_failed[tii] = 1.0
-                # => quasiGrad.single_shot_pf_cleanup!(idx, Jac, prm, qG, stt, sys, tii)
+                # => QuasiGrad.single_shot_pf_cleanup!(idx, Jac, prm, qG, stt, sys, tii)
 
                 # all done with this time period -- move on
                 run_pf = false
@@ -1260,23 +1260,23 @@ function cleanup_constrained_pf_with_Gurobi!(
 
     # was there a failure? If so, re-project
     if sum(clean_up_failed) > 0.0
-        quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+        QuasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
     end
 end
 
 function cleanup_constrained_pf_with_Gurobi_constant_dev_p!(    
-    cgd::quasiGrad.ConstantGrad, 
-    ctg::quasiGrad.Contingency,
-    flw::quasiGrad.Flow, 
-    grd::quasiGrad.Grad, 
-    idx::quasiGrad.Index, 
-    mgd::quasiGrad.MasterGrad,
-    ntk::quasiGrad.Network, 
-    prm::quasiGrad.Param, 
-    qG::quasiGrad.QG, 
+    cgd::QuasiGrad.ConstantGrad, 
+    ctg::QuasiGrad.Contingency,
+    flw::QuasiGrad.Flow, 
+    grd::QuasiGrad.Grad, 
+    idx::QuasiGrad.Index, 
+    mgd::QuasiGrad.MasterGrad,
+    ntk::QuasiGrad.Network, 
+    prm::QuasiGrad.Param, 
+    qG::QuasiGrad.QG, 
     scr::Dict{Symbol, Float64}, 
-    stt::quasiGrad.State,
-    sys::quasiGrad.System, 
+    stt::QuasiGrad.State,
+    sys::QuasiGrad.System, 
     upd::Dict{Symbol, Vector{Vector{Int64}}})
 
     println("not used -- too much infeasibility")
@@ -1284,7 +1284,7 @@ function cleanup_constrained_pf_with_Gurobi_constant_dev_p!(
     # **NOTE**: this is necessarily a *serial* solver -- each time period is linked
     qG.skip_ctg_eval = true
     qG.eval_grad     = false
-    quasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
+    QuasiGrad.update_states_and_grads!(cgd, ctg, flw, grd, idx, mgd, ntk, prm, qG, scr, stt, sys)
     qG.skip_ctg_eval = false
     qG.eval_grad     = true
 
@@ -1324,22 +1324,22 @@ function cleanup_constrained_pf_with_Gurobi_constant_dev_p!(
         set_string_names_on_creation(model, false)
 
         # set model properties
-        quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-        # => quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
-        # => quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
+        QuasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+        # => QuasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+        # => QuasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
         # initialize
         run_pf = true
         pf_cnt = 0
 
         # 1. update the ideal dispatch point (active power) -- we do this just once
-            # => quasiGrad.ideal_dispatch!(idx, stt, sys, tii)
+            # => QuasiGrad.ideal_dispatch!(idx, stt, sys, tii)
             # this is no longer needed, because we penalize device injections directly
 
         # 2. update y_bus and Jacobian and bias point -- this
         #    only needs to be done once per time, since xfm/shunt
         #    values are not changing between iterations
-        quasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
+        QuasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
 
         # loop over pf solves
         while run_pf == true
@@ -1348,7 +1348,7 @@ function cleanup_constrained_pf_with_Gurobi_constant_dev_p!(
             pf_cnt += 1
 
             # first, rebuild the jacobian, and update the base points: stt.pinj0, stt.qinj0
-            quasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
+            QuasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
             
             # empty model
             empty!(model)
@@ -1524,7 +1524,7 @@ function cleanup_constrained_pf_with_Gurobi_constant_dev_p!(
                 # the solution is NOT valid, so we should increase bounds and try again
                 @warn "Constrained power flow cleanup failed at $(tii)! What a shame.."
                 clean_up_failed[tii] = 1.0
-                # => quasiGrad.single_shot_pf_cleanup!(idx, Jac, prm, qG, stt, sys, tii)
+                # => QuasiGrad.single_shot_pf_cleanup!(idx, Jac, prm, qG, stt, sys, tii)
 
                 # all done with this time period -- move on
                 run_pf = false
@@ -1534,23 +1534,23 @@ function cleanup_constrained_pf_with_Gurobi_constant_dev_p!(
 
     # was there a failure? If so, re-project
     if sum(clean_up_failed) > 0.0
-        quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+        QuasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
     end
 end
 
 function cleanup_constrained_pf_with_Gurobi_freeze_subset!(    
-    cgd::quasiGrad.ConstantGrad, 
-    ctg::quasiGrad.Contingency,
-    flw::quasiGrad.Flow, 
-    grd::quasiGrad.Grad, 
-    idx::quasiGrad.Index, 
-    mgd::quasiGrad.MasterGrad,
-    ntk::quasiGrad.Network, 
-    prm::quasiGrad.Param, 
-    qG::quasiGrad.QG, 
+    cgd::QuasiGrad.ConstantGrad, 
+    ctg::QuasiGrad.Contingency,
+    flw::QuasiGrad.Flow, 
+    grd::QuasiGrad.Grad, 
+    idx::QuasiGrad.Index, 
+    mgd::QuasiGrad.MasterGrad,
+    ntk::QuasiGrad.Network, 
+    prm::QuasiGrad.Param, 
+    qG::QuasiGrad.QG, 
     scr::Dict{Symbol, Float64}, 
-    stt::quasiGrad.State,
-    sys::quasiGrad.System, 
+    stt::QuasiGrad.State,
+    sys::QuasiGrad.System, 
     upd::Dict{Symbol, Vector{Vector{Int64}}})
 
     # ask Gurobi to solve a linearize power flow. two options here:
@@ -1576,9 +1576,9 @@ function cleanup_constrained_pf_with_Gurobi_freeze_subset!(
     set_string_names_on_creation(model, false)
 
     # set model properties
-    quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-    # => quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
-    # => quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
+    QuasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+    # => QuasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+    # => QuasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
     @info "Running constrained, linearized power flow cleanup across $(sys.nT) time periods."
 
@@ -1605,7 +1605,7 @@ function cleanup_constrained_pf_with_Gurobi_freeze_subset!(
         # update y_bus and Jacobian and bias point -- this
         #    only needs to be done once per time, since xfm/shunt
         #    values are not changing between iterations
-        quasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
+        QuasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
 
         # loop over pf solves
         while run_pf == true
@@ -1614,7 +1614,7 @@ function cleanup_constrained_pf_with_Gurobi_freeze_subset!(
             pf_cnt += 1
 
             # first, rebuild the jacobian, and update the base points: stt.pinj0, stt.qinj0
-            quasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
+            QuasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
             
             # empty model
             empty!(model)
@@ -2032,7 +2032,7 @@ function cleanup_constrained_pf_with_Gurobi_freeze_subset!(
                 # the solution is NOT valid, so we should increase bounds and try again
                 @warn "Constrained power flow cleanup failed at $(tii)! What a shame.."
                 clean_up_failed[tii] = 1.0
-                # => quasiGrad.single_shot_pf_cleanup!(idx, Jac, prm, qG, stt, sys, tii)
+                # => QuasiGrad.single_shot_pf_cleanup!(idx, Jac, prm, qG, stt, sys, tii)
 
                 # all done with this time period -- move on
                 run_pf = false
@@ -2042,23 +2042,23 @@ function cleanup_constrained_pf_with_Gurobi_freeze_subset!(
 
     # was there a failure? If so, re-project
     if sum(clean_up_failed) > 0.0
-        quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+        QuasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
     end
 end
 
 function cleanup_constrained_pf_with_Gurobi_parallelized!(    
-    cgd::quasiGrad.ConstantGrad, 
-    ctg::quasiGrad.Contingency,
-    flw::quasiGrad.Flow, 
-    grd::quasiGrad.Grad, 
-    idx::quasiGrad.Index, 
-    mgd::quasiGrad.MasterGrad,
-    ntk::quasiGrad.Network, 
-    prm::quasiGrad.Param, 
-    qG::quasiGrad.QG, 
+    cgd::QuasiGrad.ConstantGrad, 
+    ctg::QuasiGrad.Contingency,
+    flw::QuasiGrad.Flow, 
+    grd::QuasiGrad.Grad, 
+    idx::QuasiGrad.Index, 
+    mgd::QuasiGrad.MasterGrad,
+    ntk::QuasiGrad.Network, 
+    prm::QuasiGrad.Param, 
+    qG::QuasiGrad.QG, 
     scr::Dict{Symbol, Float64}, 
-    stt::quasiGrad.State,
-    sys::quasiGrad.System, 
+    stt::QuasiGrad.State,
+    sys::QuasiGrad.System, 
     upd::Dict{Symbol, Vector{Vector{Int64}}};
     flip_groups::Bool=false)
 
@@ -2122,7 +2122,7 @@ function cleanup_constrained_pf_with_Gurobi_parallelized!(
         # update y_bus and Jacobian and bias point -- this
         #    only needs to be done once per time, since xfm/shunt
         #    values are not changing between iterations
-        quasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
+        QuasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
 
         # loop over pf solves
         while run_pf == true
@@ -2132,15 +2132,15 @@ function cleanup_constrained_pf_with_Gurobi_parallelized!(
             set_string_names_on_creation(model, false)
 
             # set model properties
-            quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-            # => quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
-            # => quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
+            QuasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+            # => QuasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+            # => QuasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
             # increment
             pf_cnt += 1
 
             # first, rebuild the jacobian, and update the base points: stt.pinj0, stt.qinj0
-            quasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
+            QuasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
             
             # empty model
             empty!(model)
@@ -2348,7 +2348,7 @@ function cleanup_constrained_pf_with_Gurobi_parallelized!(
                 # the solution is NOT valid, so we should increase bounds and try again
                 @warn "Constrained power flow cleanup failed at $(tii)! Solving with relaxed power balance."
                 clean_up_failed[tii] = 1.0
-                # => quasiGrad.single_shot_pf_cleanup!(idx, Jac, prm, qG, stt, sys, tii)
+                # => QuasiGrad.single_shot_pf_cleanup!(idx, Jac, prm, qG, stt, sys, tii)
 
                 # all done with this time period -- move on
                 run_pf = false
@@ -2358,23 +2358,23 @@ function cleanup_constrained_pf_with_Gurobi_parallelized!(
 
     # was there a failure? If so, re-project
     if sum(clean_up_failed) > 0.0
-        quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+        QuasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
     end
 end
 
 function cleanup_constrained_pf_with_Gurobi_parallelized_reserve_penalized!(    
-    cgd::quasiGrad.ConstantGrad, 
-    ctg::quasiGrad.Contingency,
-    flw::quasiGrad.Flow, 
-    grd::quasiGrad.Grad, 
-    idx::quasiGrad.Index, 
-    mgd::quasiGrad.MasterGrad,
-    ntk::quasiGrad.Network, 
-    prm::quasiGrad.Param, 
-    qG::quasiGrad.QG, 
+    cgd::QuasiGrad.ConstantGrad, 
+    ctg::QuasiGrad.Contingency,
+    flw::QuasiGrad.Flow, 
+    grd::QuasiGrad.Grad, 
+    idx::QuasiGrad.Index, 
+    mgd::QuasiGrad.MasterGrad,
+    ntk::QuasiGrad.Network, 
+    prm::QuasiGrad.Param, 
+    qG::QuasiGrad.QG, 
     scr::Dict{Symbol, Float64}, 
-    stt::quasiGrad.State,
-    sys::quasiGrad.System, 
+    stt::QuasiGrad.State,
+    sys::QuasiGrad.System, 
     upd::Dict{Symbol, Vector{Vector{Int64}}};
     flip_groups::Bool=false)
 
@@ -2438,7 +2438,7 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_reserve_penalized!(
         # update y_bus and Jacobian and bias point -- this
         #    only needs to be done once per time, since xfm/shunt
         #    values are not changing between iterations
-        quasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
+        QuasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
 
         # loop over pf solves
         while run_pf == true
@@ -2448,15 +2448,15 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_reserve_penalized!(
             set_string_names_on_creation(model, false)
 
             # set model properties
-            quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-            # => quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
-            # => quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
+            QuasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+            # => QuasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+            # => QuasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
             # increment
             pf_cnt += 1
 
             # first, rebuild the jacobian, and update the base points: stt.pinj0, stt.qinj0
-            quasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
+            QuasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
             
             # empty model
             empty!(model)
@@ -2702,7 +2702,7 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_reserve_penalized!(
                 # the solution is NOT valid, so we should increase bounds and try again
                 @warn "Constrained power flow cleanup failed at $(tii)! Solving with relaxed power balance."
                 clean_up_failed[tii] = 1.0
-                # => quasiGrad.single_shot_pf_cleanup!(idx, Jac, prm, qG, stt, sys, tii)
+                # => QuasiGrad.single_shot_pf_cleanup!(idx, Jac, prm, qG, stt, sys, tii)
 
                 # all done with this time period -- move on
                 run_pf = false
@@ -2712,23 +2712,23 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_reserve_penalized!(
 
     # was there a failure? If so, re-project
     if sum(clean_up_failed) > 0.0
-        quasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
+        QuasiGrad.project!(100.0, idx, prm, qG, stt, sys, upd, final_projection = true)
     end
 end
 
 function cleanup_constrained_pf_with_Gurobi_parallelized_23kd1!(    
-    cgd::quasiGrad.ConstantGrad, 
-    ctg::quasiGrad.Contingency,
-    flw::quasiGrad.Flow, 
-    grd::quasiGrad.Grad, 
-    idx::quasiGrad.Index, 
-    mgd::quasiGrad.MasterGrad,
-    ntk::quasiGrad.Network, 
-    prm::quasiGrad.Param, 
-    qG::quasiGrad.QG, 
+    cgd::QuasiGrad.ConstantGrad, 
+    ctg::QuasiGrad.Contingency,
+    flw::QuasiGrad.Flow, 
+    grd::QuasiGrad.Grad, 
+    idx::QuasiGrad.Index, 
+    mgd::QuasiGrad.MasterGrad,
+    ntk::QuasiGrad.Network, 
+    prm::QuasiGrad.Param, 
+    qG::QuasiGrad.QG, 
     scr::Dict{Symbol, Float64}, 
-    stt::quasiGrad.State,
-    sys::quasiGrad.System, 
+    stt::QuasiGrad.State,
+    sys::QuasiGrad.System, 
     upd::Dict{Symbol, Vector{Vector{Int64}}})
 
     # ask Gurobi to solve a linearize power flow. two options here:
@@ -2784,22 +2784,22 @@ function cleanup_constrained_pf_with_Gurobi_parallelized_23kd1!(
         # update y_bus and Jacobian and bias point -- this
         #    only needs to be done once per time, since xfm/shunt
         #    values are not changing between iterations
-        quasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
+        QuasiGrad.update_Ybus!(idx, ntk, prm, stt, sys, tii)
 
         # build and empty the model!
         model = Model(optimizer_with_attributes(() -> Gurobi.Optimizer(GRB_ENV[]), "OutputFlag" => 0, MOI.Silent() => true, "Threads" => qG.num_threads))
         set_string_names_on_creation(model, false)
 
         # set model properties
-        quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-        # => quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
-        # => quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
+        QuasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+        # => QuasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+        # => QuasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
         # increment
         pf_cnt += 1
 
         # first, rebuild the jacobian, and update the base points: stt.pinj0, stt.qinj0
-        quasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
+        QuasiGrad.build_Jac_and_pq0!(ntk, qG, stt, sys, tii)
         
         # empty model
         empty!(model)

@@ -1,7 +1,7 @@
 # in this file, we prepare the hard device constraints, which we pass to Gurobi
 #
 # note -- this is ALWAYS run after solve_Gurobi_projection!()
-function apply_Gurobi_projection_and_states!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System)
+function apply_Gurobi_projection_and_states!(idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System)
     # we only need to apply the updated binary variables (all of them)
     # after running the batch_fix function
     for tii in prm.ts.time_keys
@@ -11,28 +11,28 @@ function apply_Gurobi_projection_and_states!(idx::quasiGrad.Index, prm::quasiGra
 
     # update the u_sum and powers (used in clipping, so must be correct!)
     qG.run_susd_updates = true
-    quasiGrad.simple_device_statuses_and_transposition!(idx, prm, qG, stt)
-    quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
+    QuasiGrad.simple_device_statuses_and_transposition!(idx, prm, qG, stt)
+    QuasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
     # reactive powers are all set
 end
 
-function project!(pct_round::Float64, idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; final_projection::Bool=false)
+function project!(pct_round::Float64, idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}}; final_projection::Bool=false)
     # this function 1) projects, 2) batch fixes, and 3) applies the projection
     #
     # 1. solve the projection -- don't treat the final projection as special
-    quasiGrad.solve_Gurobi_projection!(final_projection, idx, prm, qG, stt, sys, upd)
+    QuasiGrad.solve_Gurobi_projection!(final_projection, idx, prm, qG, stt, sys, upd)
 
     # 2. fix binaries which are closest to their Gurobi solutions
     if final_projection == false
         # only batch fix if this is NOT the last iteration
-        quasiGrad.batch_fix!(pct_round, prm, stt, sys, upd)
+        QuasiGrad.batch_fix!(pct_round, prm, stt, sys, upd)
     end
 
     # 3. update the state (i.e., apply the projection)
-    quasiGrad.apply_Gurobi_projection_and_states!(idx, prm, qG, stt, sys)
+    QuasiGrad.apply_Gurobi_projection_and_states!(idx, prm, qG, stt, sys)
 end
 
-function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function solve_Gurobi_projection!(final_projection::Bool, idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # loop over each device and solve individually -- not clear if this is faster
     # than solving one big optimization problem all at once. see legacy code for
     # a(n unfinished) version where all devices are solved at once!
@@ -55,12 +55,12 @@ function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Index, 
             # set_silent(model)
 
             # set model properties
-            quasiGrad.set_optimizer_attribute(model, "MIPGap",         qG.mip_gap)
-            quasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
-            quasiGrad.set_optimizer_attribute(model, "IntFeasTol",     qG.IntFeasTol)
-            quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
-            # quasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
-            # quasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
+            QuasiGrad.set_optimizer_attribute(model, "MIPGap",         qG.mip_gap)
+            QuasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
+            QuasiGrad.set_optimizer_attribute(model, "IntFeasTol",     qG.IntFeasTol)
+            QuasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+            # QuasiGrad.set_attribute(model, MOI.RelativeGapTolerance(), qG.FeasibilityTol)
+            # QuasiGrad.set_attribute(model, MOI.AbsoluteGapTolerance(), qG.FeasibilityTol)
 
             # define the minimum set of variables we will need to solve the constraints  
             if first_solve == true
@@ -71,22 +71,22 @@ function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Index, 
                     u_sd_dev = Dict(tii => round(stt.u_sd_dev[tii][dev]) for tii in prm.ts.time_keys)
                 else
                     # define binary on/su/sd states
-                    u_on_dev = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_on_dev[tii][dev],  binary=true) for tii in prm.ts.time_keys) # => base_name = "u_on_dev_t$(ii)", 
-                    u_su_dev = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_su_dev[tii][dev],  binary=true) for tii in prm.ts.time_keys) # => base_name = "u_su_dev_t$(ii)", 
-                    u_sd_dev = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_sd_dev[tii][dev],  binary=true) for tii in prm.ts.time_keys) # => base_name = "u_sd_dev_t$(ii)",  
+                    u_on_dev = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_on_dev[tii][dev],  binary=true) for tii in prm.ts.time_keys) # => base_name = "u_on_dev_t$(ii)", 
+                    u_su_dev = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_su_dev[tii][dev],  binary=true) for tii in prm.ts.time_keys) # => base_name = "u_su_dev_t$(ii)", 
+                    u_sd_dev = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_sd_dev[tii][dev],  binary=true) for tii in prm.ts.time_keys) # => base_name = "u_sd_dev_t$(ii)",  
                 end
-                p_on      = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_on[tii][dev])                         for tii in prm.ts.time_keys) # => base_name = "p_on_t$(ii)",      
-                dev_q     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.dev_q[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "dev_q_t$(ii)",     
-                p_rgu     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rgu[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgu_t$(ii)",     
-                p_rgd     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rgd[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgd_t$(ii)",     
-                p_scr     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_scr[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_scr_t$(ii)",     
-                p_nsc     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_nsc[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_nsc_t$(ii)",     
-                p_rru_on  = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rru_on[tii][dev],  lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rru_on_t$(ii)",  
-                p_rru_off = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rru_off[tii][dev], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rru_off_t$(ii)", 
-                p_rrd_on  = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rrd_on[tii][dev],  lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rrd_on_t$(ii)",  
-                p_rrd_off = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rrd_off[tii][dev], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rrd_off_t$(ii)", 
-                q_qru     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.q_qru[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qru_t$(ii)",     
-                q_qrd     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.q_qrd[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qrd_t$(ii)",     
+                p_on      = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_on[tii][dev])                         for tii in prm.ts.time_keys) # => base_name = "p_on_t$(ii)",      
+                dev_q     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.dev_q[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "dev_q_t$(ii)",     
+                p_rgu     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rgu[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgu_t$(ii)",     
+                p_rgd     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rgd[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgd_t$(ii)",     
+                p_scr     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_scr[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_scr_t$(ii)",     
+                p_nsc     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_nsc[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_nsc_t$(ii)",     
+                p_rru_on  = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rru_on[tii][dev],  lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rru_on_t$(ii)",  
+                p_rru_off = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rru_off[tii][dev], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rru_off_t$(ii)", 
+                p_rrd_on  = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rrd_on[tii][dev],  lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rrd_on_t$(ii)",  
+                p_rrd_off = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rrd_off[tii][dev], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rrd_off_t$(ii)", 
+                q_qru     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.q_qru[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qru_t$(ii)",     
+                q_qrd     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.q_qrd[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qrd_t$(ii)",     
             else
                 # in this case (i.e., we failed once), use a flat start! It seems to help :)    
                 if final_projection == true
@@ -95,22 +95,22 @@ function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Index, 
                     u_sd_dev = Dict(tii => round(stt.u_sd_dev[tii][dev]) for tii in prm.ts.time_keys)
                 else
                     # define binary on/su/sd states
-                    u_on_dev = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_on_dev[tii][dev],  binary=true) for tii in prm.ts.time_keys) # => base_name = "u_on_dev_t$(ii)", 
-                    u_su_dev = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_su_dev[tii][dev],  binary=true) for tii in prm.ts.time_keys) # => base_name = "u_su_dev_t$(ii)", 
-                    u_sd_dev = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_sd_dev[tii][dev],  binary=true) for tii in prm.ts.time_keys) # => base_name = "u_sd_dev_t$(ii)",  
+                    u_on_dev = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_on_dev[tii][dev],  binary=true) for tii in prm.ts.time_keys) # => base_name = "u_on_dev_t$(ii)", 
+                    u_su_dev = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_su_dev[tii][dev],  binary=true) for tii in prm.ts.time_keys) # => base_name = "u_su_dev_t$(ii)", 
+                    u_sd_dev = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_sd_dev[tii][dev],  binary=true) for tii in prm.ts.time_keys) # => base_name = "u_sd_dev_t$(ii)",  
                 end
-                p_on      = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_on_t$(ii)",      
-                dev_q     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "dev_q_t$(ii)",     
-                p_rgu     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgu_t$(ii)",     
-                p_rgd     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgd_t$(ii)",     
-                p_scr     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_scr_t$(ii)",     
-                p_nsc     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_nsc_t$(ii)",     
-                p_rru_on  = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rru_on_t$(ii)",  
-                p_rru_off = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rru_off_t$(ii)", 
-                p_rrd_on  = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rrd_on_t$(ii)",  
-                p_rrd_off = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rrd_off_t$(ii)", 
-                q_qru     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qru_t$(ii)",     
-                q_qrd     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qrd_t$(ii)",     
+                p_on      = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0)                    for tii in prm.ts.time_keys) # => base_name = "p_on_t$(ii)",      
+                dev_q     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "dev_q_t$(ii)",     
+                p_rgu     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgu_t$(ii)",     
+                p_rgd     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgd_t$(ii)",     
+                p_scr     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_scr_t$(ii)",     
+                p_nsc     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_nsc_t$(ii)",     
+                p_rru_on  = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rru_on_t$(ii)",  
+                p_rru_off = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rru_off_t$(ii)", 
+                p_rrd_on  = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rrd_on_t$(ii)",  
+                p_rrd_off = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rrd_off_t$(ii)", 
+                q_qru     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qru_t$(ii)",     
+                q_qrd     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=0.0, lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qrd_t$(ii)",     
             end
 
             # we have the affine "AffExpr" expressions (whose values are specified)
@@ -502,7 +502,7 @@ function solve_Gurobi_projection!(final_projection::Bool, idx::quasiGrad.Index, 
     end
 end
 
-function solve_LP_Gurobi_projection!(idx::quasiGrad.Index, prm::quasiGrad.Param, qG::quasiGrad.QG, stt::quasiGrad.State, sys::quasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
+function solve_LP_Gurobi_projection!(idx::QuasiGrad.Index, prm::QuasiGrad.Param, qG::QuasiGrad.QG, stt::QuasiGrad.State, sys::QuasiGrad.System, upd::Dict{Symbol, Vector{Vector{Int64}}})
     # loop over each device and solve individually -- pose and solve
     # these as an LP (not MILP!) projection --
     # 
@@ -519,26 +519,26 @@ function solve_LP_Gurobi_projection!(idx::quasiGrad.Index, prm::quasiGrad.Param,
         set_string_names_on_creation(model, false)
 
         # set model properties
-        quasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
-        quasiGrad.set_optimizer_attribute(model, "IntFeasTol",     qG.IntFeasTol)
-        quasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
+        QuasiGrad.set_optimizer_attribute(model, "TimeLimit",      qG.time_lim)
+        QuasiGrad.set_optimizer_attribute(model, "IntFeasTol",     qG.IntFeasTol)
+        QuasiGrad.set_optimizer_attribute(model, "FeasibilityTol", qG.FeasibilityTol)
 
         # define the minimum set of variables we will need to solve the constraints  
-        u_on_dev  = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_on_dev[tii][dev],  lower_bound = 0.0, upper_bound = 1.0) for tii in prm.ts.time_keys) # => base_name = "u_on_dev_t$(ii)", 
-        u_su_dev  = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_su_dev[tii][dev],  lower_bound = 0.0, upper_bound = 1.0) for tii in prm.ts.time_keys) # => base_name = "u_su_dev_t$(ii)", 
-        u_sd_dev  = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_sd_dev[tii][dev],  lower_bound = 0.0, upper_bound = 1.0) for tii in prm.ts.time_keys) # => base_name = "u_sd_dev_t$(ii)",  
-        p_on      = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_on[tii][dev])                         for tii in prm.ts.time_keys) # => base_name = "p_on_t$(ii)",      
-        dev_q     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.dev_q[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "dev_q_t$(ii)",     
-        p_rgu     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rgu[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgu_t$(ii)",     
-        p_rgd     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rgd[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgd_t$(ii)",     
-        p_scr     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_scr[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_scr_t$(ii)",     
-        p_nsc     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_nsc[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_nsc_t$(ii)",     
-        p_rru_on  = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rru_on[tii][dev],  lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rru_on_t$(ii)",  
-        p_rru_off = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rru_off[tii][dev], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rru_off_t$(ii)", 
-        p_rrd_on  = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rrd_on[tii][dev],  lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rrd_on_t$(ii)",  
-        p_rrd_off = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rrd_off[tii][dev], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rrd_off_t$(ii)", 
-        q_qru     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.q_qru[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qru_t$(ii)",     
-        q_qrd     = Dict{Int64, quasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.q_qrd[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qrd_t$(ii)",     
+        u_on_dev  = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_on_dev[tii][dev],  lower_bound = 0.0, upper_bound = 1.0) for tii in prm.ts.time_keys) # => base_name = "u_on_dev_t$(ii)", 
+        u_su_dev  = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_su_dev[tii][dev],  lower_bound = 0.0, upper_bound = 1.0) for tii in prm.ts.time_keys) # => base_name = "u_su_dev_t$(ii)", 
+        u_sd_dev  = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.u_sd_dev[tii][dev],  lower_bound = 0.0, upper_bound = 1.0) for tii in prm.ts.time_keys) # => base_name = "u_sd_dev_t$(ii)",  
+        p_on      = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_on[tii][dev])                         for tii in prm.ts.time_keys) # => base_name = "p_on_t$(ii)",      
+        dev_q     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.dev_q[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "dev_q_t$(ii)",     
+        p_rgu     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rgu[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgu_t$(ii)",     
+        p_rgd     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rgd[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rgd_t$(ii)",     
+        p_scr     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_scr[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_scr_t$(ii)",     
+        p_nsc     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_nsc[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_nsc_t$(ii)",     
+        p_rru_on  = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rru_on[tii][dev],  lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rru_on_t$(ii)",  
+        p_rru_off = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rru_off[tii][dev], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rru_off_t$(ii)", 
+        p_rrd_on  = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rrd_on[tii][dev],  lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rrd_on_t$(ii)",  
+        p_rrd_off = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.p_rrd_off[tii][dev], lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "p_rrd_off_t$(ii)", 
+        q_qru     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.q_qru[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qru_t$(ii)",     
+        q_qrd     = Dict{Int64, QuasiGrad.JuMP.VariableRef}(tii => @variable(model, start=stt.q_qrd[tii][dev],     lower_bound = 0.0) for tii in prm.ts.time_keys) # => base_name = "q_qrd_t$(ii)",     
 
         # we have the affine "AffExpr" expressions (whose values are specified)
         dev_p = Dict(tii => AffExpr(0.0) for tii in prm.ts.time_keys)
@@ -928,6 +928,6 @@ function solve_LP_Gurobi_projection!(idx::quasiGrad.Index, prm::quasiGrad.Param,
 
     # now, directly apply updates
     qG.run_susd_updates = true
-    quasiGrad.simple_device_statuses_and_transposition!(idx, prm, qG, stt)
-    quasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
+    QuasiGrad.simple_device_statuses_and_transposition!(idx, prm, qG, stt)
+    QuasiGrad.device_active_powers!(idx, prm, qG, stt, sys)
 end
