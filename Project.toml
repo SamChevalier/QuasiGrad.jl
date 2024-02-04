@@ -1,7 +1,7 @@
 name = "QuasiGrad"
 uuid = "ead79d5d-eeb6-4e9e-b9c0-d4b75b0c44ab"
 authors = ["Sam Chevalier"]
-version = "1.0.0-DEV"
+version = "0.0.1"
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
