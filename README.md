@@ -15,7 +15,7 @@ Alternatively, this repo can be cloned locally for more interative usage.
 This package is a work-in-progress, and contributions are more than welcome. Out-of-the-box usage, however, can be acheived by running the example file in the test folder. The workhorse function is
 
 ```julia
-QuasiGrad.compute_quasiGrad_solution_d1(InFile, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching; post_process=true)
+QuasiGrad.compute_QuasiGrad_solution_d1(InFile, NewTimeLimitInSeconds, Division, NetworkModel, AllowSwitching; post_process=true)
 ```
 ## Questions
 Please contact [Sam Chevalier](https://samchevalier.github.io/) (schevali@uvm.edu) with any questions.
