@@ -61,8 +61,12 @@ const d_unit     = 5e-3::Float64
 #   => https://github.com/jump-dev/Gurobi.jl/issues/424
 const GRB_ENV = Ref{Gurobi.Env}()
 function __init__()
-    GRB_ENV[] = Gurobi.Env()
-    return
+    try
+        GRB_ENV[] = Gurobi.Env()
+        return
+    catch
+        println("No dice with the Gurobi license.")
+    end
 end
 
 # the following was used for pre-compilation during the GO comp -- not needed.
