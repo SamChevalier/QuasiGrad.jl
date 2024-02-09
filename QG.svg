@@ -10,9 +10,9 @@
    xmlns:xlink="http://www.w3.org/1999/xlink"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   width="210mm"
-   height="297mm"
-   viewBox="0 0 210 297"
+   width="143.71895mm"
+   height="46.116421mm"
+   viewBox="0 0 143.71895 46.116421"
    version="1.1"
    id="svg8"
    sodipodi:docname="QG.svg"
@@ -37,30 +37,32 @@
     <marker
        inkscape:stockid="Arrow2Mend"
        orient="auto"
-       refY="0.0"
-       refX="0.0"
+       refY="0"
+       refX="0"
        id="Arrow2Mend"
-       style="overflow:visible;"
+       style="overflow:visible"
        inkscape:isstock="true">
       <path
          id="path863"
-         style="fill-rule:evenodd;stroke-width:0.625;stroke-linejoin:round;stroke:#9259a3;stroke-opacity:1;fill:#9259a3;fill-opacity:1"
-         d="M 8.7185878,4.0337352 L -2.2072895,0.016013256 L 8.7185884,-4.0017078 C 6.9730900,-1.6296469 6.9831476,1.6157441 8.7185878,4.0337352 z "
-         transform="scale(0.6) rotate(180) translate(0,0)" />
+         style="fill:#9259a3;fill-opacity:1;fill-rule:evenodd;stroke:#9259a3;stroke-width:0.625;stroke-linejoin:round;stroke-opacity:1"
+         d="M 8.7185878,4.0337352 -2.2072895,0.01601326 8.7185884,-4.0017078 c -1.7454984,2.3720609 -1.7354408,5.6174519 -6e-7,8.035443 z"
+         transform="scale(-0.6)"
+         inkscape:connector-curvature="0" />
     </marker>
     <marker
        inkscape:stockid="Arrow1Send"
        orient="auto"
-       refY="0.0"
-       refX="0.0"
+       refY="0"
+       refX="0"
        id="Arrow1Send"
-       style="overflow:visible;"
+       style="overflow:visible"
        inkscape:isstock="true">
       <path
          id="path851"
-         d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
-         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1;fill:#000000;fill-opacity:1"
-         transform="scale(0.2) rotate(180) translate(6,0)" />
+         d="M 0,0 5,-5 -12.5,0 5,5 Z"
+         style="fill:#000000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:1.00000003pt;stroke-opacity:1"
+         transform="matrix(-0.2,0,0,-0.2,-1.2,0)"
+         inkscape:connector-curvature="0" />
     </marker>
     <linearGradient
        inkscape:collect="always"
@@ -70,7 +72,8 @@
        y1="57.668324"
        x2="113.10938"
        y2="60.462498"
-       gradientUnits="userSpaceOnUse" />
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(65.584361,56.419524)" />
     <linearGradient
        inkscape:collect="always"
        xlink:href="#linearGradient3617"
@@ -79,7 +82,8 @@
        y1="80.16275"
        x2="207.45247"
        y2="80.16275"
-       gradientUnits="userSpaceOnUse" />
+       gradientUnits="userSpaceOnUse"
+       gradientTransform="translate(65.584361,56.419524)" />
   </defs>
   <sodipodi:namedview
      id="base"
@@ -88,9 +92,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="2"
-     inkscape:cx="579.42106"
-     inkscape:cy="864.79481"
+     inkscape:zoom="1.4142136"
+     inkscape:cx="301.2469"
+     inkscape:cy="103.57042"
      inkscape:document-units="mm"
      inkscape:current-layer="layer1"
      showgrid="false"
@@ -113,7 +117,8 @@
   <g
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
-     id="layer1">
+     id="layer1"
+     transform="translate(-65.584361,-56.419524)">
     <path
        style="fill:url(#linearGradient1168);fill-opacity:1;stroke:url(#linearGradient3599);stroke-width:0.565;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow2Mend)"
        d="M 69.429194,99.840318 C 82.924262,75.367173 139.95367,91.26745 142.52202,63.033175 c 23.61312,-17.200302 46.55689,6.593088 65.95013,1.814431"
@@ -167,8 +172,8 @@
          id="tspan3751"
          x="101.49283"
          y="120.39507"
-         style="font-weight:bold;stroke-width:0.26458332">QuasiGrad.jl <tspan
-   style="font-size:7.05555556px"
+         style="font-weight:bold;stroke-width:0.26458332;-inkscape-font-specification:'Calibri Bold';font-family:Calibri;font-style:normal;font-stretch:normal;font-variant:normal">QuasiGrad.jl <tspan
+   style="font-size:7.05555534px;-inkscape-font-specification:'Calibri Bold';font-family:Calibri;font-weight:bold;font-style:normal;font-stretch:normal;font-variant:normal"
    id="tspan3755">:)</tspan></tspan></text>
   </g>
 </svg>
