@@ -1,10 +1,8 @@
 # QuasiGrad.jl
 
-<img src="https://github.com/SamChevalier/QuasiGrad.jl/blob/master/QG.svg" align="left" width="500" alt="qg logo">
+<img src="https://github.com/SamChevalier/QuasiGrad.jl/blob/master/QG.svg" align="left" width="300" alt="qg logo">
 
-QuasiGrad.jl is a parallelized, adam-based solver for reserve and security constrained AC unit commitment problems. Solver details are sketeched out in a recent [pre-print](https://arxiv.org/pdf/2310.06650.pdf) and the associated [SI](https://samchevalier.github.io/docs/SI.pdf).
-
-QuasiGrad.jl is a parallelized, adam-based solver for reserve and security constrained AC unit commitment problems. Solver details are sketeched out in a recent [pre-print](https://arxiv.org/pdf/2310.06650.pdf) and the associated [SI](https://samchevalier.github.io/docs/SI.pdf). The QuasiGrad solver recently competed in the [3rd Grid Optimizaiton Competition](https://gocompetition.energy.gov/challenges/challenge-3), scoring reasonably well in the day-ahead market clearing problem. QuasiGrad's internal gradient-based solver (Adam) can easily be substituted for other ML-inspired solvers (e.g., AdaGrad, AdaDelta, RMSProp, etc.).
+QuasiGrad.jl is a parallelized, adam-based solver for reserve and security constrained AC unit commitment problems. Solver details are sketeched out in a recent [pre-print](https://arxiv.org/pdf/2310.06650.pdf) and the associated [SI](https://samchevalier.github.io/docs/SI.pdf). QuasiGrad.jl is a parallelized, adam-based solver for reserve and security constrained AC unit commitment problems. Solver details are sketeched out in a recent [pre-print](https://arxiv.org/pdf/2310.06650.pdf) and the associated [SI](https://samchevalier.github.io/docs/SI.pdf). The QuasiGrad solver recently competed in the [3rd Grid Optimizaiton Competition](https://gocompetition.energy.gov/challenges/challenge-3), scoring reasonably well in the day-ahead market clearing problem. QuasiGrad's internal gradient-based solver (Adam) can easily be substituted for other ML-inspired solvers (e.g., AdaGrad, AdaDelta, RMSProp, etc.).
 
 ## Installation
 QuasiGrad can be installed using the Julia package manager via
