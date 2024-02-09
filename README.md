@@ -1,6 +1,7 @@
 <p align="center">
-  <img src="https://github.com/SamChevalier/QuasiGrad.jl/blob/master/QG.svg" width="350" alt="qg logo">
+  <img src="https://github.com/SamChevalier/QuasiGrad.jl/blob/master/QG.svg" width="550" alt="qg logo">
 </p>
+---
 
 # QuasiGrad.jl
 
