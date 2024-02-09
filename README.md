@@ -5,6 +5,7 @@
 ---
 
 # QuasiGrad.jl
+[![Build Status](https://pkg.julialang.org/badges/QuasiGrad_v0.0.1.svg)](https://pkg.julialang.org/detail/QuasiGrad.html)
 
 QuasiGrad.jl is a parallelized, adam-based solver for reserve and security constrained AC unit commitment problems. Solver details are sketeched out in a recent [pre-print](https://arxiv.org/pdf/2310.06650.pdf) and the associated [SI](https://samchevalier.github.io/docs/SI.pdf). QuasiGrad.jl is a parallelized, adam-based solver for reserve and security constrained AC unit commitment problems. Solver details are sketeched out in a recent [pre-print](https://arxiv.org/pdf/2310.06650.pdf) and the associated [SI](https://samchevalier.github.io/docs/SI.pdf). 
 
