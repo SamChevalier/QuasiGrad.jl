@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg8"
+   sodipodi:docname="QG.svg"
+   inkscape:export-filename="C:\Users\chev8\Dropbox\Documents\Julia\quasiGrad_testing\QG.png"
+   inkscape:export-xdpi="250"
+   inkscape:export-ydpi="250"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)">
+  <defs
+     id="defs2">
+    <linearGradient
+       id="linearGradient3617"
+       inkscape:collect="always">
+      <stop
+         id="stop3613"
+         offset="0"
+         style="stop-color:#4d64ae;stop-opacity:1" />
+      <stop
+         id="stop3615"
+         offset="1"
+         style="stop-color:#9259a3;stop-opacity:0;" />
+    </linearGradient>
+    <marker
+       inkscape:stockid="Arrow2Mend"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="Arrow2Mend"
+       style="overflow:visible;"
+       inkscape:isstock="true">
+      <path
+         id="path863"
+         style="fill-rule:evenodd;stroke-width:0.625;stroke-linejoin:round;stroke:#9259a3;stroke-opacity:1;fill:#9259a3;fill-opacity:1"
+         d="M 8.7185878,4.0337352 L -2.2072895,0.016013256 L 8.7185884,-4.0017078 C 6.9730900,-1.6296469 6.9831476,1.6157441 8.7185878,4.0337352 z "
+         transform="scale(0.6) rotate(180) translate(0,0)" />
+    </marker>
+    <marker
+       inkscape:stockid="Arrow1Send"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="Arrow1Send"
+       style="overflow:visible;"
+       inkscape:isstock="true">
+      <path
+         id="path851"
+         d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1pt;stroke-opacity:1;fill:#000000;fill-opacity:1"
+         transform="scale(0.2) rotate(180) translate(6,0)" />
+    </marker>
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3617"
+       id="linearGradient1168"
+       x1="171.53348"
+       y1="57.668324"
+       x2="113.10938"
+       y2="60.462498"
+       gradientUnits="userSpaceOnUse" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3617"
+       id="linearGradient3599"
+       x1="71.224838"
+       y1="80.16275"
+       x2="207.45247"
+       y2="80.16275"
+       gradientUnits="userSpaceOnUse" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="2"
+     inkscape:cx="579.42106"
+     inkscape:cy="864.79481"
+     inkscape:document-units="mm"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="1920"
+     inkscape:window-height="1108"
+     inkscape:window-x="-12"
+     inkscape:window-y="-12"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata5">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       style="fill:url(#linearGradient1168);fill-opacity:1;stroke:url(#linearGradient3599);stroke-width:0.565;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow2Mend)"
+       d="M 69.429194,99.840318 C 82.924262,75.367173 139.95367,91.26745 142.52202,63.033175 c 23.61312,-17.200302 46.55689,6.593088 65.95013,1.814431"
+       id="path815"
+       inkscape:connector-curvature="0"
+       sodipodi:nodetypes="ccc" />
+    <path
+       d="m 83.679493,93.09224 a 5,5 0 0 1 -6.866937,1.686647 5,5 0 0 1 -1.686701,-6.866924 5,5 0 0 1 6.86691,-1.686756 5,5 0 0 1 1.686811,6.866896 l -4.276881,-2.590035 z"
+       sodipodi:end="0.54451955"
+       sodipodi:start="0.54455145"
+       sodipodi:ry="5"
+       sodipodi:rx="5"
+       sodipodi:cy="90.502068"
+       sodipodi:cx="79.402695"
+       sodipodi:type="arc"
+       id="path832"
+       style="fill:#ca3c32;fill-opacity:1;stroke:none;stroke-width:0.2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       transform="rotate(5.3700144)" />
+    <path
+       d="m 115.53015,76.119492 a 5,5 0 0 1 -6.86694,1.686647 5,5 0 0 1 -1.6867,-6.866923 5,5 0 0 1 6.86691,-1.686757 5,5 0 0 1 1.68681,6.866897 l -4.27688,-2.590036 z"
+       sodipodi:end="0.54451955"
+       sodipodi:start="0.54455145"
+       sodipodi:ry="5"
+       sodipodi:rx="5"
+       sodipodi:cy="73.52932"
+       sodipodi:cx="111.25335"
+       sodipodi:type="arc"
+       id="path834"
+       style="fill:#399746;fill-opacity:1;stroke:none;stroke-width:0.2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       transform="rotate(5.3700144)" />
+    <path
+       style="fill:#9259a3;fill-opacity:1;stroke:none;stroke-width:0.2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="path830"
+       sodipodi:type="arc"
+       sodipodi:cx="148.95314"
+       sodipodi:cy="49.319057"
+       sodipodi:rx="5"
+       sodipodi:ry="5"
+       sodipodi:start="0.54455145"
+       sodipodi:end="0.54451955"
+       d="m 153.22994,51.90923 a 5,5 0 0 1 -6.86694,1.686647 5,5 0 0 1 -1.6867,-6.866924 5,5 0 0 1 6.86691,-1.686756 5,5 0 0 1 1.68681,6.866896 l -4.27688,-2.590036 z"
+       transform="rotate(5.3700144)" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-weight:normal;font-size:8.06167412px;line-height:1.25;font-family:sans-serif;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+       x="101.49283"
+       y="120.39507"
+       id="text3753"
+       transform="rotate(-13.893875)"><tspan
+         sodipodi:role="line"
+         id="tspan3751"
+         x="101.49283"
+         y="120.39507"
+         style="font-weight:bold;stroke-width:0.26458332">QuasiGrad.jl <tspan
+   style="font-size:7.05555556px"
+   id="tspan3755">:)</tspan></tspan></text>
+  </g>
+</svg>
