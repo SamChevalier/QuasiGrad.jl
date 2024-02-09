@@ -1,8 +1,7 @@
 <p align="center">
-  <img src="https://github.com/SamChevalier/QuasiGrad.jl/blob/master/QG.svg" width="550" alt="qg logo">
+  <img src="https://github.com/SamChevalier/QuasiGrad.jl/blob/master/QG.svg" width="500" alt="qg logo">
 </p>
 ---
-
 # QuasiGrad.jl
 
 QuasiGrad.jl is a parallelized, adam-based solver for reserve and security constrained AC unit commitment problems. Solver details are sketeched out in a recent [pre-print](https://arxiv.org/pdf/2310.06650.pdf) and the associated [SI](https://samchevalier.github.io/docs/SI.pdf). QuasiGrad.jl is a parallelized, adam-based solver for reserve and security constrained AC unit commitment problems. Solver details are sketeched out in a recent [pre-print](https://arxiv.org/pdf/2310.06650.pdf) and the associated [SI](https://samchevalier.github.io/docs/SI.pdf). 
