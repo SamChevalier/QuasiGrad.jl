@@ -1,3 +1,5 @@
+using Test
+
 @testset "QuasiGrad.jl" begin
     @testset "basic test" begin
 
