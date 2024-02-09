@@ -1,11 +1,6 @@
-.center {
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-  width: 50%;
-}
-
-<img src="https://github.com/SamChevalier/QuasiGrad.jl/blob/master/QG.svg" class="center" width="350" alt="qg logo">
+<p align="center">
+  <img src="https://github.com/SamChevalier/QuasiGrad.jl/blob/master/QG.svg" width="350" alt="qg logo">
+</p>
 
 # QuasiGrad.jl
 
