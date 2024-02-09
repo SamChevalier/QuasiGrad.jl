@@ -1,4 +1,4 @@
-<img src="https://github.com/SamChevalier/QuasiGrad.jl/blob/master/QG.svg" align="center" width="350" alt="qg logo">
+<img src="https://github.com/SamChevalier/QuasiGrad.jl/blob/master/QG.svg" class="center" width="350" alt="qg logo">
 
 # QuasiGrad.jl
 
