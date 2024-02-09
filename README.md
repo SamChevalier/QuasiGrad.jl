@@ -6,7 +6,8 @@ The QuasiGrad solver recently competed in the [3rd Grid Optimizaiton Competition
 
 ## Installation
 QuasiGrad can be installed using the Julia package manager via
-```] add QuasiGrad
+```
+] add QuasiGrad
 ```
 Julia 1.9 or higher is reccomended for use with QuasiGrad. Julia should be launched with as many CPU threads as you wish to dedicate to the solve. More threads, more parallelization.
 
