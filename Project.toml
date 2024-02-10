@@ -1,7 +1,7 @@
 name = "QuasiGrad"
 uuid = "ead79d5d-eeb6-4e9e-b9c0-d4b75b0c44ab"
 authors = ["Sam Chevalier"]
-version = "0.0.1"
+version = "0.0.2"
 
 [deps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
