@@ -16,7 +16,7 @@ QuasiGrad can be installed using the Julia package manager via
 ```
 ] add QuasiGrad
 ```
-Julia 1.9 or higher is reccomended for use with QuasiGrad. Julia should be launched with as many CPU threads as you wish to dedicate to the solve. More threads, more parallelization.
+Julia 1.9.3 or higher is reccomended for use with QuasiGrad. Julia should be launched with as many CPU threads as you wish to dedicate to the solve. More threads, more parallelization.
 
 ## Usage
 This package is a work-in-progress, and contributions are more than welcome. A valid Gurobi license is needed to run the solver (with some effort, this solver can be swapped out). Note: no QuasiGrad functions are exported to Julia's namespace.
