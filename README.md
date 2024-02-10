@@ -21,7 +21,7 @@ Julia 1.9.3 or higher is reccomended for use with QuasiGrad. Julia should be lau
 ## Usage
 This package is a work-in-progress, and contributions are more than welcome. A valid Gurobi license is needed to run the solver (with some effort, this solver can be swapped out). Note: no QuasiGrad functions are exported to Julia's namespace.
 
-Out-of-the-box usage can be acheived by running the following "division 1" example (it solves reserve+security constrained AC Unit Commitment on the 617 bus system).
+Out-of-the-box usage can be acheived by running the following "division 1" example (it solves reserve+security constrained AC Unit Commitment on the 617 bus testcase system).
 
 ```
 using QuasiGrad
