@@ -5,7 +5,6 @@
 ---
 
 # QuasiGrad.jl
-[![Build Status](https://pkg.julialang.org/badges/QuasiGrad_v0.0.1.svg)](https://pkg.julialang.org/detail/QuasiGrad.html)
 
 QuasiGrad.jl is a parallelized, adam-based solver for reserve and security constrained AC unit commitment problems. Solver details are sketeched out in a recent [pre-print](https://arxiv.org/pdf/2310.06650.pdf) and the associated [SI](https://samchevalier.github.io/docs/SI.pdf). QuasiGrad.jl is a parallelized, adam-based solver for reserve and security constrained AC unit commitment problems. Solver details are sketeched out in a recent [pre-print](https://arxiv.org/pdf/2310.06650.pdf) and the associated [SI](https://samchevalier.github.io/docs/SI.pdf). 
 
@@ -21,7 +20,7 @@ Julia 1.9.3 or higher is reccomended for use with QuasiGrad. Julia should be lau
 ## Usage
 This package is a work-in-progress, and contributions are more than welcome. A valid Gurobi license is needed to run the solver (with some effort, this solver can be swapped out). Note: no QuasiGrad functions are exported to Julia's namespace.
 
-Out-of-the-box usage can be acheived by running the following "division 1" example (it solves reserve+security constrained AC Unit Commitment on the 617 bus system).
+Out-of-the-box usage can be acheived by running the following "division 1" example (it solves reserve+security constrained AC Unit Commitment on the 617 bus testcase system).
 
 ```
 using QuasiGrad
