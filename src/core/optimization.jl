@@ -277,6 +277,8 @@ function jack_solves_adam_pf!(adm::QuasiGrad.Adam, cgd::QuasiGrad.ConstantGrad, 
     # here we go! basically, we only compute a small subset of pf-relevant gradients
     @info "Running adam-powerflow for $(qG.adam_max_time) seconds!"
 
+    # in this function, we're going to ball
+
         # re-initialize
         qG.adm_step      = 0
         qG.beta1_decay   = 1.0

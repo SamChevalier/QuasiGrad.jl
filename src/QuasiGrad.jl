@@ -22,6 +22,7 @@ using LoopVectorization
 include("./core/structs.jl")
 
 # and the rest :)
+include("./core/test.jl")
 include("./core/shunts.jl")
 include("./core/devices.jl")
 include("./core/cleanup.jl")
